@@ -68,4 +68,7 @@ export const senses: Translation = {
   'senses.describe.invisibleOnes': '也包括隐形者',
   'senses.describe.whileBlinded': '目盲时仍有效。',
   'senses.describe.outlines': '它们以轮廓显示。',
+  'senses.describe.clauseSeparator': '，',
+  'senses.describe.sentence': '{clauses}。',
+  'senses.describe.sentenceSeparator': '',
 };

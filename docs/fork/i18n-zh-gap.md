@@ -285,10 +285,11 @@ punctuation after Chinese, `npx tsc --noEmit` clean, 12490 unit tests pass,
 lint clean, build OK.
 
 Open points for later:
-- `describeSense` (`src/app/gameSystems/senseEditing.ts`) joins
-  `senses.describe.*` fragments with ASCII `", "` and `"."`, so Chinese sense
-  descriptions show half-width punctuation. Fixing it needs a code change
-  (a joining helper or whole-sentence keys), out of scope for this phase.
+- Resolved after phase 2: `describeSense` (`src/app/gameSystems/senseEditing.ts`)
+  used to join `senses.describe.*` fragments with ASCII `", "` and `"."`; the
+  separators and sentence end are now keys (`senses.describe.clauseSeparator`,
+  `senses.describe.sentence`, `senses.describe.sentenceSeparator`), so Chinese
+  gets `，` and `。` while English and Russian output is unchanged.
 - `dice.formulaError.modifier` (existing) says 修饰符 for a dice-notation
   modifier (keep, drop, explode), while numeric modifiers are 修正值.
 - The initiative tracker card is 卡片 (existing `initiative.card`), the

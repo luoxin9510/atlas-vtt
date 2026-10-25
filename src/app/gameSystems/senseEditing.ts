@@ -114,12 +114,14 @@ export function describeSense(sense: SenseDefinition): string {
     sense.lineOfSight ? null : 'senses.describe.throughWalls',
     sense.seesInvisible ? (creaturesOnly ? 'senses.describe.invisibleOnes' : 'senses.describe.invisibleCreatures') : null,
   ];
+  // The language decides the punctuation: Chinese joins with full-width marks and no spaces
+  const clauses = remarks.filter((key) => key !== null).map((key) => t(key)).join(t('senses.describe.clauseSeparator'));
   const sentences = [
-    `${remarks.filter((key) => key !== null).map((key) => t(key)).join(', ')}.`,
+    t('senses.describe.sentence', { clauses }),
     ...(sense.worksWhileBlinded ? [t('senses.describe.whileBlinded')] : []),
     ...(sense.precise ? [] : [t('senses.describe.outlines')]),
   ];
-  return sentences.join(' ');
+  return sentences.join(t('senses.describe.sentenceSeparator'));
 }
 
 /** The line a list shows under the sense's name: its own description, else what its fields say. */

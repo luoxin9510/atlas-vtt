@@ -39,6 +39,12 @@ describe('describeSense', () => {
     expect(describeSense(sense({ reveals: 'creatures', range: 'unlimited', precise: false }))).toBe('Чувствует существ. Они показываются очертаниями.');
   });
 
+  it('punctuates the line as the active language does', () => {
+    setLocale('zh', TRANSLATIONS);
+    expect(describeSense(sense({ lineOfSight: false }))).toBe('把黑暗视作微光，呈灰色，在其范围内，可穿透墙。');
+    expect(describeSense(sense({ reveals: 'creatures', range: 'unlimited', precise: false }))).toBe('感知生物。它们以轮廓显示。');
+  });
+
   it('says what a modifier grants', () => {
     expect(describeSense({ id: 'own', name: 'See invisibility', description: '', ...granting('see-invisible') }))
       .toBe("Lets the token's sight see invisible creatures.");

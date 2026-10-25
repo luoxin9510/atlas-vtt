@@ -68,4 +68,7 @@ export const senses = {
   'senses.describe.invisibleOnes': 'invisible ones too',
   'senses.describe.whileBlinded': 'Works while blinded.',
   'senses.describe.outlines': 'They show as outlines.',
+  'senses.describe.clauseSeparator': ', ',
+  'senses.describe.sentence': '{clauses}.',
+  'senses.describe.sentenceSeparator': ' ',
 } as const satisfies Record<string, Message>;
