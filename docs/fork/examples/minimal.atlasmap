@@ -1,0 +1,107 @@
+{
+  "state": {
+    "schema": "atlas-vtt",
+    "version": 4,
+    "mapPath": "atlas-vtt/collections/Examples/scenes/Minimal.atlasmap",
+    "background": "atlas-vtt/assets/minimal-map.png",
+    "grid": {
+      "enabled": true,
+      "visible": true,
+      "snapToGrid": true,
+      "type": "square",
+      "size": 70,
+      "offsetX": 0,
+      "offsetY": 0,
+      "opacity": 0.5,
+      "lineType": "solid",
+      "lineWidth": 1
+    },
+    "objects": {
+      "tokens": {
+        "tok_1": {
+          "id": "tok_1",
+          "kind": "character",
+          "name": "Goblin",
+          "x": 245,
+          "y": 175,
+          "imagePath": "atlas-vtt/collections/Examples/tokens/goblin.png",
+          "hp": { "current": 7, "max": 7 }
+        }
+      },
+      "fog": {},
+      "pins": {
+        "pin_1": {
+          "id": "pin_1",
+          "kind": "pin",
+          "x": 455,
+          "y": 105,
+          "notePath": "Notes/Cave entrance.md"
+        }
+      },
+      "texts": {},
+      "drawings": {},
+      "walls": {
+        "wall_1": {
+          "id": "wall_1",
+          "kind": "wall",
+          "type": "solid",
+          "p1": { "x": 140, "y": 70 },
+          "p2": { "x": 140, "y": 280 }
+        }
+      },
+      "lights": {
+        "light_1": {
+          "id": "light_1",
+          "kind": "light",
+          "x": 315,
+          "y": 210,
+          "emission": {
+            "bright": 20,
+            "dim": 40,
+            "color": "#ffcc88",
+            "intensity": 1,
+            "animation": "torch"
+          }
+        }
+      },
+      "audios": {}
+    },
+    "camera": { "x": 0, "y": 0, "scale": 1 },
+    "widgetValues": {},
+    "widgetSettings": {
+      "widgets": {},
+      "globalVisible": true,
+      "position": "top",
+      "scale": 1
+    },
+    "dmNotePath": null,
+    "tokenSettings": {
+      "showNameplates": false,
+      "hiddenResources": [],
+      "showInstanceBadges": true,
+      "tokenRingSize": 1,
+      "showHPBars": true,
+      "showStressBars": true
+    },
+    "initiative": {
+      "entries": [],
+      "currentIndex": -1,
+      "round": 0,
+      "isActive": false,
+      "config": { "autoSort": true }
+    },
+    "initiativeTrackerOpen": false,
+    "diceLog": [],
+    "pinnedNotePreviews": {},
+    "lootRoller": {
+      "open": false,
+      "disabledViews": [],
+      "excludedRarities": [],
+      "count": 1,
+      "pane": "results"
+    },
+    "lighting": { "enabled": false, "ambient": 0.1 },
+    "exploredMask": null
+  },
+  "version": 4
+}

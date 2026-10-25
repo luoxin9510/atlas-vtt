@@ -1,0 +1,2723 @@
+{
+  "$id": "https://github.com/luoxin9510/atlas-vtt/docs/fork/atlasmap.schema.json",
+  "$ref": "#/definitions/AtlasMapFile",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "AdvantageSide": {
+      "description": "Which way a roll is helped or hindered: advantage, or disadvantage.",
+      "enum": [
+        "advantage",
+        "disadvantage"
+      ],
+      "type": "string"
+    },
+    "AnyWidget": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CounterWidget"
+        },
+        {
+          "$ref": "#/definitions/ClockWidget"
+        },
+        {
+          "$ref": "#/definitions/TimerWidget"
+        }
+      ]
+    },
+    "AtlasMapFile": {
+      "additionalProperties": false,
+      "description": "The zustand persist envelope. Atlas writes `version: 4` (`ATLAS_VERSION`) and refuses higher ones.",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/AtlasMapFileState"
+        },
+        "version": {
+          "const": 4,
+          "type": "number"
+        }
+      },
+      "required": [
+        "state",
+        "version"
+      ],
+      "type": "object"
+    },
+    "AtlasMapFileState": {
+      "additionalProperties": false,
+      "description": "Exactly the keys of `partialize`; the replaced ones come from the on-disk types above. Atlas reads every key as optional.",
+      "properties": {
+        "background": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "camera": {
+          "$ref": "#/definitions/CameraState"
+        },
+        "diceLog": {
+          "items": {
+            "$ref": "#/definitions/DiceRollResult"
+          },
+          "type": "array"
+        },
+        "dmNotePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exploredMask": {
+          "description": "What the players' tokens have explored, as a PNG data URL; saved with the map, never undo-tracked.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grid": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GridState"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initiative": {
+          "$ref": "#/definitions/InitiativeOnDisk"
+        },
+        "initiativeTrackerOpen": {
+          "type": "boolean"
+        },
+        "lighting": {
+          "$ref": "#/definitions/SceneLighting",
+          "description": "Dynamic lighting of the scene; saved with the map, never undo-tracked."
+        },
+        "lootRoller": {
+          "$ref": "#/definitions/LootRollerState"
+        },
+        "mapPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objects": {
+          "$ref": "#/definitions/ObjectsOnDisk"
+        },
+        "pinnedNotePreviews": {
+          "additionalProperties": {
+            "$ref": "#/definitions/PinnedNotePreview"
+          },
+          "description": "Keyed by anchor id: a pin or token has at most one preview.",
+          "type": "object"
+        },
+        "schema": {
+          "const": "atlas-vtt",
+          "type": "string"
+        },
+        "tokenSettings": {
+          "$ref": "#/definitions/TokenSettingsOnDisk"
+        },
+        "version": {
+          "type": "number"
+        },
+        "widgetSettings": {
+          "$ref": "#/definitions/WidgetSettings"
+        },
+        "widgetValues": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "AudioSource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "innerRadius": {
+          "type": "number"
+        },
+        "kind": {
+          "const": "audio",
+          "type": "string"
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "outerRadius": {
+          "type": "number"
+        },
+        "soundId": {
+          "type": "string"
+        },
+        "volume": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "innerRadius",
+        "outerRadius",
+        "volume",
+        "soundId",
+        "loop"
+      ],
+      "type": "object"
+    },
+    "CameraState": {
+      "additionalProperties": false,
+      "properties": {
+        "scale": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "scale"
+      ],
+      "type": "object"
+    },
+    "CardsFight": {
+      "additionalProperties": false,
+      "description": "A fight by cards as it runs: the deck it deals, and the cards of the rounds it left.",
+      "properties": {
+        "deck": {
+          "description": "The deck holds the cards 1 to `deck`.",
+          "type": "number"
+        },
+        "eachRound": {
+          "const": true,
+          "description": "Every round deals anew; otherwise cards are dealt as the fight starts, and to newcomers.",
+          "type": "boolean"
+        },
+        "kept": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "description": "Each round's cards as the round was left, by round and entry id: stepping back or on into a round takes them up again.",
+          "type": "object"
+        },
+        "share": {
+          "const": true,
+          "description": "Look-alikes not on the players' side share a card.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deck"
+      ],
+      "type": "object"
+    },
+    "CellNumberFormat": {
+      "description": "How cells are numbered. `column-row` is the hexcrawl convention (\"0304\" is column 3, row 4); `sequential` counts 1, 2, 3 in reading order; `letter-number` spells the column as a letter and the row as a number (A1, B1, ... AA1).",
+      "enum": [
+        "column-row",
+        "sequential",
+        "letter-number"
+      ],
+      "type": "string"
+    },
+    "ClockWidget": {
+      "additionalProperties": false,
+      "description": "A progress clock (Blades in the Dark): a circle of `segments` wedges the GM fills one by one.",
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "icon": {
+          "$ref": "#/definitions/WidgetIcon"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "order": {
+          "type": "number"
+        },
+        "scope": {
+          "$ref": "#/definitions/WidgetScope",
+          "description": "Unset means `scene`."
+        },
+        "segments": {
+          "type": "number"
+        },
+        "showCount": {
+          "description": "Draws the clock as a ring with \"filled/segments\" in its centre.",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "clock",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "visible": {
+          "description": "Only older Atlas versions set this to false to hide a widget; scenes now switch widgets off with `offWidgets`.",
+          "type": "boolean"
+        },
+        "visibleToPlayers": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "icon",
+        "id",
+        "label",
+        "order",
+        "segments",
+        "type",
+        "value",
+        "visible",
+        "visibleToPlayers"
+      ],
+      "type": "object"
+    },
+    "CounterWidget": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "icon": {
+          "$ref": "#/definitions/WidgetIcon"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "max": {
+          "type": "number"
+        },
+        "min": {
+          "type": "number"
+        },
+        "order": {
+          "type": "number"
+        },
+        "scope": {
+          "$ref": "#/definitions/WidgetScope",
+          "description": "Unset means `scene`."
+        },
+        "type": {
+          "const": "counter",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "visible": {
+          "description": "Only older Atlas versions set this to false to hide a widget; scenes now switch widgets off with `offWidgets`.",
+          "type": "boolean"
+        },
+        "visibleToPlayers": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "icon",
+        "id",
+        "label",
+        "order",
+        "type",
+        "value",
+        "visible",
+        "visibleToPlayers"
+      ],
+      "type": "object"
+    },
+    "DarkSightLook": {
+      "description": "The look of what is perceived without light and without colour: `system` as each sense of the game system says (grey, black and white, heat tones), `grey` the grey of darkvision for all of them, `colour` the map's own colours.",
+      "enum": [
+        "system",
+        "grey",
+        "colour"
+      ],
+      "type": "string"
+    },
+    "DiceCrit": {
+      "enum": [
+        "high",
+        "low",
+        null
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "DiceRollResult": {
+      "additionalProperties": false,
+      "properties": {
+        "advantage": {
+          "$ref": "#/definitions/AdvantageSide",
+          "description": "The side of advantage the roll was made with, where the set's rule changed it; the dice it dropped are marked `dropped`."
+        },
+        "crit": {
+          "$ref": "#/definitions/DiceCrit",
+          "description": "Decided by the collection's critical rule when rolled; missing on rolls logged before rules existed."
+        },
+        "diceSet": {
+          "$ref": "#/definitions/RolledWithSet",
+          "description": "The dice set a bare bonus rolled with, where it was not the collection's own (a statblock template's)."
+        },
+        "formula": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "linear": {
+          "const": false,
+          "description": "The formula multiplies, divides or counts dice, so its constants are no modifier; unset for a plain sum.",
+          "type": "boolean"
+        },
+        "modifiers": {
+          "description": "The constants added to the dice; 0 where the formula is no plain sum (`linear`).",
+          "type": "number"
+        },
+        "namedModifiers": {
+          "description": "The labelled constants among `modifiers` (`+2[Proficiency]`), each shown as a term of its own. Part of `modifiers`, so a reader that knows only the sum (an older Atlas, the players' page) still adds up; missing on rolls without one and on rolls logged before named modifiers existed.",
+          "items": {
+            "$ref": "#/definitions/NamedModifier"
+          },
+          "type": "array"
+        },
+        "player": {
+          "type": "string"
+        },
+        "rolls": {
+          "items": {
+            "$ref": "#/definitions/RolledDie"
+          },
+          "type": "array"
+        },
+        "source": {
+          "additionalProperties": false,
+          "properties": {
+            "abilityName": {
+              "type": "string"
+            },
+            "statblockPath": {
+              "type": "string"
+            },
+            "tokenId": {
+              "description": "Let the roll follow its token's or statblock's current artwork.",
+              "type": "string"
+            },
+            "tokenImagePath": {
+              "type": "string"
+            },
+            "tokenName": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "toolbar",
+                "statblock"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "timestamp",
+        "formula",
+        "rolls",
+        "modifiers",
+        "total"
+      ],
+      "type": "object"
+    },
+    "DrawingStroke": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "icon": {
+          "description": "Key into `MAP_ICON_SVG`; only set when `type` is `'icon'`",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "drawing",
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "type": {
+          "enum": [
+            "pen",
+            "eraser",
+            "line",
+            "rectangle",
+            "circle",
+            "icon"
+          ],
+          "type": "string"
+        },
+        "width": {
+          "description": "Line width for strokes, footprint size for `icon` stamps",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "timestamp",
+        "type",
+        "points",
+        "color",
+        "width",
+        "opacity"
+      ],
+      "type": "object"
+    },
+    "FogBrushStroke": {
+      "additionalProperties": false,
+      "properties": {
+        "brushRadius": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isErasing": {
+          "description": "`true` ⇢ erase (destination-out), `false` ⇢ paint (source-over)",
+          "type": "boolean"
+        },
+        "kind": {
+          "const": "fog",
+          "type": "string"
+        },
+        "offsetX": {
+          "description": "Drag offset from original position (default 0)",
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        },
+        "points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "type": {
+          "const": "brush",
+          "type": "string"
+        }
+      },
+      "required": [
+        "brushRadius",
+        "id",
+        "isErasing",
+        "kind",
+        "points",
+        "timestamp",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FogLassoFill": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "isErasing": {
+          "description": "`true` ⇢ erase (destination-out), `false` ⇢ paint (source-over)",
+          "type": "boolean"
+        },
+        "kind": {
+          "const": "fog",
+          "type": "string"
+        },
+        "offsetX": {
+          "description": "Drag offset from original position (default 0)",
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        },
+        "points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "type": {
+          "const": "lasso",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "isErasing",
+        "kind",
+        "points",
+        "timestamp",
+        "type"
+      ],
+      "type": "object"
+    },
+    "FogOperation": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/FogBrushStroke"
+        },
+        {
+          "$ref": "#/definitions/FogLassoFill"
+        },
+        {
+          "$ref": "#/definitions/FogRectangleFill"
+        }
+      ],
+      "description": "Discriminated union of all fog operation types"
+    },
+    "FogRectangleFill": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isErasing": {
+          "description": "`true` ⇢ erase (destination-out), `false` ⇢ paint (source-over)",
+          "type": "boolean"
+        },
+        "kind": {
+          "const": "fog",
+          "type": "string"
+        },
+        "offsetX": {
+          "description": "Drag offset from original position (default 0)",
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        },
+        "timestamp": {
+          "type": "number"
+        },
+        "type": {
+          "const": "rectangle",
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "id",
+        "isErasing",
+        "kind",
+        "timestamp",
+        "type",
+        "width",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "GridState": {
+      "additionalProperties": false,
+      "properties": {
+        "autoDetect": {
+          "description": "Set on new scenes: align the grid to the map image on the first load, then cleared.",
+          "type": "boolean"
+        },
+        "cellNumberOpacity": {
+          "description": "Opacity of the cell numbers (0 to 1), separate from the grid lines; unset is `DEFAULT_CELL_NUMBER_OPACITY`.",
+          "type": "number"
+        },
+        "cellNumbers": {
+          "$ref": "#/definitions/CellNumberFormat",
+          "description": "Numbers every cell of the grid in this format; unset shows no numbers."
+        },
+        "color": {
+          "description": "Hex colour of the grid lines. Unset lets the grid pick black or white from the map's brightness.",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "lineType": {
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted"
+          ],
+          "type": "string"
+        },
+        "lineWidth": {
+          "type": "number"
+        },
+        "mapScale": {
+          "type": "number"
+        },
+        "mapStretch": {
+          "$ref": "#/definitions/MapStretch",
+          "description": "How the map image is drawn stretched so that this regular grid fits the cells printed on it (hexes a few percent too tall, squares that are rectangles). Part of the alignment: size and offsets are in the stretched world. Unset draws the image as it is; read it with `readMapStretch`."
+        },
+        "measurementType": {
+          "enum": [
+            "units",
+            "abstract"
+          ],
+          "type": "string"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        },
+        "snapToGrid": {
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "square",
+            "hex-horizontal",
+            "hex-vertical"
+          ],
+          "type": "string"
+        },
+        "unitDistance": {
+          "type": "number"
+        },
+        "unitDistanceOverride": {
+          "description": "Game units one cell of this scene spans, in place of its collection's (a map drawn at another scale than the rest). Unset follows the collection. `unitDistance` is no override: new scenes are written with a copy of the collection's distance, which then goes stale.",
+          "type": "number"
+        },
+        "unitType": {
+          "enum": [
+            "feet",
+            "yards",
+            "meters",
+            "units"
+          ],
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "size",
+        "offsetX",
+        "offsetY",
+        "opacity"
+      ],
+      "type": "object"
+    },
+    "InitiativeConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for the initiative tracker",
+      "properties": {
+        "autoSort": {
+          "description": "Whether to auto-sort entries by initiative value after rolling",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "autoSort"
+      ],
+      "type": "object"
+    },
+    "InitiativeEntryOnDisk": {
+      "additionalProperties": false,
+      "description": "An initiative entry with the vitals `sceneToFile` copies from its token (resourceFileFormat.ts:153-161).",
+      "properties": {
+        "awaitingInitiative": {
+          "const": true,
+          "description": "Added and not yet rolled or typed: `initiative` holds 0, which the tracker shows as an empty slot. Any write of `initiative` removes it (`setInitiative`); older versions leave it alone.",
+          "type": "boolean"
+        },
+        "card": {
+          "description": "The card dealt to the combatant in a fight by cards (`InitiativeState.cards`): the lowest acts first, and look-alikes may share one. Older versions ignore it and read the order as it stands.",
+          "type": "number"
+        },
+        "delayed": {
+          "const": true,
+          "description": "Delayed its turn in a fight in turn order: it waits outside the order, and turns pass it by, until it acts again (`actNow`). Older versions read the entry at its place.",
+          "type": "boolean"
+        },
+        "hp": {
+          "$ref": "#/definitions/ResourceValue"
+        },
+        "id": {
+          "description": "Unique identifier for this entry",
+          "type": "string"
+        },
+        "imagePath": {
+          "description": "Path to token image for avatar display",
+          "type": "string"
+        },
+        "initiative": {
+          "description": "Rolled initiative value (after modifiers)",
+          "type": "number"
+        },
+        "initiativeModifier": {
+          "description": "The GM's own modifier, added to every roll (`ownModifier`). Every version writes it, 0 where there is none, and older ones add it to their rolls.",
+          "type": "number"
+        },
+        "isActive": {
+          "description": "Whether this entry has the current turn",
+          "type": "boolean"
+        },
+        "isDefeated": {
+          "type": "boolean"
+        },
+        "isNPC": {
+          "description": "Whether this is an NPC (vs player character)",
+          "type": "boolean"
+        },
+        "modifierByHand": {
+          "const": true,
+          "description": "`initiativeModifier` was set in the edit popup, so a 0 there is the GM's too; `undefined` clears it when patched.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Display name",
+          "type": "string"
+        },
+        "order": {
+          "description": "Order in the initiative list (for manual reordering)",
+          "type": "number"
+        },
+        "rolledModifier": {
+          "description": "The modifier the last roll added (the GM's own, else the statblock's). It only breaks ties between equal totals and is never added to a roll; older versions ignore it.",
+          "type": "number"
+        },
+        "sitsOut": {
+          "description": "Does not act in the running round (Cairn: a failed DEX save in round 1); cleared when the round ends.",
+          "type": "boolean"
+        },
+        "statblockPath": {
+          "description": "Path to linked statblock note (for CMD+hover preview); `undefined` clears it when patched",
+          "type": "string"
+        },
+        "stress": {
+          "$ref": "#/definitions/ResourceValue"
+        },
+        "tieBreak": {
+          "description": "Set by Act Now: the tie-break of the combatant it acted before, with whose number it ties, so that a later sort keeps it right before that one. A roll or an edit of its own number or modifier clears it; older versions ignore it.",
+          "type": "number"
+        },
+        "tokenId": {
+          "description": "Reference to the token on the map",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "imagePath",
+        "initiative",
+        "initiativeModifier",
+        "isActive",
+        "isDefeated",
+        "isNPC",
+        "name",
+        "order",
+        "tokenId"
+      ],
+      "type": "object"
+    },
+    "InitiativeOnDisk": {
+      "additionalProperties": false,
+      "properties": {
+        "cards": {
+          "$ref": "#/definitions/CardsFight",
+          "description": "Set while a fight runs by cards; a fight keeps the mode it was started in."
+        },
+        "config": {
+          "$ref": "#/definitions/InitiativeConfig",
+          "description": "Configuration for initiative calculation"
+        },
+        "currentIndex": {
+          "description": "Index of the currently active entry",
+          "type": "number"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/definitions/InitiativeEntryOnDisk"
+          },
+          "type": "array"
+        },
+        "isActive": {
+          "description": "Whether combat is currently active",
+          "type": "boolean"
+        },
+        "round": {
+          "description": "Current combat round number",
+          "type": "number"
+        },
+        "satOut": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "The combatants each round's start cleared `sitsOut` of, by that round, so that stepping back over the start puts their marks back. Only rounds that cleared something are kept.",
+          "type": "object"
+        },
+        "sides": {
+          "$ref": "#/definitions/SidesFight",
+          "description": "Set while a fight runs by sides: the side that acts first in a round and the one whose turn it is. A fight keeps the mode it was started in, whatever the collection's rules say since."
+        }
+      },
+      "required": [
+        "config",
+        "currentIndex",
+        "entries",
+        "isActive",
+        "round"
+      ],
+      "type": "object"
+    },
+    "InitiativeSide": {
+      "description": "The two sides every collection has.",
+      "enum": [
+        "players",
+        "opponents"
+      ],
+      "type": "string"
+    },
+    "LightAnimation": {
+      "enum": [
+        "none",
+        "torch",
+        "candle",
+        "pulse",
+        "magic"
+      ],
+      "type": "string"
+    },
+    "LightEmission": {
+      "additionalProperties": false,
+      "description": "What a light gives off. Distances are game units (feet, metres…), converted at render time.",
+      "properties": {
+        "angle": {
+          "description": "Width of the beam in degrees (1–359) of a light that shines one way, like a bullseye lantern; unset or 360 shines all around. It faces the `rotation` of the placed light, or of the token that carries it. Read with `coneAngle`.",
+          "type": "number"
+        },
+        "animation": {
+          "$ref": "#/definitions/LightAnimation"
+        },
+        "bright": {
+          "description": "Radius of full light.",
+          "type": "number"
+        },
+        "color": {
+          "type": "string"
+        },
+        "darkness": {
+          "description": "A source of magical darkness: within its `dim` radius, as far as walls let it, nothing is lit, by the scene's ambient light or by a light of its priority or lower. `bright`, colour, intensity and flicker say nothing for it.",
+          "type": "boolean"
+        },
+        "dim": {
+          "description": "Radius where the light ends; at least `bright`.",
+          "type": "number"
+        },
+        "intensity": {
+          "description": "Brightness multiplier, 1 is nominal.",
+          "type": "number"
+        },
+        "kind": {
+          "$ref": "#/definitions/LightKind",
+          "description": "The kind the GM gave the light; lights without one are read by `lightKindOf`."
+        },
+        "preset": {
+          "description": "Id of the collection's light preset the light was made from (`LightPresetDefinition.id`); it stays while the light's values are edited. Read with `lightPresetOf`, which also reads lights without one.",
+          "type": "string"
+        },
+        "priority": {
+          "description": "Which wins where a light and a darkness meet: the one with the higher priority, the darkness when they are equal. Unset is 0.",
+          "type": "number"
+        },
+        "sourceRadius": {
+          "description": "Size of the flame; larger sources cast softer shadows.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bright",
+        "dim",
+        "color",
+        "intensity",
+        "animation"
+      ],
+      "type": "object"
+    },
+    "LightKind": {
+      "description": "What a placed light is: it picks the light's marker. `custom` is any other light.",
+      "enum": [
+        "candle",
+        "torch",
+        "lantern",
+        "magical",
+        "darkness",
+        "custom"
+      ],
+      "type": "string"
+    },
+    "LightSource": {
+      "additionalProperties": false,
+      "description": "A light placed on the map.",
+      "properties": {
+        "activeBelowAmbient": {
+          "description": "A light that follows the ambient light, like a street lamp: it shines only while the scene's ambient light (0–1) is at or below this level. Unset, or 1, it always shines. Read with `ambientGate` and `isLightOn`.",
+          "type": "number"
+        },
+        "emission": {
+          "$ref": "#/definitions/LightEmission"
+        },
+        "hidden": {
+          "description": "Switched off by the GM.",
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "light",
+          "type": "string"
+        },
+        "rotation": {
+          "description": "Where a light with an `angle` shines, in degrees like a token's rotation: 0 faces up on the map, 90 right. Unset is 0.",
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "emission"
+      ],
+      "type": "object"
+    },
+    "LightZone": {
+      "additionalProperties": false,
+      "description": "An area of the map with ambient light of its own: a cave mouth that is dark by day, a lit hall in a dark dungeon. Map geometry the GM draws like walls (undo-tracked, in `objects.lightZones`); later zones lie over earlier ones. Read them with `lightZoneList`.",
+      "properties": {
+        "ambient": {
+          "description": "The ambient light inside, as the scene's: 0 is pitch black, 1 is daylight.",
+          "type": "number"
+        },
+        "ambientColor": {
+          "description": "Tint of that light; unset is the scene's.",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "light-zone",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "polygon": {
+          "description": "The zone's corners in world pixels, at least three. Inside them the zone's light counts.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "polygon",
+        "ambient"
+      ],
+      "type": "object"
+    },
+    "LootDraw": {
+      "additionalProperties": false,
+      "description": "One rolled item, copied out of its note so the history outlives edits to it. Its price already names the collection's currency, e.g. \"500 thorns\".",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "description": "This draw; an item drawn twice gives two draws.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notePath": {
+          "description": "The item note.",
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/definitions/LootProperty"
+          },
+          "type": "array"
+        },
+        "rarity": {
+          "type": "string"
+        },
+        "source": {
+          "description": "The base and view it came from, e.g. [\"Daggerheart Items\", \"Armor\"].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tone": {
+          "$ref": "#/definitions/RarityTone",
+          "description": "The tone its rarity was painted in when it was drawn, by the collection's words; absent for none."
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "notePath",
+        "properties",
+        "source"
+      ],
+      "type": "object"
+    },
+    "LootPane": {
+      "description": "The list on the right: the latest roll, or every roll of the collection.",
+      "enum": [
+        "results",
+        "history"
+      ],
+      "type": "string"
+    },
+    "LootProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "LootRoll": {
+      "additionalProperties": false,
+      "description": "One press of the Roll button: the items it drew and the results of other tables, when and on which map. A roll without items keeps `draws` empty, so earlier versions, whose reader needs a valid draw, leave it out whole rather than show half of it.",
+      "properties": {
+        "draws": {
+          "items": {
+            "$ref": "#/definitions/LootDraw"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "mapName": {
+          "description": "Name of the map the roll was made on.",
+          "type": "string"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/definitions/TableResult"
+          },
+          "type": "array"
+        },
+        "rolledAt": {
+          "description": "Unix time in milliseconds.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "rolledAt",
+        "mapName",
+        "draws"
+      ],
+      "type": "object"
+    },
+    "LootRollerState": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "number"
+        },
+        "disabledViews": {
+          "description": "Base views switched off in the source list, by view id (`lootViewId`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "excludedRarities": {
+          "description": "The collection's rarity words switched off for rolls, in lower case; every word is on by default.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "lastRoll": {
+          "$ref": "#/definitions/LootRoll"
+        },
+        "open": {
+          "type": "boolean"
+        },
+        "pane": {
+          "$ref": "#/definitions/LootPane"
+        },
+        "position": {
+          "$ref": "#/definitions/PanelPosition",
+          "description": "Top-left corner inside the map view; absent until the window is first placed."
+        },
+        "selected": {
+          "description": "The table rolled on: a table of a note (`<path>#<index>`) or a loot base (its path); the first one while unset.",
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/definitions/PanelArea",
+          "description": "Set once the window has been resized; until then it takes its default size."
+        }
+      },
+      "required": [
+        "open",
+        "disabledViews",
+        "excludedRarities",
+        "count",
+        "pane"
+      ],
+      "type": "object"
+    },
+    "MapStretch": {
+      "additionalProperties": false,
+      "properties": {
+        "rotation": {
+          "description": "Degrees the image lies turned, clockwise on screen, which drawing it turns back; unset is level.",
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "MarkdownViewModeType": {
+      "description": "The mode of the Markdown view.",
+      "enum": [
+        "source",
+        "preview"
+      ],
+      "type": "string"
+    },
+    "NamedModifier": {
+      "additionalProperties": false,
+      "description": "A constant written with a label (`2[Proficiency]`), kept apart so a roll can name it: `+ 2 Proficiency`.",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "description": "Signed: a subtracted constant is negative.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "NotePin": {
+      "additionalProperties": false,
+      "description": "Note pin object that links to an Obsidian note",
+      "properties": {
+        "gmOnly": {
+          "type": "boolean"
+        },
+        "hex": {
+          "description": "Links the note to the grid cell containing (x, y) instead of marking a point; hex grids show that hex, other grids a pin.",
+          "type": "boolean"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "pin",
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "notePath": {
+          "type": "string"
+        },
+        "readable": {
+          "const": true,
+          "description": "Players may read the linked note (or the heading it names) once they find the pin on the map.",
+          "type": "boolean"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "notePath"
+      ],
+      "type": "object"
+    },
+    "NoteViewState": {
+      "additionalProperties": false,
+      "description": "How the note inside a preview was left: reading or editing mode plus Obsidian's ephemeral view state (cursor, selection and scroll).",
+      "properties": {
+        "eState": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "mode": {
+          "$ref": "#/definitions/MarkdownViewModeType"
+        }
+      },
+      "required": [
+        "eState"
+      ],
+      "type": "object"
+    },
+    "ObjectsOnDisk": {
+      "additionalProperties": false,
+      "description": "`objects` as saved. A scene created by `newSceneFile` has no `walls`, `lights` or `audios` (src/app/services/newSceneFile.ts:28-60), so those are optional; Atlas back-fills `walls` and `lights` when it loads the file.",
+      "properties": {
+        "audios": {
+          "additionalProperties": {
+            "$ref": "#/definitions/AudioSource"
+          },
+          "type": "object"
+        },
+        "drawings": {
+          "additionalProperties": {
+            "$ref": "#/definitions/DrawingStroke"
+          },
+          "type": "object"
+        },
+        "fog": {
+          "additionalProperties": {
+            "$ref": "#/definitions/FogOperation"
+          },
+          "type": "object"
+        },
+        "lightZones": {
+          "additionalProperties": {
+            "$ref": "#/definitions/LightZone"
+          },
+          "description": "Areas with ambient light of their own, in the order they were drawn; absent until the first is. Read with `lightZoneList`.",
+          "type": "object"
+        },
+        "lights": {
+          "additionalProperties": {
+            "$ref": "#/definitions/LightSource"
+          },
+          "type": "object"
+        },
+        "pins": {
+          "additionalProperties": {
+            "$ref": "#/definitions/NotePin"
+          },
+          "type": "object"
+        },
+        "texts": {
+          "additionalProperties": {
+            "$ref": "#/definitions/TextElement"
+          },
+          "type": "object"
+        },
+        "tokens": {
+          "additionalProperties": {
+            "$ref": "#/definitions/TokenOnDisk"
+          },
+          "type": "object"
+        },
+        "walls": {
+          "additionalProperties": {
+            "$ref": "#/definitions/WallSegment"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "drawings",
+        "fog",
+        "pins",
+        "texts",
+        "tokens"
+      ],
+      "type": "object"
+    },
+    "PanelArea": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PanelPosition": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "PinnedNotePreview": {
+      "additionalProperties": false,
+      "description": "A pinned preview as saved in the map file.",
+      "properties": {
+        "anchorId": {
+          "description": "The pin or token the preview was opened from.",
+          "type": "string"
+        },
+        "height": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "notePath": {
+          "description": "The linked note, including its `#heading` when the link has one.",
+          "type": "string"
+        },
+        "top": {
+          "type": "number"
+        },
+        "view": {
+          "$ref": "#/definitions/NoteViewState",
+          "description": "Absent until the note has loaded, and for files that are not shown in a leaf."
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "anchorId",
+        "height",
+        "left",
+        "notePath",
+        "top",
+        "width"
+      ],
+      "type": "object"
+    },
+    "RarityTone": {
+      "enum": [
+        "common",
+        "uncommon",
+        "rare",
+        "epic",
+        "legendary"
+      ],
+      "type": "string"
+    },
+    "ResourceValue": {
+      "additionalProperties": false,
+      "description": "`current` counts in the resource's direction: remaining when draining, used when filling. A static value is its `max`.",
+      "properties": {
+        "current": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "current",
+        "max"
+      ],
+      "type": "object"
+    },
+    "RolledDie": {
+      "additionalProperties": false,
+      "properties": {
+        "advantage": {
+          "const": true,
+          "description": "Rolled because of advantage or disadvantage: a die of the rule's own, added or subtracted.",
+          "type": "boolean"
+        },
+        "colour": {
+          "description": "`#rrggbb`: the colour a dice set gives the die.",
+          "type": "string"
+        },
+        "die": {
+          "description": "e.g. `d20`, or `dF` for a Fate die.",
+          "type": "string"
+        },
+        "dropped": {
+          "const": true,
+          "description": "Keep or drop left the die out: it counts for nothing.",
+          "type": "boolean"
+        },
+        "exploded": {
+          "const": true,
+          "description": "The die was rolled because the die before it exploded.",
+          "type": "boolean"
+        },
+        "failure": {
+          "const": true,
+          "description": "The die counts as a failure of a term that counts failures (`cf<=1`).",
+          "type": "boolean"
+        },
+        "label": {
+          "description": "The label of the die's term: `fire` for `2d6[fire]`.",
+          "type": "string"
+        },
+        "max": {
+          "type": "number"
+        },
+        "min": {
+          "description": "The lowest face where it is not 1: −1 on a Fate die.",
+          "type": "number"
+        },
+        "name": {
+          "description": "The name a dice set gives the die (\"Sun\"); a die rolled for it in an explosion carries it too.",
+          "type": "string"
+        },
+        "negative": {
+          "const": true,
+          "description": "The die subtracts: it belongs to a subtracted term, e.g. the d4 of `2d6-1d4`, or to an explosion downwards.",
+          "type": "boolean"
+        },
+        "rerolled": {
+          "const": true,
+          "description": "The die was rolled again: the die after it stands in its place, and it counts for nothing.",
+          "type": "boolean"
+        },
+        "sharedUnits": {
+          "const": true,
+          "description": "A d100 that rolled only its tens and shares the units of the d100 before it (a bonus or penalty die).",
+          "type": "boolean"
+        },
+        "success": {
+          "const": true,
+          "description": "The die counts as a success of a term that counts successes (`cs>=8`).",
+          "type": "boolean"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "die",
+        "value",
+        "max"
+      ],
+      "type": "object"
+    },
+    "RolledWithSet": {
+      "additionalProperties": false,
+      "description": "Which set a roll was made with, where it is not the collection's own.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "SceneLighting": {
+      "additionalProperties": false,
+      "description": "Dynamic lighting of one scene. Saved in the map file, never undo-tracked.",
+      "properties": {
+        "ambient": {
+          "description": "Light everywhere without a source: 0 is pitch black, 1 is daylight.",
+          "type": "number"
+        },
+        "ambientColor": {
+          "description": "Tint of the ambient light; unset is neutral white.",
+          "type": "string"
+        },
+        "brightThreshold": {
+          "description": "Ambient light (0–1) from which the scene is brightly lit; unset is 0.75, and it never lies below the lit threshold.",
+          "type": "number"
+        },
+        "darkSightLook": {
+          "$ref": "#/definitions/DarkSightLook",
+          "description": "How the scene draws what a sense with a look without colour (darkvision, infravision) shows in the dark; unset is `system`. Only the picture: what is perceived stays the sense's. Read with `darkSightLookOf`."
+        },
+        "darkSightTint": {
+          "description": "Tint of that picture, `#rrggbb`; unset is none. Read with `darkSightTintOf`.",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "exploredColor": {
+          "description": "Tint of remembered areas in the players' view; unset is neutral.",
+          "type": "string"
+        },
+        "exploredMemory": {
+          "description": "What tokens saw stays shown as explored; unset is on. Off records nothing and shows no memory, but keeps the saved memory.",
+          "type": "boolean"
+        },
+        "litThreshold": {
+          "description": "Ambient light (0–1) from which everything in sight counts as lit, dimly at least; below it the scene is dark. Unset is 0.25.",
+          "type": "number"
+        },
+        "sightOnDrop": {
+          "description": "A dragged token sees and shines from where its drag began until it is dropped; unset is off: sight and light follow the drag.",
+          "type": "boolean"
+        },
+        "tokenVision": {
+          "description": "Vision tokens limit what players see; unset is on. Off, players see everything the light shows.",
+          "type": "boolean"
+        },
+        "unexploredColor": {
+          "description": "Fill of never-seen areas in the players' view; unset is black.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "ambient"
+      ],
+      "type": "object"
+    },
+    "SideId": {
+      "description": "A side's id: one of the two built-in sides, or the id of a side the collection named.",
+      "type": "string"
+    },
+    "SideRef": {
+      "additionalProperties": false,
+      "description": "A side in a collection's list: the built-in ones carry no name (they are translated), a named one its own.",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/SideId"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "SidesFight": {
+      "additionalProperties": false,
+      "description": "A fight by sides as it runs: which side has the turn, and in what order the sides act.",
+      "properties": {
+        "active": {
+          "$ref": "#/definitions/SideId",
+          "description": "The side whose turn it is; where sides act at once (equal rolls), any one of them."
+        },
+        "first": {
+          "$ref": "#/definitions/InitiativeSide",
+          "description": "Of the players and the opponents, the side that acts first; what older versions read."
+        },
+        "order": {
+          "description": "Every side in the order it acts, copied from the rules as the fight started. Unset, `first` then the other: set only where the collection names sides of its own or orders them otherwise.",
+          "items": {
+            "$ref": "#/definitions/SideRef"
+          },
+          "type": "array"
+        },
+        "roll": {
+          "description": "The dice each side rolls at the start of every round for the order: the highest first, equal rolls at once.",
+          "type": "string"
+        },
+        "rolls": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "description": "A side's id: one of the two built-in sides, or the id of a side the collection named."
+            },
+            "type": "object"
+          },
+          "description": "The rolls of each round, by round; stepping back into a round shows its rolls again.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "first",
+        "active"
+      ],
+      "type": "object"
+    },
+    "TableResult": {
+      "additionalProperties": false,
+      "description": "One result of a roll on a table that is no Items table, copied out of its note.",
+      "properties": {
+        "fields": {
+          "description": "The other columns; `hidden` ones are the GM's.",
+          "items": {
+            "$ref": "#/definitions/TableResultField"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "notePath": {
+          "description": "The note, for Open note; never sent to players.",
+          "type": "string"
+        },
+        "roll": {
+          "additionalProperties": false,
+          "description": "The die read, as shown: \"d6\", 4. Absent for weighted tables.",
+          "properties": {
+            "die": {
+              "type": "string"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "die",
+            "total"
+          ],
+          "type": "object"
+        },
+        "rolls": {
+          "description": "The numbers dice in the text rolled, to mark them; absent where none were rolled.",
+          "items": {
+            "$ref": "#/definitions/TableResultRoll"
+          },
+          "type": "array"
+        },
+        "source": {
+          "description": "Where it comes from: [note name, table name].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "text": {
+          "description": "The first result column, its dice and linked tables rolled.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "notePath",
+        "text",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "TableResultField": {
+      "additionalProperties": false,
+      "description": "A column of a rolled row beside its result text.",
+      "properties": {
+        "hidden": {
+          "const": true,
+          "description": "A column only the GM sees (a rumour's \"True?\").",
+          "type": "boolean"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "TableResultRoll": {
+      "additionalProperties": false,
+      "description": "A number rolled inside a result's text: its dice, its total and where the total stands in the text.",
+      "properties": {
+        "at": {
+          "description": "Index of the total's first character in the text.",
+          "type": "number"
+        },
+        "formula": {
+          "type": "string"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "formula",
+        "total",
+        "at"
+      ],
+      "type": "object"
+    },
+    "TextElement": {
+      "additionalProperties": false,
+      "description": "Text element object for map annotations",
+      "properties": {
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "type": "string"
+        },
+        "backgroundColor": {
+          "type": "string"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "borderRadius": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string"
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "kind": {
+          "const": "text",
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "padding": {
+          "type": "number"
+        },
+        "rotation": {
+          "description": "Rotation in degrees (0-360)",
+          "type": "number"
+        },
+        "scale": {
+          "description": "Text scale multiplier (default 1)",
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "text",
+        "fontSize",
+        "fontFamily",
+        "color"
+      ],
+      "type": "object"
+    },
+    "TimerRun": {
+      "additionalProperties": false,
+      "description": "A running timer had `remaining` seconds left at `since` (epoch ms); it counts down from there by the wall clock.",
+      "properties": {
+        "remaining": {
+          "description": "Repeats `value`: a `value` that differs was written by an older Atlas (see `timerRun`).",
+          "type": "number"
+        },
+        "since": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "since",
+        "remaining"
+      ],
+      "type": "object"
+    },
+    "TimerWidget": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "direction": {
+          "const": "down",
+          "type": "string"
+        },
+        "duration": {
+          "description": "Total configured seconds.",
+          "type": "number"
+        },
+        "icon": {
+          "$ref": "#/definitions/WidgetIcon"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "order": {
+          "type": "number"
+        },
+        "running": {
+          "$ref": "#/definitions/TimerRun",
+          "description": "Set while the timer runs."
+        },
+        "scope": {
+          "$ref": "#/definitions/WidgetScope",
+          "description": "Unset means `scene`."
+        },
+        "type": {
+          "const": "timer",
+          "type": "string"
+        },
+        "value": {
+          "description": "Seconds left: while running, at `running.since`; older Atlas versions read it as a paused timer.",
+          "type": "number"
+        },
+        "visible": {
+          "description": "Only older Atlas versions set this to false to hide a widget; scenes now switch widgets off with `offWidgets`.",
+          "type": "boolean"
+        },
+        "visibleToPlayers": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "direction",
+        "duration",
+        "icon",
+        "id",
+        "label",
+        "order",
+        "type",
+        "value",
+        "visible",
+        "visibleToPlayers"
+      ],
+      "type": "object"
+    },
+    "TokenOnDisk": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {
+              "description": "The library token it was placed from (`libraryTokenOf`); unset on tokens placed before tokens carried it.",
+              "type": "string"
+            },
+            "conditionValues": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": "Numbers of active valued conditions, by condition id; a valued condition without one has 1.",
+              "type": "object"
+            },
+            "conditions": {
+              "description": "Active condition IDs referencing ConditionDefinition.id from collection settings",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "hope": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "hp": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "id": {
+              "type": "string"
+            },
+            "imagePath": {
+              "type": "string"
+            },
+            "instanceNumber": {
+              "description": "Instance number for distinguishing multiple tokens of the same type (same imagePath)",
+              "type": "number"
+            },
+            "isHidden": {
+              "description": "Whether the token is hidden (visible to DM but not players)",
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "token",
+              "type": "string"
+            },
+            "layer": {
+              "description": "Layer for z-ordering (higher values appear on top)",
+              "type": "number"
+            },
+            "light": {
+              "$ref": "#/definitions/LightEmission",
+              "description": "Light the token carries; it moves with the token."
+            },
+            "maxHpOverridden": {
+              "const": true,
+              "type": "boolean"
+            },
+            "maxStress": {
+              "description": "`stress.max`, written beside `stress`.",
+              "type": "number"
+            },
+            "maxStressOverridden": {
+              "const": true,
+              "type": "boolean"
+            },
+            "offMap": {
+              "const": true,
+              "description": "A combatant kept beside the map (`tokens/offMap.ts`): in the scene and the initiative tracker, never drawn, seen, lit or shared on the map. Its place lies left of the map image, where an older version, which draws it, shows it off to the side. `undefined` clears it when patched.",
+              "type": "boolean"
+            },
+            "overriddenMax": {
+              "description": "Overridden maxima of the keys other than `hp` and `stress`; the in-memory field of the same name also lists those two.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "ringColor": {
+              "description": "Hex colour for the Atlas ring; undefined uses white.",
+              "type": "string"
+            },
+            "rotation": {
+              "description": "Rotation in degrees (0-360)",
+              "type": "number"
+            },
+            "showNameplate": {
+              "description": "Whether to show the nameplate (defaults to false)",
+              "type": "boolean"
+            },
+            "showRing": {
+              "description": "False preserves the whole artwork without an Atlas frame. Defaults to true.",
+              "type": "boolean"
+            },
+            "side": {
+              "$ref": "#/definitions/SideId",
+              "description": "The side the token fights on where initiative runs by sides: `players`, `opponents` or the id of a side the collection named. Read with `sideOf`: unset or unknown, a token that sees is the players'."
+            },
+            "size": {
+              "description": "Token size in logical cells (default 1: 1=1x1, 1.5=2x2, 2=3x3, 2.5=4x4, 3=5x5, etc.)",
+              "type": "number"
+            },
+            "statblockResources": {
+              "additionalProperties": {
+                "$ref": "#/definitions/ResourceValue"
+              },
+              "description": "Every resource other than `hp`, `stress` and `hope`.",
+              "type": "object"
+            },
+            "stress": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "vision": {
+              "$ref": "#/definitions/TokenVision",
+              "description": "How the token sees when the scene has dynamic lighting."
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "imagePath",
+            "kind",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {
+              "description": "The library token it was placed from (`libraryTokenOf`); unset on tokens placed before tokens carried it.",
+              "type": "string"
+            },
+            "conditionValues": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": "Numbers of active valued conditions, by condition id; a valued condition without one has 1.",
+              "type": "object"
+            },
+            "conditions": {
+              "description": "Active condition IDs referencing ConditionDefinition.id from collection settings",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "difficulty": {
+              "type": "string"
+            },
+            "hope": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "hp": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "id": {
+              "type": "string"
+            },
+            "imagePath": {
+              "type": "string"
+            },
+            "instanceNumber": {
+              "description": "Instance number for distinguishing multiple tokens of the same type (same imagePath)",
+              "type": "number"
+            },
+            "isHidden": {
+              "description": "Whether the token is hidden (visible to DM but not players)",
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "character",
+              "type": "string"
+            },
+            "layer": {
+              "description": "Layer for z-ordering (higher values appear on top)",
+              "type": "number"
+            },
+            "light": {
+              "$ref": "#/definitions/LightEmission",
+              "description": "Light the token carries; it moves with the token."
+            },
+            "maxHpOverridden": {
+              "const": true,
+              "type": "boolean"
+            },
+            "maxStress": {
+              "description": "`stress.max`, written beside `stress`.",
+              "type": "number"
+            },
+            "maxStressOverridden": {
+              "const": true,
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "notePath": {
+              "type": "string"
+            },
+            "offMap": {
+              "const": true,
+              "description": "A combatant kept beside the map (`tokens/offMap.ts`): in the scene and the initiative tracker, never drawn, seen, lit or shared on the map. Its place lies left of the map image, where an older version, which draws it, shows it off to the side. `undefined` clears it when patched.",
+              "type": "boolean"
+            },
+            "overriddenMax": {
+              "description": "Overridden maxima of the keys other than `hp` and `stress`; the in-memory field of the same name also lists those two.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "ringColor": {
+              "description": "Hex colour for the Atlas ring; undefined uses white.",
+              "type": "string"
+            },
+            "rotation": {
+              "description": "Rotation in degrees (0-360)",
+              "type": "number"
+            },
+            "showNameplate": {
+              "description": "Whether to show the nameplate (defaults to false)",
+              "type": "boolean"
+            },
+            "showRing": {
+              "description": "False preserves the whole artwork without an Atlas frame. Defaults to true.",
+              "type": "boolean"
+            },
+            "side": {
+              "$ref": "#/definitions/SideId",
+              "description": "The side the token fights on where initiative runs by sides: `players`, `opponents` or the id of a side the collection named. Read with `sideOf`: unset or unknown, a token that sees is the players'."
+            },
+            "size": {
+              "description": "Token size in logical cells (default 1: 1=1x1, 1.5=2x2, 2=3x3, 2.5=4x4, 3=5x5, etc.)",
+              "type": "number"
+            },
+            "statblockName": {
+              "description": "Name read from the linked statblock; the nameplate falls back to it when `name` is empty.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "statblockPath": {
+              "type": "string"
+            },
+            "statblockResources": {
+              "additionalProperties": {
+                "$ref": "#/definitions/ResourceValue"
+              },
+              "description": "Every resource other than `hp`, `stress` and `hope`.",
+              "type": "object"
+            },
+            "stress": {
+              "$ref": "#/definitions/ResourceValue"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "vision": {
+              "$ref": "#/definitions/TokenVision",
+              "description": "How the token sees when the scene has dynamic lighting."
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "imagePath",
+            "kind",
+            "name",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A token as the file holds it: `resources` is replaced by the fields above. Spelled out as the two kinds of `TokenEntity` (a union of `Omit`s would be merged into one object, making `name` required)."
+    },
+    "TokenSense": {
+      "additionalProperties": false,
+      "description": "One sense of a token, by the id of its definition.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "range": {
+          "description": "Game units; unset takes the definition's default, or reaches without limit.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "TokenSettingsOnDisk": {
+      "additionalProperties": false,
+      "description": "Token settings; `tokenSettingsToFile` adds the two bar switches (resourceFileFormat.ts:111-114), so every file Atlas saves has them. They are optional because a new scene (`newSceneFile`) carries none until Atlas first saves it, and a missing `showStressBars` hides the stress bar on load.",
+      "properties": {
+        "hiddenResources": {
+          "description": "Keys of the collection's resources this map does not show to the GM; see `resources/sceneVisibility.ts`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "showHPBars": {
+          "type": "boolean"
+        },
+        "showInstanceBadges": {
+          "type": "boolean"
+        },
+        "showNameplates": {
+          "type": "boolean"
+        },
+        "showStressBars": {
+          "type": "boolean"
+        },
+        "tokenRingSize": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "hiddenResources",
+        "showInstanceBadges",
+        "showNameplates",
+        "tokenRingSize"
+      ],
+      "type": "object"
+    },
+    "TokenVision": {
+      "additionalProperties": false,
+      "description": "How a token sees. Distances are game units.",
+      "properties": {
+        "angle": {
+          "description": "Width of the vision cone in degrees (1–360), facing the token's rotation; unset sees all around.",
+          "type": "number"
+        },
+        "darkvision": {
+          "description": "Radius the token sees without light, drawn desaturated. Written before senses existed and read as one while `senses` is unset (`tokenSenses`); `withSenses` drops it.",
+          "type": "number"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "range": {
+          "description": "Sight range; unset is unlimited.",
+          "type": "number"
+        },
+        "senses": {
+          "description": "What the token perceives beyond normal sight, by the senses of its collection. Once set, even empty, it replaces `darkvision` and `tremorsense`. Read with `tokenSenses`, write with `withSenses`.",
+          "items": {
+            "$ref": "#/definitions/TokenSense"
+          },
+          "type": "array"
+        },
+        "tremorsense": {
+          "description": "Radius within which the token senses other tokens through walls and darkness; the map stays unseen. Read and dropped like `darkvision`.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "WallChannel": {
+      "description": "What a wall can stop: the sight of tokens, or light.",
+      "enum": [
+        "sight",
+        "light"
+      ],
+      "type": "string"
+    },
+    "WallSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "$ref": "#/definitions/WallChannel",
+          "description": "The one thing the wall stops: a curtain stops sight and lets light through, glass that glows stops light and lets sight through. Unset, it stops both. A door keeps its kind."
+        },
+        "chainId": {
+          "type": "string"
+        },
+        "closed": {
+          "type": "boolean"
+        },
+        "direction": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "wall",
+          "type": "string"
+        },
+        "limited": {
+          "description": "A hedge, a low wall, a fence: sight and light pass the first limited wall on their way and stop at the second, so what stands at it or right behind it is seen, and nothing through two. A solid wall stops them as ever. With `blocks`, it is limited for that thing alone.",
+          "type": "boolean"
+        },
+        "locked": {
+          "description": "A door the GM locked: it is closed and its badge does not open it until it is unlocked. A GM aid; light and sight read only `closed`.",
+          "type": "boolean"
+        },
+        "p1": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        "p2": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        "type": {
+          "$ref": "#/definitions/WallType"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "type",
+        "p1",
+        "p2"
+      ],
+      "type": "object"
+    },
+    "WallType": {
+      "enum": [
+        "solid",
+        "door",
+        "secret-door"
+      ],
+      "type": "string"
+    },
+    "WidgetIcon": {
+      "enum": [
+        "heart",
+        "heartbeat",
+        "health-potion",
+        "skull",
+        "terror",
+        "brain",
+        "strength",
+        "crossed-swords",
+        "sword",
+        "shield",
+        "guard",
+        "magic",
+        "spellbook",
+        "lightning",
+        "flame",
+        "snowflake",
+        "drop",
+        "potion",
+        "poison",
+        "star",
+        "clover",
+        "crown",
+        "prayer",
+        "wings",
+        "eye",
+        "coins",
+        "gem",
+        "key",
+        "hourglass",
+        "stopwatch",
+        "campfire",
+        "torch",
+        "rations",
+        "footprints",
+        "moon",
+        "sun",
+        "dragon",
+        "wolf",
+        "ghost",
+        "d20",
+        "d6",
+        "scroll",
+        "blindfold",
+        "hearing-disabled",
+        "grab",
+        "knockout",
+        "knocked-out-stars",
+        "invisible",
+        "frozen-body",
+        "stoned-skull",
+        "foot-trip",
+        "imprisoned",
+        "sleepy",
+        "tired-eye",
+        "hidden",
+        "cracked-shield",
+        "surprised",
+        "meditation",
+        "spider-web",
+        "run",
+        "falling",
+        "fog",
+        "spiral-bloom",
+        "puppet",
+        "grim-reaper",
+        "life-tap",
+        "weight",
+        "arm-sling",
+        "vomiting",
+        "snail",
+        "brain-freeze",
+        "hood",
+        "bleeding-wound",
+        "broken-bone",
+        "bleeding-eye",
+        "brain-tentacle",
+        "psychic-waves",
+        "screaming"
+      ],
+      "type": "string"
+    },
+    "WidgetScope": {
+      "description": "`scene` widgets belong to one map; `collection` widgets appear with the same value in every scene of the map's collection and are stored in its settings.",
+      "enum": [
+        "scene",
+        "collection"
+      ],
+      "type": "string"
+    },
+    "WidgetSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "globalVisible": {
+          "type": "boolean"
+        },
+        "offWidgets": {
+          "description": "Widgets switched off in this scene: its own widgets keep their value while off, and widgets on in every scene of the collection make an exception here.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "position": {
+          "enum": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "scale": {
+          "type": "number"
+        },
+        "widgets": {
+          "additionalProperties": {
+            "$ref": "#/definitions/AnyWidget"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "widgets",
+        "globalVisible",
+        "position",
+        "scale"
+      ],
+      "type": "object"
+    }
+  }
+}
