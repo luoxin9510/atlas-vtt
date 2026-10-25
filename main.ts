@@ -44,6 +44,8 @@ import { AtlasSettingTab } from './src/app/settings/AtlasSettingTab';
 import { changelogSettingsSection } from './src/app/settings/changelogSettingsSection';
 import { hotkeySettingsSection, onboardingSettingsSection } from './src/app/settings/hotkeySettingsSection';
 import { navigationSettingsSection } from './src/app/settings/navigationSettingsSection';
+import { languageSettingsSection } from './src/app/settings/languageSettingsSection';
+import { deviceStorage } from './src/app/plugin/host/deviceStorage';
 import { diceSettingsSection } from './src/app/settings/diceSettingsSection';
 import { lightingSettingsSection } from './src/app/settings/lightingSettingsSection';
 import { mapImageCacheSettingsSection } from './src/app/settings/mapImageCacheSettingsSection';
@@ -200,6 +202,7 @@ export default class AtlasVTTPlugin extends Plugin {
     const onlinePlay = registerOnlinePlay(this, this.settingsService);
     this.onlinePlay = onlinePlay;
     this.addSettingTab(new AtlasSettingTab(this.app, this, () => [
+      languageSettingsSection(deviceStorage()),
       navigationSettingsSection(this.settingsService),
       diceSettingsSection(this.settingsService),
       lightingSettingsSection(this.settingsService),
