@@ -6,13 +6,14 @@ import type { FieldTracking, MetricBlock, StatblockTemplate, TemplateField, Trac
 import { trackedNumbers } from '../../../values/trackedNumbers';
 import { ChoiceSetting, SelectSetting, SettingNote } from '../inspector/InspectorControls';
 import type { EditorSession } from '../sessionTypes';
+import { t } from '../../../../i18n';
 
 type Tracking = 'off' | FieldTracking['counts'];
 
 const TRACKING: ReadonlyArray<{ value: Tracking; label: string }> = [
-  { value: 'off', label: 'Off' },
-  { value: 'down', label: 'Counts down' },
-  { value: 'up', label: 'Counts up' },
+  { value: 'off', label: t('sbTemplateTable.opt.tracking.off') },
+  { value: 'down', label: t('sbTemplateTable.opt.tracking.down') },
+  { value: 'up', label: t('sbTemplateTable.opt.tracking.up') },
 ];
 
 /** The maximum is the number's own value. */
@@ -41,7 +42,7 @@ export function TrackedSetting({ field, template, session, readOnly, named = fal
   const name = field.label.trim() || field.key;
   // A Track tile elsewhere, bound to no resource, tracks this number already
   if (!tracks && trackedNumbers(template).some((number) => number.field.key === field.key)) {
-    return <SettingNote>{named ? `${name} is tracked by its Track tile.` : 'Tracked by its Track tile.'}</SettingNote>;
+    return <SettingNote>{named ? t('sbTemplateTable.opt.trackedByTileNamed', { name }) : t('sbTemplateTable.opt.trackedByTile')}</SettingNote>;
   }
   const set = (next: FieldTracking | undefined): void => session.apply((now) => {
     const tracked = updateField(now, field.key, { tracks: next });
@@ -53,7 +54,7 @@ export function TrackedSetting({ field, template, session, readOnly, named = fal
   return (
     <>
       <SelectSetting<Tracking>
-        label={named ? `${name} tracked` : 'Tracked'}
+        label={named ? t('sbTemplateTable.opt.trackedNamed', { name }) : t('sbTemplateTable.opt.tracked')}
         value={tracks?.counts ?? 'off'}
         options={track ? TRACKING.filter((option) => option.value !== 'off') : [...TRACKING]}
         disabled={readOnly}
@@ -61,9 +62,9 @@ export function TrackedSetting({ field, template, session, readOnly, named = fal
       />
       {tracks && (
         <SelectSetting<string>
-          label={named ? `${name} maximum` : 'Maximum'}
+          label={named ? t('sbTemplateTable.opt.maximumNamed', { name }) : t('sbTemplateTable.opt.maximum')}
           value={tracks.max ?? OWN}
-          options={[{ value: OWN, label: 'This value' }, ...others.map((other) => ({ value: other.key, label: other.label.trim() || other.key }))]}
+          options={[{ value: OWN, label: t('sbTemplateTable.opt.thisValue') }, ...others.map((other) => ({ value: other.key, label: other.label.trim() || other.key }))]}
           disabled={readOnly}
           onChange={(max) => set(max === OWN ? { counts: tracks.counts } : { ...tracks, max })}
         />
@@ -91,7 +92,7 @@ export function MetricTrackedSettings({ block, template, session, readOnly }: Me
       {numbers.map((field) => (
         <React.Fragment key={field.key}>
           <ChoiceSetting<NumberLook>
-            label={named ? `${field.label.trim() || field.key} shown as` : 'Show as'}
+            label={named ? t('sbTemplateTable.opt.shownAsNamed', { name: field.label.trim() || field.key }) : t('sbTemplateTable.opt.showAs')}
             value="number"
             options={[...NUMBER_LOOKS]}
             disabled={readOnly}

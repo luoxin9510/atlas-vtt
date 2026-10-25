@@ -43,7 +43,7 @@ const HEX_NUMBER_OPTIONS: Record<CellNumberFormat | 'off', string> = {
   off: t('grid.numbers.off'),
   'column-row': t('grid.numbers.columnRow'),
   sequential: t('grid.numbers.sequential'),
-  'letter-number': 'Letters and numbers (A1)',
+  'letter-number': t('grid.numbers.letterNumber'),
 };
 
 const LINE_STYLE_OPTIONS = {

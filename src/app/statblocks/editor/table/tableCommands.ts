@@ -9,6 +9,7 @@ import {
 } from '../../model/tableEdits';
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, type TableGrid } from '../../model/tableGrid';
 import type { TableAlign } from '../../model/templateTypes';
+import { t } from '../../../i18n';
 
 export type TableCommand =
   | { kind: 'insert-row'; at: number }
@@ -30,35 +31,36 @@ export interface CommandOutcome {
   refused?: string | undefined;
 }
 
-const ALIGN_WORDS: Readonly<Record<TableAlign, string>> = { start: 'left', center: 'center', end: 'right' };
-
-/** "column Str" or "column 3" where it has no name. */
-function columnWords(grid: TableGrid, col: number): string {
-  const name = grid.columns[col]?.name.trim();
-  return name ? `column ${name}` : `column ${col + 1}`;
+/** The name of the column `col`, or its number where it has none ("column Str", "column 3"). */
+function columnName(grid: TableGrid, col: number): string {
+  return grid.columns[col]?.name.trim() || String(col + 1);
 }
+
+const ALIGNED: Readonly<Record<TableAlign, 'alignedLeft' | 'alignedCenter' | 'alignedRight'>> = {
+  start: 'alignedLeft', center: 'alignedCenter', end: 'alignedRight',
+};
 
 /** The table after `command`, and what to say; the very grid where the command changes nothing. */
 export function runTableCommand(grid: TableGrid, command: TableCommand): CommandOutcome {
   switch (command.kind) {
     case 'insert-row': {
-      if (!canAddRow(grid)) return { grid, said: '', refused: `A table holds at most ${MAX_TABLE_ROWS} rows.` };
-      return { grid: insertRow(grid, command.at), said: `Added row ${command.at + 1}.` };
+      if (!canAddRow(grid)) return { grid, said: '', refused: t('sbTemplateTable.maxRows', { max: MAX_TABLE_ROWS }) };
+      return { grid: insertRow(grid, command.at), said: t('sbTemplateTable.rowAdded', { row: command.at + 1 }) };
     }
-    case 'duplicate-row': return { grid: duplicateRow(grid, command.row), said: `Duplicated row ${command.row + 1}.` };
-    case 'delete-row': return { grid: deleteRow(grid, command.row), said: `Deleted row ${command.row + 1}.` };
-    case 'move-row': return { grid: moveRow(grid, command.from, command.to), said: `Moved row ${command.from + 1} to row ${command.to + 1}.` };
+    case 'duplicate-row': return { grid: duplicateRow(grid, command.row), said: t('sbTemplateTable.rowDuplicated', { row: command.row + 1 }) };
+    case 'delete-row': return { grid: deleteRow(grid, command.row), said: t('sbTemplateTable.rowDeleted', { row: command.row + 1 }) };
+    case 'move-row': return { grid: moveRow(grid, command.from, command.to), said: t('sbTemplateTable.rowMoved', { from: command.from + 1, to: command.to + 1 }) };
     case 'insert-column': {
-      if (!canAddColumn(grid)) return { grid, said: '', refused: `A table holds at most ${MAX_TABLE_COLUMNS} columns.` };
-      return { grid: insertColumn(grid, command.at, command.align), said: `Added column ${command.at + 1}.` };
+      if (!canAddColumn(grid)) return { grid, said: '', refused: t('sbTemplateTable.maxColumns', { max: MAX_TABLE_COLUMNS }) };
+      return { grid: insertColumn(grid, command.at, command.align), said: t('sbTemplateTable.columnAdded', { column: command.at + 1 }) };
     }
-    case 'duplicate-column': return { grid: duplicateColumn(grid, command.col), said: `Duplicated ${columnWords(grid, command.col)}.` };
-    case 'delete-column': return { grid: deleteColumn(grid, command.col), said: `Deleted ${columnWords(grid, command.col)}.` };
-    case 'move-column': return { grid: moveColumn(grid, command.from, command.to), said: `Moved ${columnWords(grid, command.from)}.` };
-    case 'align': return { grid: alignColumns(grid, [command.col], command.align), said: `Aligned ${columnWords(grid, command.col)} ${ALIGN_WORDS[command.align]}.` };
+    case 'duplicate-column': return { grid: duplicateColumn(grid, command.col), said: t('sbTemplateTable.columnDuplicated', { column: columnName(grid, command.col) }) };
+    case 'delete-column': return { grid: deleteColumn(grid, command.col), said: t('sbTemplateTable.columnDeleted', { column: columnName(grid, command.col) }) };
+    case 'move-column': return { grid: moveColumn(grid, command.from, command.to), said: t('sbTemplateTable.columnMoved', { column: columnName(grid, command.from) }) };
+    case 'align': return { grid: alignColumns(grid, [command.col], command.align), said: t(`sbTemplateTable.${ALIGNED[command.align]}`, { column: columnName(grid, command.col) }) };
     case 'sort': {
       const sorted = sortRows(grid, command.col, command.direction);
-      return { grid: sorted, said: `Sorted by ${columnWords(grid, command.col)}, ${command.direction > 0 ? 'A to Z' : 'Z to A'}.` };
+      return { grid: sorted, said: t(command.direction > 0 ? 'sbTemplateTable.sortedAsc' : 'sbTemplateTable.sortedDesc', { column: columnName(grid, command.col) }) };
     }
   }
 }

@@ -22,6 +22,7 @@ import { noteName } from '../../../../utils/pathUtils';
 import { assignRoleTemplate } from '../../gallery/galleryActions';
 import type { SessionSnapshot } from '../sessionTypes';
 import { nameTakenIn, saveChoice, type SaveRequest } from './saveChoice';
+import { t } from '../../../../i18n';
 
 /** A template saved as new: what opens it. */
 export interface SavedTemplate {
@@ -44,7 +45,7 @@ function bodyOfNew(app: App, snapshot: SessionSnapshot): Promise<string> {
 /** The note on the built-in names the new template instead (compare-and-swap: a note changed meanwhile keeps its own). */
 async function switchNote(app: App, path: string, from: TemplateId, to: TemplateId, name: string): Promise<void> {
   const outcome = await NoteFieldWriter.forApp(app).write(path, [{ op: 'set', path: [TEMPLATE_KEY], base: from, next: to }]);
-  if (outcome.problem === null && outcome.conflicts.length === 0 && outcome.applied.length > 0) showNotice(`${noteName(path)} uses ${name} now.`);
+  if (outcome.problem === null && outcome.conflicts.length === 0 && outcome.applied.length > 0) showNotice(t('sbTemplate.save.usesNow', { note: noteName(path), template: name }));
 }
 
 async function saveAsNew(app: App, session: TemplateSession, name: string, fromNote: string | null): Promise<SaveOutcome> {
@@ -68,6 +69,6 @@ export async function saveTemplate(app: App, session: TemplateSession, request: 
     return result.ok ? { ok: true, made: null } : result;
   } catch (error) {
     console.error('[Atlas] Saving the template failed:', error);
-    return { ok: false, problem: `Couldn't save: ${problemOf(error)}` };
+    return { ok: false, problem: t('sbTemplate.save.failed', { problem: problemOf(error) }) };
   }
 }

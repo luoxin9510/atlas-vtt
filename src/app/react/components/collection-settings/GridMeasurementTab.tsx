@@ -116,7 +116,7 @@ export function GridMeasurementTab({
 
       {/* Cone measurement opening (5e: as wide as long, about 53°) */}
       <div className="atlas-csm-field">
-        <label className="atlas-csm-label">Cone Angle (°)</label>
+        <label className="atlas-csm-label">{t('grid.coneAngle')}</label>
         <input
           type="number"
           className="atlas-csm-input atlas-csm-input--number"

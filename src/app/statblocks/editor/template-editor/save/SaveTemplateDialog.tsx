@@ -2,6 +2,7 @@ import React, { useId, useRef, useState } from 'react';
 import { Button } from '../../../../packages/components/primitives/button';
 import { EditorDialog } from '../inspector/EditorDialog';
 import { saveChoice, type NameTaken, type SaveRequest, type SaveSubject } from './saveChoice';
+import { t } from '../../../../i18n';
 
 export interface SaveTemplateDialogProps {
   /** An element of the window the dialog opens in. */
@@ -47,18 +48,18 @@ export function SaveTemplateDialog({ anchor, subject, taken, onSave, onClose, on
   return (
     <EditorDialog
       anchor={anchor}
-      title={subject.unsaved ? 'Save template' : `Save ${subject.name}`}
+      title={subject.unsaved ? t('sbTemplate.save.title') : t('sbTemplate.save.titleNamed', { name: subject.name })}
       onClose={onClose}
       initialFocus={inputRef}
       footer={(
         <>
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="button" variant="default" size="sm" disabled={!ready} onClick={save}>{busy ? 'Saving…' : choice.label}</Button>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>{t('sbTemplate.cancel')}</Button>
+          <Button type="button" variant="default" size="sm" disabled={!ready} onClick={save}>{busy ? t('sbTemplate.save.saving') : choice.label}</Button>
         </>
       )}
     >
       <div className="atlas-te-dialog__field">
-        <label htmlFor={inputId} className="atlas-te-dialog__label">Name</label>
+        <label htmlFor={inputId} className="atlas-te-dialog__label">{t('sbTemplate.save.name')}</label>
         <input
           ref={inputRef}
           id={inputId}

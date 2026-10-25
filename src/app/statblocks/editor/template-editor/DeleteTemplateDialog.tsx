@@ -30,12 +30,11 @@ export interface DeleteTemplateDialogProps {
 function usageText(usage: TemplateUsage): string | null {
   const count = usage.notes.length;
   const roles = usage.roles.length;
-  const parts: string[] = [];
-  if (count > 0) parts.push(count === 1 ? '1 statblock' : `${count} statblocks`);
-  if (roles > 0) parts.push(roles === 1 ? `the role ${usage.roles[0]?.roleName ?? ''}` : `${roles} roles`);
-  if (parts.length === 0) return null;
-  const sentence = `${parts.join(' and ')} ${count + roles === 1 ? 'uses' : 'use'} it.`;
-  return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}`;
+  const role = usage.roles[0]?.roleName ?? '';
+  if (count > 0 && roles === 0) return t('sbTemplate.delete.usageNotes', { count });
+  if (count > 0) return roles === 1 ? t('sbTemplate.delete.usageNotesRole', { count, role }) : t('sbTemplate.delete.usageNotesRoles', { count, roles });
+  if (roles > 0) return roles === 1 ? t('sbTemplate.delete.usageRole', { role }) : t('sbTemplate.delete.usageRoles', { roles });
+  return null;
 }
 
 /**
@@ -54,9 +53,9 @@ export function DeleteTemplateDialog(props: DeleteTemplateDialogProps): React.JS
   const used = usageText(usage);
   const lost = lostButtons;
   const options: SelectOption<string>[] = [
-    { value: KEEP, label: 'Leave them as they are' },
+    { value: KEEP, label: t('sbTemplate.delete.keep') },
     ...templates.filter((entry) => entry.template.id !== templateId)
-      .map((entry) => ({ value: entry.template.id, label: entry.name, ...(entry.builtIn && { detail: 'Built-in' }) })),
+      .map((entry) => ({ value: entry.template.id, label: entry.name, ...(entry.builtIn && { detail: t('sbTemplate.delete.builtIn') }) })),
   ];
 
   // Focus moves in, so Escape reaches the dialog before a dialog it opened over (the collection settings).
@@ -88,25 +87,25 @@ export function DeleteTemplateDialog(props: DeleteTemplateDialogProps): React.JS
         tabIndex={-1}
       >
         <div className="atlas-te-dialog__header">
-          <h2 id={titleId}>Delete {name}?</h2>
+          <h2 id={titleId}>{t('sbTemplate.delete.title', { name })}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <div className="atlas-te-dialog__body">
-          <p className="atlas-te-dialog__text">The template goes to the trash. Statblocks keep their values.</p>
+          <p className="atlas-te-dialog__text">{t('sbTemplate.delete.body')}</p>
           {lost.length > 0 && (
             <p className="atlas-te-dialog__text">{t('rest.lostWithTemplate', { count: lost.length, list: formatList(lost) })}</p>
           )}
           {used && (
             <div className="atlas-te-dialog__field">
               <p className="atlas-te-dialog__text">{used}</p>
-              <span id={selectId} className="atlas-te-dialog__label">Switch them to</span>
+              <span id={selectId} className="atlas-te-dialog__label">{t('sbTemplate.delete.switchTo')}</span>
               <Select value={replacement} options={options} onChange={setReplacement} labelledBy={selectId} />
             </div>
           )}
         </div>
         <div className="atlas-te-dialog__footer">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={confirm}>{busy ? 'Deleting…' : 'Delete'}</Button>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>{t('sbTemplate.cancel')}</Button>
+          <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={confirm}>{busy ? t('sbTemplate.delete.deleting') : t('sbTemplate.delete.confirm')}</Button>
         </div>
       </motion.div>
     </motion.div>,

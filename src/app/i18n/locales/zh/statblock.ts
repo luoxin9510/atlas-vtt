@@ -36,4 +36,5 @@ export const statblock: Translation = {
   'statblock.traitDescription': '特质描述',
   'statblock.traitName': '特质名称',
   'statblock.valueN': '数值 {n}',
+  'statblock.noCreatureForNote': '没有找到与此笔记对应的 Fantasy Statblocks 生物。基于笔记的生物需要在 Fantasy Statblocks 设置中启用「Parse Frontmatter for Creatures」。',
 };

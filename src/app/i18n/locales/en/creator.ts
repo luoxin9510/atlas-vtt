@@ -80,4 +80,6 @@ export const creator = {
   'creator.optimizingImages': 'Optimizing images',
   'creator.savePreviewsFailed': 'Could not save previews.',
   'creator.scaledDown': 'Scaled down from {from} px to the largest size a map can have',
+  'creator.statblocksMade': { one: 'Created a statblock for {names}.', other: 'Created statblocks for {names}.' },
+  'creator.statblocksFailed': { one: 'Couldn\'t create a statblock for {names}.', other: 'Couldn\'t create statblocks for {names}.' },
 } as const satisfies Record<string, Message>;

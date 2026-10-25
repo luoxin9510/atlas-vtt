@@ -110,4 +110,6 @@ export const csm = {
   'csm.widgets.timer': 'Timer',
   'csm.widgets.timerDesc': 'Countdown timer for timed encounters or breaks',
   'csm.loot.views': { one: '{count} view', other: '{count} views' },
+  'csm.filters.otherFields': 'Other fields in this collection\'s statblocks',
+  'csm.widgets.defaultsIntro': 'These defaults apply to new maps of the collection.',
 } as const satisfies Record<string, Message>;

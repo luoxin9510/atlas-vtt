@@ -52,4 +52,6 @@ export const toolbarEdit: Translation = {
   'toolbarEdit.say.cancelledTray': '已取消移动。{label}已回到隐藏的工具中。',
   'toolbarEdit.say.cancelledOwn': '已取消移动。{label}已回到原位。',
   'toolbarEdit.say.cancelledPosition': '已取消移动。{label}已回到第 {position} 个位置。',
+  'toolbarEdit.loot.label': '随机表',
+  'toolbarEdit.loot.description': '在笔记和战利品 Base 中的随机表上抽取。',
 };

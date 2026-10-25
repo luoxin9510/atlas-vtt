@@ -8,6 +8,7 @@ import type { StatblockRole } from '../model/roleTypes';
 import type { TemplateId } from '../model/templateTypes';
 import { FolderField } from './FolderField';
 import { TemplatePicker } from './TemplatePicker';
+import { t } from '../../i18n';
 
 interface RoleRowProps {
   app: App;
@@ -39,7 +40,7 @@ export function RoleRow({
   onChange, onFolderChange, onRemove, onEdit, editBlocked,
 }: RoleRowProps): React.JSX.Element {
   const templateLabel = useId();
-  const name = role.name.trim() || 'this role';
+  const name = role.name.trim() || t('sbModel.role.thisRole');
 
   return (
     <div className="atlas-csm-condition atlas-sb-role">
@@ -47,15 +48,15 @@ export function RoleRow({
         <input
           type="text"
           className="atlas-csm-input atlas-sb-role__name"
-          placeholder="Role name"
-          aria-label="Role name"
+          placeholder={t('sbModel.role.namePlaceholder')}
+          aria-label={t('sbModel.role.namePlaceholder')}
           aria-invalid={problem ? true : undefined}
           autoFocus={autoFocus}
           value={role.name}
           onChange={(event) => onChange({ ...role, name: event.target.value })}
         />
         <div className="atlas-sb-role__template">
-          <span id={templateLabel} hidden>Template of {name}</span>
+          <span id={templateLabel} hidden>{t('sbModel.role.templateOf', { name })}</span>
           <TemplatePicker
             value={role.templateId}
             library={library}
@@ -65,7 +66,7 @@ export function RoleRow({
           />
         </div>
         {onEdit && (
-          <LabelTooltip label={editBlocked ?? 'Saves the settings and opens the template'} describe>
+          <LabelTooltip label={editBlocked ?? t('sbModel.role.editTip')} describe>
             <Button
               variant="ghost"
               size="sm"
@@ -74,11 +75,11 @@ export function RoleRow({
               // Not `disabled`: a disabled button shows no tooltip, and this one says why.
               onClick={editBlocked ? undefined : onEdit}
             >
-              Edit
+              {t('sbModel.role.edit')}
             </Button>
           </LabelTooltip>
         )}
-        <LabelTooltip label={removable ? 'Remove role' : 'A collection needs at least one role'}>
+        <LabelTooltip label={removable ? t('sbModel.role.remove') : t('sbModel.role.needOne')}>
           <Button
             variant="ghost"
             size="icon"
@@ -91,13 +92,13 @@ export function RoleRow({
         </LabelTooltip>
       </div>
       <div className="atlas-csm-condition-row">
-        <FolderField app={app} value={folder} onChange={onFolderChange} label={`Folder for new statblocks of ${name}`} />
+        <FolderField app={app} value={folder} onChange={onFolderChange} label={t('sbModel.role.folderFor', { name })} />
         {fallbackName !== null && (
-          <LabelTooltip label={`The role's template is not in this vault, so new statblocks start from the built-in ${fallbackName} template.`} describe multiline>
+          <LabelTooltip label={t('sbModel.role.missingTip', { name: fallbackName })} describe multiline>
             {/* Focusable, so the explanation also opens from the keyboard. */}
             <span className="atlas-sb-role__missing" role="note" tabIndex={0}>
               <AlertTriangle aria-hidden="true" />
-              Using {fallbackName} instead
+              {t('sbModel.role.usingFallback', { name: fallbackName })}
             </span>
           </LabelTooltip>
         )}

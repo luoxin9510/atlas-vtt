@@ -80,4 +80,6 @@ export const creator: Translation = {
   'creator.optimizingImages': '正在优化图片',
   'creator.savePreviewsFailed': '无法保存预览。',
   'creator.scaledDown': '已从 {from} 像素缩小到地图允许的最大尺寸',
+  'creator.statblocksMade': { other: '已为 {names} 创建属性块。' },
+  'creator.statblocksFailed': { other: '无法为 {names} 创建属性块。' },
 };

@@ -17,6 +17,7 @@ import { observeDisk, saveProblemText, type SessionConflict } from './templateCo
 import { templateName } from './templateFiles';
 import type { TemplateLibrary } from './TemplateLibrary';
 import { writeTemplateText, type PendingWrite, type WriteOutcome } from './templateWriter';
+import { t } from '../../i18n';
 
 /** Only a template from a newer Atlas cannot be edited; a built-in is edited and saved as a new template. */
 export type ReadOnlyReason = 'newer';
@@ -37,8 +38,8 @@ const readOnlyOf = (entry: LibraryTemplate): ReadOnlyReason | null => (entry.sta
 
 function conflictText(conflict: SessionConflict | null): string {
   return conflict === 'deleted'
-    ? 'The template\'s file is gone.'
-    : 'The template was changed somewhere else. Choose which version to keep first.';
+    ? t('sbModel.session.fileGone')
+    : t('sbModel.session.changedElsewhere');
 }
 
 export class SessionFileSync {
@@ -90,10 +91,10 @@ export class SessionFileSync {
 
   /** Writes the draft over its file ("Update"), only while the file holds what the session last loaded or wrote. */
   async save(): Promise<SaveResult> {
-    if (this.readOnly) return { ok: false, problem: 'Update Atlas to change this template.' };
-    if (this.builtIn || this.unsaved || this.path === null) return { ok: false, problem: 'Save it as a new template.' };
+    if (this.readOnly) return { ok: false, problem: t('sbModel.session.updateAtlas') };
+    if (this.builtIn || this.unsaved || this.path === null) return { ok: false, problem: t('sbModel.session.saveAsNew') };
     if (this.conflict) return { ok: false, problem: conflictText(this.conflict) };
-    if (this.writing) return { ok: false, problem: 'The template is being saved.' };
+    if (this.writing) return { ok: false, problem: t('sbModel.session.saving') };
     const template = this.host.draft();
     if (template === this.saved) return { ok: true };
     const text = serializeTemplate(template);

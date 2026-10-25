@@ -15,4 +15,13 @@ export const transfer = {
   'transfer.moveFailed': 'Could not move {what}: {error}',
   'transfer.moved': 'Moved {what} to {target}',
   'transfer.selection': 'The selection',
+  'transfer.included': 'What’s included',
+  'transfer.templateCopiesOne': 'Your version of this template differs, so the collection’s comes in as a copy. Yours stays as it is.',
+  'transfer.templateCopiesMany': 'Your versions of these templates differ, so the collection’s come in as copies. Yours stay as they are.',
+  'transfer.switchNotes': { one: 'Switch {count} statblock you already had to the copies: {names}', other: 'Switch {count} statblocks you already had to the copies: {names}' },
+  'transfer.namesAndMore': '{names} and {count} more',
+  'transfer.openedIn': 'Opened in {name}',
+  'transfer.openedInMore': 'Opened in {name} and {count} more',
+  'transfer.linkedFrom': 'Linked from {name}',
+  'transfer.linkedFromMore': 'Linked from {name} and {count} more',
 } as const satisfies Record<string, Message>;

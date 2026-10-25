@@ -9,8 +9,9 @@ import { renderEntries, type ContextMenuEntry } from '../../react/components/con
 import type { LightPresetDefinition } from '../../types/lightPresetTypes';
 import type { LightEmission, LightKind } from '../../types/lightingTypes';
 import { lightMarkerLook, lightMarkerTheme } from './lightMarker';
+import { t } from '../../i18n';
 
-const CUSTOM_LIGHT = 'Custom light';
+const CUSTOM_LIGHT = t('light.customLight');
 const AT_REST = { hovered: false, selected: false, dragging: false };
 
 const cssColor = (color: number): string => `#${color.toString(16).padStart(6, '0')}`;
@@ -48,7 +49,7 @@ export function LightPresetChips({ emission, presets, onChange }: LightPresetChi
   const style = { '--atlas-light-badge': cssColor(theme.background), '--atlas-light-tint': cssColor(look.glyphTint) } as React.CSSProperties;
   return (
     <div className="atlas-light-popover__kinds" role="group" aria-labelledby={labelId} style={style}>
-      <span id={labelId} hidden>Kind of light</span>
+      <span id={labelId} hidden>{t('light.kindOfLight')}</span>
       {chips.map((preset) => (
         <LabelTooltip key={preset.id} label={preset.name}>
           <button type="button" className="atlas-light-kind" aria-pressed={preset === current} onClick={() => onChange(emissionOf(preset))}>
@@ -93,7 +94,7 @@ function MoreLights({ more, current, onPick, onCustom }: MoreLightsProps): React
   ];
   return (
     <DropdownMenu.Root open={isOpen} onOpenChange={setIsOpen} modal={false}>
-      <LabelTooltip label={chosen ? `${chosen.name}, more lights` : 'More lights'}>
+      <LabelTooltip label={chosen ? t('light.moreLightsOf', { name: chosen.name }) : t('light.moreLights')}>
         <DropdownMenu.Trigger asChild>
           <button ref={setTrigger} type="button" className="atlas-light-kind atlas-light-kind--more" aria-pressed={chosen !== undefined}>
             {chosen ? <LightGlyph kind={chosen.kind} /> : <Ellipsis className="atlas-light-kind__dots" aria-hidden="true" />}

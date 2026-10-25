@@ -29,4 +29,7 @@ export const common = {
   'common.confirm': 'Confirm',
   'common.duplicate': 'Duplicate',
   'common.copy': 'Copy',
+  'common.valueEmpty': 'Value cannot be empty',
+  'common.listSeparator': ', ',
+  'common.listAnd': '{names} and {last}',
 } as const satisfies Record<string, Message>;

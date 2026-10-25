@@ -6,9 +6,10 @@ import { StatblockSheet } from '../../render/StatblockSheet';
 import type { FieldRecord } from '../../values/fieldValues';
 import { AttributionButton } from './AttributionPopover';
 import { sourceLine } from './gallerySources';
+import { t } from '../../../i18n';
 
 /** The four placeholder rows a blank template starts with (§7.9). */
-const GHOST_ROWS = ['Name', 'Line', 'Stats', 'Actions'];
+const GHOST_ROWS = [t('sbEditor.gallery.ghost.name'), t('sbEditor.gallery.ghost.line'), t('sbEditor.gallery.ghost.stats'), t('sbEditor.gallery.ghost.actions')];
 
 /** What a card shows: a template drawn by the real renderer, or the blank template's ghost. */
 export type CardLook = { kind: 'template'; template: StatblockTemplate; values?: FieldRecord | undefined } | { kind: 'blank' };

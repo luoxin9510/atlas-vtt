@@ -57,8 +57,8 @@ export const TOOLBAR_CONTROLS = [
     description: t('toolbarEdit.dice.description'),
   },
   {
-    id: 'loot', label: 'Random tables', hotkey: 'lootRoller', dmOnly: true, hideable: true,
-    description: 'Roll on the random tables in your notes and loot bases.',
+    id: 'loot', label: t('toolbarEdit.loot.label'), hotkey: 'lootRoller', dmOnly: true, hideable: true,
+    description: t('toolbarEdit.loot.description'),
   },
   {
     id: 'assets', label: t('toolbarEdit.assets.label'), hotkey: 'assets', dmOnly: true, hideable: true,

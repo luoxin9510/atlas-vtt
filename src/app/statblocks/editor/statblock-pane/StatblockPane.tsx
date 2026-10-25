@@ -18,6 +18,7 @@ import { usePaneCollection } from './usePaneCollection';
 import { usePaneNote } from './usePaneNote';
 import { usePaneTemplate } from './usePaneTemplate';
 import { useReferenceSuggest } from './useReferenceSuggest';
+import { t } from '../../../i18n';
 import './statblock-pane.scss';
 
 /**
@@ -58,7 +59,7 @@ export function StatblockPane(props: StatblockPaneProps): React.JSX.Element {
   const applyTemplate = useCallback((templateId: TemplateId): void => {
     setChoosing(false);
     void services.writer.write(notePath, [templateKeyPatch(note.record, templateId)]).then((outcome) => {
-      setWriteProblem(outcome.conflicts.length ? 'the note\'s template changed meanwhile.' : outcome.problem);
+      setWriteProblem(outcome.conflicts.length ? t('sbEditor.noteTemplateChanged') : outcome.problem);
     });
   }, [services, notePath, note.record]);
 

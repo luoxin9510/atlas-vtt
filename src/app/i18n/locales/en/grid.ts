@@ -29,4 +29,6 @@ export const grid = {
   'grid.type.hexFlat': 'Hex (Flat)',
   'grid.type.hexPointy': 'Hex (Pointy)',
   'grid.type.square': 'Square',
+  'grid.numbers.letterNumber': 'Letters and numbers (A1)',
+  'grid.coneAngle': 'Cone Angle (°)',
 } as const satisfies Record<string, Message>;

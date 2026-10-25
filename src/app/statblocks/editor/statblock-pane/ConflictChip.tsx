@@ -3,6 +3,7 @@ import { Button } from '../../../packages/components/primitives/button';
 import type { FieldValue, TemplateField } from '../../model/templateTypes';
 import { valueText } from '../../values/valueText';
 import { usePaneEdit, type FieldConflict } from './paneEditContext';
+import { t } from '../../../i18n';
 
 /** A value as the chip writes it; an empty one as a dash. */
 function shown(value: FieldValue | undefined): string {
@@ -35,15 +36,15 @@ export function ConflictChip({ field, conflict }: { field: TemplateField; confli
     valueOf(ref.current)?.focus({ preventScroll: true });
     choose(field);
   };
-  const text = conflict.canKeepMine ? `Changed in the note: ${shown(conflict.base)} → ${shown(now)}` : 'Changed in the note';
+  const text = conflict.canKeepMine ? t('sbEditorPane.conflict.changedFromTo', { from: shown(conflict.base), to: shown(now) }) : t('sbEditorPane.conflict.changed');
 
   return (
-    <span ref={ref} className="atlas-sb-pane-conflict" role="group" aria-label={`${field.label} conflict`}>
+    <span ref={ref} className="atlas-sb-pane-conflict" role="group" aria-label={t('sbEditorPane.conflict.label', { label: field.label })}>
       <span className="atlas-sb-pane-conflict__text">{text}</span>
       {conflict.canKeepMine && (
-        <Button type="button" variant="ghost" size="sm" onClick={() => answer(pane.keepMine)}>Keep mine</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => answer(pane.keepMine)}>{t('sbEditorPane.conflict.keepMine')}</Button>
       )}
-      <Button type="button" variant="ghost" size="sm" onClick={() => answer(pane.keepNotes)}>Use the note&apos;s</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => answer(pane.keepNotes)}>{t('sbEditorPane.conflict.useNotes')}</Button>
     </span>
   );
 }

@@ -5,6 +5,7 @@ import { saveOpenScene } from '../../../../services/sceneRename';
 import { primaryPathUpdate } from '../../../../services/vault-sync/assetFiles';
 import { assetFolderId, isTabAsset, placingFilePath, type TabServiceAsset } from './assetFormatters';
 import { vaultPathOfFolder } from './assetFolders';
+import { t } from '../../../../i18n';
 
 /** What moving assets into a folder did. */
 export interface FolderMoveResult {
@@ -68,7 +69,7 @@ export async function moveAssetsIntoFolder(
 /** What to tell the user about assets a move left in place, or null when every asset moved. */
 export function folderMoveProblem({ nameClashes, failed }: FolderMoveResult): string | null {
   const problems: string[] = [];
-  if (nameClashes.length > 0) problems.push(`${nameClashes.join(', ')} stayed: the folder already holds a file of the same name.`);
-  if (failed.length > 0) problems.push(`Could not move ${failed.join(', ')}.`);
+  if (nameClashes.length > 0) problems.push(t('am.folderMove.clash', { names: nameClashes.join(t('common.listSeparator')) }));
+  if (failed.length > 0) problems.push(t('am.folderMove.failed', { names: failed.join(t('common.listSeparator')) }));
   return problems.length > 0 ? problems.join(' ') : null;
 }

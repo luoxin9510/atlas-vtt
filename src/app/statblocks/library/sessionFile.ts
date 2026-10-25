@@ -9,6 +9,7 @@ import { copyTemplateBody } from './templateBodyNotes';
 import { copyName, folderOf } from './templatePaths';
 import { newTemplateFile, writeNewTemplateFile } from './templateWriter';
 import { SessionFileSync } from './sessionFileSync';
+import { t } from '../../i18n';
 
 export type ConflictChoice = 'keep-mine' | 'use-other' | 'save-copy' | 'recreate';
 
@@ -49,7 +50,7 @@ export class SessionFile extends SessionFileSync {
     } else if (this.other !== null && entry?.template.id === this.id) {
       this.load(this.other, entry);
     } else {
-      this.problem = 'The other version can\'t be read as this template.';
+      this.problem = t('sbModel.session.unreadable');
     }
   }
 

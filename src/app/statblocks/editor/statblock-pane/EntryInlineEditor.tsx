@@ -15,6 +15,7 @@ import { removedMessage } from './announcements';
 import { focusStaysIn } from './focusWithin';
 import { usePaneEdit } from './paneEditContext';
 import { caretIn, insertAtCaret, placeCaret, textOf } from './plainEditable';
+import { t } from '../../../i18n';
 
 /** The ability edited, or a new one written after `afterIndex` in the stored list (null: first). */
 export type EntryEditing =
@@ -61,7 +62,7 @@ export function EntryInlineEditor({ block, field, editing }: EntryInlineEditorPr
   const finished = useRef(false);
   /** Whether a key was pressed (not only held) while this editor was open. */
   const pressedHere = useRef(false);
-  const noun = singular(field.label) || 'Entry';
+  const noun = singular(field.label) || t('sbEditorPane.entry.fallbackNoun');
   const nameStyle = block.nameStyle ?? 'run-in';
 
   const list = (): FieldValue[] => entryList(pane.read(field).value);
@@ -269,7 +270,7 @@ export function EntryInlineEditor({ block, field, editing }: EntryInlineEditorPr
       data-item-key={editing.kind === 'edit' ? editing.itemKey : undefined}
       data-item-index={editing.kind === 'edit' ? editing.index : undefined}
       role="group"
-      aria-label={editing.kind === 'edit' ? `Edit ${startName || noun.toLowerCase()}` : `New ${noun.toLowerCase()}`}
+      aria-label={editing.kind === 'edit' ? t('sbEditorPane.entry.edit', { name: startName || noun.toLowerCase() }) : t('sbEditorPane.entry.new', { noun: noun.toLowerCase() })}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
       onMouseDown={keepFocusOnBareParts}
@@ -281,8 +282,8 @@ export function EntryInlineEditor({ block, field, editing }: EntryInlineEditorPr
           className="atlas-sb-pane-input atlas-sb-pane-entry__name"
           data-entry-part="name"
           value={nameDraft.value}
-          placeholder={`${noun} name`}
-          aria-label={`${noun} name`}
+          placeholder={t('sbEditorPane.entry.nameOf', { noun })}
+          aria-label={t('sbEditorPane.entry.nameOf', { noun })}
           spellCheck
           onFocus={nameDraft.focus}
           onChange={(event) => nameDraft.change(event.target.value)}
@@ -304,8 +305,8 @@ export function EntryInlineEditor({ block, field, editing }: EntryInlineEditorPr
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"
-        aria-label={`${noun} description`}
-        data-placeholder="What it does"
+        aria-label={t('sbEditorPane.entry.descriptionOf', { noun })}
+        data-placeholder={t('sbEditorPane.entry.whatItDoes')}
         tabIndex={0}
         onInput={(event) => { textNow.current = textOf(event.currentTarget); }}
       />

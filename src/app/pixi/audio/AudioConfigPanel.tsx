@@ -227,7 +227,7 @@ function AudioConfigPanelInner({
 
         {/* Delete */}
         <button className="atlas-audio-config__delete-btn" onClick={handleDelete}>
-          Delete Sound Source
+          {t('audio.delete')}
         </button>
       </div>
     </div>

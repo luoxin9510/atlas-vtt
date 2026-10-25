@@ -6,6 +6,7 @@
 import { normalizePath, type App } from 'obsidian';
 import { ATLAS_VTT_DIR, INVALID_NAME_CHARACTERS } from '../../services/assetPaths';
 import { TEMPLATE_EXTENSION } from './templateFiles';
+import { t } from '../../i18n';
 
 /** New templates are written here; the library reads `.atlastemplate` files anywhere. */
 export const TEMPLATE_FOLDER = `${ATLAS_VTT_DIR}/statblock-templates`;
@@ -15,9 +16,9 @@ const FALLBACK_NAME = 'New template';
 /** Why `name` cannot name a template file, in plain words, or null when it can. */
 export function templateNameProblem(name: string): string | null {
   const trimmed = name.trim();
-  if (!trimmed) return 'Give the template a name.';
-  if (INVALID_NAME_CHARACTERS.test(trimmed)) return 'A name can\'t hold \\ / : * ? " < > | # ^ [ or ].';
-  if (trimmed.startsWith('.')) return 'A name can\'t start with a dot.';
+  if (!trimmed) return t('sbModel.templateName.empty');
+  if (INVALID_NAME_CHARACTERS.test(trimmed)) return t('sbModel.templateName.characters');
+  if (trimmed.startsWith('.')) return t('sbModel.templateName.dot');
   return null;
 }
 
@@ -29,7 +30,7 @@ export function templateFileName(name: string): string {
 
 /** The name a copy of a template starts with ("Marsh creature copy"); the file takes the next free name. */
 export function copyName(name: string): string {
-  return `${name} copy`;
+  return t('sbModel.templateName.copy', { name });
 }
 
 /** The folder part of a path; '' for the vault's root. */

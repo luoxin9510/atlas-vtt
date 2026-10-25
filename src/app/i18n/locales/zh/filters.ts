@@ -36,4 +36,8 @@ export const filters: Translation = {
   'filters.filterBy': '筛选',
   'filters.excludeField': '排除{field}',
   'filters.keyword.range': '{label}：一个值或范围，例如 {example1} 或 {example2}',
+  'filters.optionLabel': '{label}，{count}',
+  'filters.optionLabelExcluded': '{label}，{count}，已排除',
+  'filters.detailWithStatblock': '有属性块',
+  'filters.detailWithoutStatblock': '无属性块',
 };

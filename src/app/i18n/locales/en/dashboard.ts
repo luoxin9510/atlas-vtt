@@ -26,4 +26,5 @@ export const dashboard = {
   'dashboard.failed': 'Dashboard loading failed. Please check console for errors.',
   'dashboard.openFailed': 'Error opening scene',
   'dashboard.addMapFirst': 'Add a map image first, then create a scene from it.',
+  'dashboard.loadingStatblock': 'Loading statblock…',
 } as const satisfies Record<string, Message>;

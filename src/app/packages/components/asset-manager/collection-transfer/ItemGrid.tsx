@@ -17,8 +17,8 @@ interface ItemGridProps {
 const MAX_INDENT_LEVELS = 6;
 
 function originLabel({ kind, name, more }: NoteOrigin): string {
-  const others = more > 0 ? ` and ${more} more` : '';
-  return kind === 'scene' ? `Opened in ${name}${others}` : `Linked from ${name}${others}`;
+  if (kind === 'scene') return more > 0 ? t('transfer.openedInMore', { name, count: more }) : t('transfer.openedIn', { name });
+  return more > 0 ? t('transfer.linkedFromMore', { name, count: more }) : t('transfer.linkedFrom', { name });
 }
 
 function ItemRow({ item, selection }: { item: ContentItem; selection?: ContentSelection | undefined }): React.JSX.Element {

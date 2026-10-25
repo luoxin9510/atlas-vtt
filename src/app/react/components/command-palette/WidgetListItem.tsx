@@ -22,8 +22,8 @@ interface WidgetListItemProps {
 }
 
 function whereShown(everyScene: boolean, active: boolean): string {
-  if (everyScene) return active ? 'every scene' : 'every scene, off here';
-  return active ? 'this scene' : 'off here';
+  if (everyScene) return active ? t('widgets.shown.everyScene') : t('widgets.shown.everySceneOff');
+  return active ? t('widgets.shown.thisScene') : t('widgets.shown.off');
 }
 
 interface ToggleButtonProps {
@@ -55,13 +55,14 @@ export function WidgetListItem({
   widget, active, inCollection, onEdit, onUpdate, onToggleHere, onToggleEveryScene, onDelete,
 }: WidgetListItemProps): React.ReactElement {
   const everyScene = isCollectionWidget(widget);
+  const typeName = t(`widgets.type.${widget.type}`).toLowerCase();
   return (
     <div className={cn('atlas-command-palette-widget-item', !active && 'atlas-command-palette-widget-item--off')}>
       <WidgetIconGlyph icon={widget.icon} size={20} {...(widget.color !== undefined ? { color: widget.color } : {})} />
       <div className="atlas-command-palette-widget-info">
         <div className="atlas-command-palette-widget-name">{widget.label}</div>
         <div className="atlas-command-palette-widget-type">
-          {inCollection ? `${widget.type} · ${whereShown(everyScene, active)}` : `${widget.type}${active ? '' : ' · off'}`}
+          {inCollection ? t('widgets.listInfo', { type: typeName, where: whereShown(everyScene, active) }) : active ? typeName : t('widgets.listInfoOff', { type: typeName })}
         </div>
       </div>
       <div className="atlas-command-palette-widget-controls">

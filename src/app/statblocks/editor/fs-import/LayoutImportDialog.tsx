@@ -12,6 +12,7 @@ import { moveLabel, readyTitle } from './importReportText';
 import { partsOnlyFsShows } from './layoutImportActions';
 import { AdoptionSection, ImportSummary } from './LayoutImportParts';
 import { useLayoutAdoption } from './useLayoutAdoption';
+import { t } from '../../../i18n';
 import './layout-import-dialog.scss';
 
 export interface LayoutImportDialogProps {
@@ -77,19 +78,19 @@ export function LayoutImportDialog({ app, doc, layout, imported, statblocks, onO
         </div>
         <div className="atlas-te-dialog__footer">
           {running ? (
-            <Button type="button" variant="outline" size="sm" onClick={cancel}>Cancel</Button>
+            <Button type="button" variant="outline" size="sm" onClick={cancel}>{t('common.cancel')}</Button>
           ) : (
             <>
               {onOpenTemplate && (
-                <Button type="button" variant="outline" size="sm" onClick={() => { onOpenTemplate(); close(); }}>Open template</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => { onOpenTemplate(); close(); }}>{t('sbEditor.import.openTemplate')}</Button>
               )}
               {offersMove ? (
                 <>
-                  <Button type="button" variant="outline" size="sm" onClick={close}>Not now</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={close}>{t('sbEditor.import.notNow')}</Button>
                   <Button type="button" size="sm" onClick={adopt}>{moveLabel(total)}</Button>
                 </>
               ) : (
-                <Button type="button" size="sm" onClick={close}>Done</Button>
+                <Button type="button" size="sm" onClick={close}>{t('common.done')}</Button>
               )}
             </>
           )}

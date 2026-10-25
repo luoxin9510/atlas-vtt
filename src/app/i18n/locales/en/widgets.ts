@@ -30,4 +30,10 @@ export const widgets = {
   'widgets.type.clock': 'Clock',
   'widgets.type.counter': 'Counter',
   'widgets.type.timer': 'Timer',
+  'widgets.shown.everyScene': 'every scene',
+  'widgets.shown.everySceneOff': 'every scene, off here',
+  'widgets.shown.thisScene': 'this scene',
+  'widgets.shown.off': 'off here',
+  'widgets.listInfo': '{type} · {where}',
+  'widgets.listInfoOff': '{type} · off',
 } as const satisfies Record<string, Message>;

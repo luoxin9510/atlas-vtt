@@ -13,6 +13,7 @@ import { keyedEntryItems } from '../../values/entryKeys';
 import { entryName } from '../../values/entryValues';
 import { singular } from '../../values/entryNoun';
 import type { PaneEditController } from './paneEditContext';
+import { t } from '../../../i18n';
 
 /** The ability a handle names, with its list's field; null where the note no longer holds it. */
 function findEntry(template: StatblockTemplate, pane: PaneEditController, blockId: string, itemKey: string): { field: TemplateField; name: string } | null {
@@ -57,14 +58,14 @@ export function usePaneItemDrag({ pane, template, hint }: PaneItemDragInput): (t
       items,
       itemKey: target.itemKey,
       scroller: scrollerOf(frame),
-      onStart: () => current.announce(`Picked up ${found.name}, ${from() + 1} of ${keys().length} in ${list}.`),
+      onStart: () => current.announce(t('sbEditorPane.drag.pickedUp', { name: found.name, position: from() + 1, total: keys().length, list })),
       onGap: (gap, count) => {
-        if (gap !== null) current.announce(`${found.name}, ${droppedIndex(from(), gap) + 1} of ${count}.`);
+        if (gap !== null) current.announce(t('sbEditorPane.drag.over', { name: found.name, position: droppedIndex(from(), gap) + 1, total: count }));
       },
       onPull: () => {
         if (pullHintSaid) return;
         pullHintSaid = true;
-        const text = `${found.name} stays in its list.`;
+        const text = t('sbEditorPane.drag.staysInList', { name: found.name });
         latest.current.hint(text);
         current.announce(text);
       },
@@ -76,10 +77,10 @@ export function usePaneItemDrag({ pane, template, hint }: PaneItemDragInput): (t
         const toIndex = stored.indexOf(drawn[toAt] ?? '');
         if (fromIndex < 0 || toIndex < 0) return;
         latest.current.pane.moveEntry(found.field, fromIndex, toIndex);
-        latest.current.pane.announce(`Dropped ${found.name} at ${toAt + 1} of ${drawn.length}.`);
+        latest.current.pane.announce(t('sbEditorPane.drag.dropped', { name: found.name, position: toAt + 1, total: drawn.length }));
       },
       onCancel: (started) => {
-        if (started) latest.current.pane.announce('Not moved.');
+        if (started) latest.current.pane.announce(t('sbEditorPane.drag.notMoved'));
       },
     }, handle, event);
   }, [drag]);

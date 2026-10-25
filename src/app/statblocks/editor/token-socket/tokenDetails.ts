@@ -1,4 +1,5 @@
 import type { CardToken } from './useNoteTokens';
+import { t } from '../../../i18n';
 
 const base = (path: string): string => (path.split('/').pop() ?? path).replace(/\.[^.]+$/, '');
 
@@ -13,7 +14,7 @@ export function tokenDetails(tokens: readonly CardToken[]): ReadonlyMap<string, 
   const details = new Map<string, string>();
   for (const token of tokens) {
     if ((counts.get(token.name) ?? 0) < 2) continue;
-    const detail = token.statblockPath ? `on ${base(token.statblockPath)}` : token.imagePath ? base(token.imagePath) : '';
+    const detail = token.statblockPath ? t('sbEditorPane.token.onStatblock', { name: base(token.statblockPath) }) : token.imagePath ? base(token.imagePath) : '';
     if (detail) details.set(token.id, detail);
   }
   return details;

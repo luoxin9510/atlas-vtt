@@ -18,8 +18,8 @@ export class SceneFileError extends Error {
 
 /** Problems that leave a file the user may want to recover by hand, as the backup notice words them. */
 const DAMAGED_FILE_REASONS: Partial<Record<SceneFileError['problem'], string>> = {
-  invalidJson: 'invalid JSON',
-  structure: 'unexpected structure',
+  invalidJson: t('map.reasonInvalidJson'),
+  structure: t('map.reasonStructure'),
 };
 
 /**

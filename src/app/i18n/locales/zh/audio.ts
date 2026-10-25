@@ -7,4 +7,5 @@ export const audio: Translation = {
   'audio.volume': '音量',
   'audio.range': '范围',
   'audio.loop': '循环',
+  'audio.delete': '删除声源',
 };

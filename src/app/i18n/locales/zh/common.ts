@@ -29,4 +29,7 @@ export const common: Translation = {
   'common.confirm': '确认',
   'common.duplicate': '复制一份',
   'common.copy': '复制',
+  'common.valueEmpty': '值不能为空',
+  'common.listSeparator': '、',
+  'common.listAnd': '{names}和{last}',
 };

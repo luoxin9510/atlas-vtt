@@ -42,7 +42,7 @@ export function TagPicker({ available, selected, onToggle, onCreate, disabled = 
       setQuery('');
       inputRef.current?.focus();
     } catch {
-      setError('Could not create tag. Please try again.');
+      setError(t('am.tags.createFailed'));
     } finally {
       creatingRef.current = false;
       setIsCreating(false);

@@ -21,6 +21,7 @@ import { editingViewOf, loadedMarkdownViews } from './openEditors';
 import { OwnEchoes } from './ownEchoes';
 import type { NotePatch } from './patchTypes';
 import { WriteQueue } from './writeQueue';
+import { t } from '../../i18n';
 
 export interface WriteOutcome {
   applied: readonly NotePatch[];
@@ -176,7 +177,7 @@ export class NoteFieldWriter {
       const view = editingViewOf(this.app, path);
       if (view) return settle(this.writeEditor(view, path, requests), 'editor');
       const file = this.app.vault.getFileByPath(path);
-      if (!file) return fail('The note no longer exists.', 'none');
+      if (!file) return fail(t('sbModel.note.gone'), 'none');
       return this.writeVault(file, requests).then((results) => settle(results, 'vault'), (error: unknown) => fail(error, 'vault'));
     } catch (error) {
       return fail(error, 'none');
@@ -243,6 +244,6 @@ export class NoteFieldWriter {
 
 /** A request that wrote nothing: its patches as conflicts, with why. */
 function failed(request: WriteRequest | undefined, reason?: unknown): WriteResult {
-  const problem = typeof reason === 'string' ? reason : reason instanceof Error ? `Couldn't save the note: ${reason.message}` : null;
+  const problem = typeof reason === 'string' ? reason : reason instanceof Error ? t('sbModel.note.saveFailed', { message: reason.message }) : null;
   return { applied: [], conflicts: request && 'patches' in request ? request.patches : [], problem };
 }

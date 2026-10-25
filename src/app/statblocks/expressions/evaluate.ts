@@ -10,6 +10,7 @@ import { numericValue } from '../values/numberText';
 import { quoted } from '../values/valueText';
 import { nameOf, refError, type ExpressionError, type LabelResolver } from './errors';
 import { SLOT_WORD, type FormulaFunction, type FormulaNode } from './formulaTypes';
+import { t } from '../../i18n';
 
 export interface FormulaContext {
   /** The score of the current Scores slot, which the word `value` reads. */
@@ -39,14 +40,14 @@ function notANumber(message: string): ExpressionError {
 }
 
 function asNumber(raw: FieldValue | undefined, ref: string, name: string): Step {
-  if (isEmptyValue(raw)) return refError('unbound', ref, `${name} is empty.`);
+  if (isEmptyValue(raw)) return refError('unbound', ref, t('sbModel.formula.isEmpty', { name }));
   const number = numericValue(raw);
-  return number === null ? refError('not-a-number', ref, `${name} isn't a number.`) : number;
+  return number === null ? refError('not-a-number', ref, t('sbModel.formula.isNotNumber', { name })) : number;
 }
 
 function slotValue(context: FormulaContext): Step {
   if (context.slotLabel === undefined && isEmptyValue(context.value)) {
-    return refError('unbound', SLOT_WORD, `${quoted(SLOT_WORD)} is the score of a Scores column, and there is none here.`);
+    return refError('unbound', SLOT_WORD, t('sbModel.formula.noSlot', { word: quoted(SLOT_WORD) }));
   }
   return asNumber(context.value, SLOT_WORD, context.slotLabel ?? quoted(SLOT_WORD));
 }
@@ -56,7 +57,7 @@ function arithmetic(op: '+' | '-' | '*' | '/', left: number, right: number): Ste
     case '+': return left + right;
     case '-': return left - right;
     case '*': return left * right;
-    case '/': return right === 0 ? notANumber("Can't divide by zero.") : left / right;
+    case '/': return right === 0 ? notANumber(t('sbModel.formula.divideByZero')) : left / right;
   }
 }
 
@@ -97,6 +98,6 @@ function evaluateNode(node: FormulaNode, reader: ValueReader, context: FormulaCo
 export function evaluateFormula(node: FormulaNode, reader: ValueReader, context: FormulaContext = {}): FormulaResult {
   const result = evaluateNode(node, reader, context);
   if (failed(result)) return { ok: false, error: result };
-  if (!Number.isFinite(result)) return { ok: false, error: notANumber('The result is too large to show.') };
+  if (!Number.isFinite(result)) return { ok: false, error: notANumber(t('sbModel.formula.tooLargeResult')) };
   return { ok: true, value: result === 0 ? 0 : result };
 }

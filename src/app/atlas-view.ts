@@ -558,7 +558,7 @@ export class AtlasView extends FileView {
    */
   public async onLoadFile(file: TFile, camera?: ViewCamera): Promise<void> {
     if (!isScenePath(file.path)) {
-      showNotice(`"${file.name}" is not an Atlas scene. To play on a map image, create a scene from it in the asset manager.`, 5000);
+      showNotice(t('notice.notAnAtlasScene', { name: file.name }), 5000);
       // onOpen shows the loading overlay before it gets here; nothing else will hide it
       if (!this.currentMapFilePath) this.store.getState().setMapLoading(false);
       return;

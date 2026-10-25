@@ -23,6 +23,7 @@ import { MetricTrackedSettings } from './TrackedSetting';
 import { placeOptions, type OptionsPlacement, type OptionsRoom } from './optionsPlacement';
 import { TableOptions } from './TableOptions';
 import { ValueOptions } from './ValueOptions';
+import { t } from '../../../../i18n';
 import '../inspector/inspector.scss';
 import './options.scss';
 
@@ -174,7 +175,7 @@ export function TileOptions({ layer, stage, blockId, revision, focusKey, onClose
       data-closing={present ? undefined : ''}
       style={style}
       role="dialog"
-      aria-label={`${blockName(block, template.fields)} options`}
+      aria-label={t('sbTemplateTable.opt.tileOptions', { name: blockName(block, template.fields) })}
     >
       <motion.div ref={panelRef} className="atlas-te-options__panel" variants={variants} initial="hidden" animate="visible" exit="exit">
         {locked && <p className="atlas-te-insp__locked">{locked}</p>}

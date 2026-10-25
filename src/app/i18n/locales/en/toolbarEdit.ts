@@ -52,4 +52,6 @@ export const toolbarEdit = {
   'toolbarEdit.say.cancelledTray': 'Move cancelled. {label} is back in hidden tools.',
   'toolbarEdit.say.cancelledOwn': 'Move cancelled. {label} is back in its place.',
   'toolbarEdit.say.cancelledPosition': 'Move cancelled. {label} is back at position {position}.',
+  'toolbarEdit.loot.label': 'Random tables',
+  'toolbarEdit.loot.description': 'Roll on the random tables in your notes and loot bases.',
 } as const satisfies Record<string, Message>;

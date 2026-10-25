@@ -16,4 +16,6 @@ export const map: Translation = {
   'map.noGridFound': '这张地图上没有找到网格，因此不显示网格。',
   'map.openFailed': 'Atlas VTT 无法打开场景 {name}（{reason}）。',
   'map.imageUnshown': 'Atlas VTT 无法显示地图图片 {file}。{reason}',
+  'map.reasonInvalidJson': 'JSON 无效',
+  'map.reasonStructure': '结构异常',
 };

@@ -113,4 +113,6 @@ export const diceLab: Translation = {
   'diceLab.default': '默认',
   'diceLab.collectionDice': '合集的骰子',
   'diceLab.ofCollection': '{name} 合集',
+  'diceLab.defaultDiceExplanation': '默认骰子就是骰组中的骰子，即 {dice}。当属性块只给出加值而没有骰子时，Atlas 会掷出它们：+3 表示掷 {roll}+3，−3 表示掷 {roll}−3。',
+  'diceLab.fanLabel': '{caption}，{name}',
 };

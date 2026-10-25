@@ -30,4 +30,10 @@ export const widgets: Translation = {
   'widgets.type.clock': '时钟',
   'widgets.type.counter': '计数器',
   'widgets.type.timer': '计时器',
+  'widgets.shown.everyScene': '每个场景',
+  'widgets.shown.everySceneOff': '每个场景，此处已关闭',
+  'widgets.shown.thisScene': '此场景',
+  'widgets.shown.off': '此处已关闭',
+  'widgets.listInfo': '{type} · {where}',
+  'widgets.listInfoOff': '{type} · 已关闭',
 };

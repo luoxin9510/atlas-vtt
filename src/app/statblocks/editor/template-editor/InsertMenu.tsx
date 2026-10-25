@@ -10,6 +10,7 @@ import type { Box } from './gapGeometry';
 import { bestMatch, findItems, insertItems, itemKey, type InsertItem } from './insertItems';
 import { ItemPreview } from './ItemPreview';
 import type { ChromeStyle } from './LabelEditor';
+import { t } from '../../../i18n';
 
 export interface InsertMenuProps {
   /** The layer the menu is drawn in, and where it hangs from in that layer's coordinates. */
@@ -123,7 +124,7 @@ export function InsertMenu({ layer, anchor, app, onInsert, onClose }: InsertMenu
       data-above={above || undefined}
       style={style}
       role="dialog"
-      aria-label="Add"
+      aria-label={t('sbTemplate.insert.add')}
     >
       <motion.div className="atlas-te-insert__panel" variants={variants} initial="hidden" animate="visible" exit="exit">
         <div className="atlas-te-insert__menu">
@@ -131,8 +132,8 @@ export function InsertMenu({ layer, anchor, app, onInsert, onClose }: InsertMenu
             ref={inputRef}
             type="text"
             className="atlas-te-insert__search"
-            placeholder="Add"
-            aria-label="Find a kind"
+            placeholder={t('sbTemplate.insert.add')}
+            aria-label={t('sbTemplate.insert.find')}
             role="combobox"
             aria-expanded="true"
             aria-controls={listId}

@@ -10,6 +10,7 @@ import { StandIn } from '../values/ValueText';
 import { ValueSlot } from '../valueSlot';
 import type { BlockViewProps } from './blockViewProps';
 import { SpellTabs } from './SpellTabs';
+import { t } from '../../../i18n';
 
 function SpellList({ lines }: { lines: readonly SpellLine[] }): React.JSX.Element | null {
   const { app, sourcePath } = useSheet();
@@ -32,9 +33,9 @@ function SpellList({ lines }: { lines: readonly SpellLine[] }): React.JSX.Elemen
  */
 export function SpellsView({ block, display }: BlockViewProps<SpellsBlock>): React.JSX.Element {
   const { state, app, sourcePath } = useSheet();
-  const name = valueText(state.reader('name')) || 'The creature';
+  const name = valueText(state.reader('name'));
   const groups = display.state === 'value'
-    ? spellGroups(spellEntries(state.reader(block.field)), `${name} knows the following spells:`, (value) => valueText(toFieldValue(value)))
+    ? spellGroups(spellEntries(state.reader(block.field)), name ? t('sbModel.spells.knows', { name }) : t('sbModel.spells.creatureKnows'), (value) => valueText(toFieldValue(value)))
     : [];
   const tabbed = block.look === 'tabs';
 

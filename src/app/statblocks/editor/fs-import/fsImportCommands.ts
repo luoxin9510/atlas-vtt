@@ -9,8 +9,7 @@ import { TFile, type App, type Menu, type Plugin, type TAbstractFile } from 'obs
 import { experimentalFeatureOn } from '../../../experimental/experimentalFeatures';
 import { runInBackground } from '../../../utils/backgroundTask';
 import { importLayoutFile } from './layoutImportFlow';
-
-const FAILED = "Couldn't import the layout.";
+import { t } from '../../../i18n';
 
 /** Asks for a layout file in the window of `doc` and imports it. */
 export function pickLayoutFile(app: App, doc: Document): void {
@@ -22,7 +21,7 @@ export function pickLayoutFile(app: App, doc: Document): void {
   input.addEventListener('change', () => {
     const file = input.files?.[0];
     input.remove();
-    if (file) runInBackground(file.text().then((text) => importLayoutFile(app, text, doc)), `Importing the layout ${file.name}`, FAILED);
+    if (file) runInBackground(file.text().then((text) => importLayoutFile(app, text, doc)), `Importing the layout ${file.name}`, t('sbEditor.import.failed'));
   });
   input.addEventListener('cancel', () => input.remove());
   input.click();
@@ -32,13 +31,13 @@ export function pickLayoutFile(app: App, doc: Document): void {
 export function addLayoutFileMenuItem(app: App, menu: Menu, file: TAbstractFile): void {
   if (!(file instanceof TFile) || file.extension !== 'json' || !experimentalFeatureOn(app, 'statblockEditor')) return;
   menu.addItem((item) => item
-    .setTitle('Import as statblock template')
+    .setTitle(t('sbEditor.import.menuItem'))
     .setIcon('layout-template')
     .onClick(() => {
       runInBackground(
         app.vault.cachedRead(file).then((text) => importLayoutFile(app, text, activeDocument)),
         `Importing the layout ${file.path}`,
-        FAILED,
+        t('sbEditor.import.failed'),
       );
     }));
 }
@@ -47,7 +46,7 @@ export function registerLayoutImportCommand(plugin: Plugin): void {
   const { app } = plugin;
   plugin.addCommand({
     id: 'import-fantasy-statblocks-layout',
-    name: 'Import Fantasy Statblocks layout…',
+    name: t('sbEditor.import.command'),
     checkCallback: (checking) => {
       if (!experimentalFeatureOn(app, 'statblockEditor')) return false;
       if (!checking) pickLayoutFile(app, activeDocument);

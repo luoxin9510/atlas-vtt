@@ -26,4 +26,5 @@ export const dashboard: Translation = {
   'dashboard.failed': '仪表盘加载失败。请查看控制台中的错误。',
   'dashboard.openFailed': '打开场景时出错',
   'dashboard.addMapFirst': '请先添加地图图片，再从它创建场景。',
+  'dashboard.loadingStatblock': '正在加载属性块…',
 };

@@ -49,8 +49,8 @@ const GROUPS: ReadonlyArray<{ category: ContentCategory; label: string; alwaysSh
   { category: 'statblocks', label: t('bundle.group.statblocks'), alwaysShown: true },
   { category: 'templates', label: t('bundle.group.templates') },
   { category: 'notes', label: t('bundle.group.notes'), alwaysShown: true },
-  { category: 'attachments', label: 'Images and PDFs' },
-  { category: 'loot', label: 'Loot tables' },
+  { category: 'attachments', label: t('bundle.group.attachments') },
+  { category: 'loot', label: t('bundle.group.loot') },
 ];
 
 const byName = (a: ContentItem, b: ContentItem): number => a.name.localeCompare(b.name, undefined, { numeric: true });

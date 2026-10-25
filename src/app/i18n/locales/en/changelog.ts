@@ -7,4 +7,5 @@ export const changelog = {
   'changelog.new': 'New',
   'changelog.community': 'Join the Atlas community on Discord',
   'changelog.formatFailed': 'Formatting could not be loaded. The release notes are shown below.',
+  'changelog.whatsNew': 'What’s new in Atlas',
 } as const satisfies Record<string, Message>;

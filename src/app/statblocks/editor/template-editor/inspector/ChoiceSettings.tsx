@@ -4,6 +4,7 @@ import type { TemplateField } from '../../../model/templateTypes';
 import type { EditorSession } from '../sessionTypes';
 import { listFromText, sameList, textFromList } from './blockEdits';
 import { SettingNote, SwitchSetting, TextSetting } from './InspectorControls';
+import { t } from '../../../../i18n';
 
 /** Where the inspector focuses the choices when a block asks for them (the toolbar's Kind of value). */
 export const CHOICES_FOCUS_KEY = 'choices';
@@ -17,7 +18,7 @@ export interface ChoiceSettingsProps {
 
 /** How a statblock's value reads, said once for the settings as they stand. */
 function choiceExample(field: TemplateField): string {
-  const [first = 'one', second = 'another'] = field.options ?? [];
+  const [first = t('sbTemplateTable.opt.exampleOne'), second = t('sbTemplateTable.opt.exampleAnother')] = field.options ?? [];
   const unit = field.unit?.trim() ? ` ${field.unit.trim()}` : '';
   const pick = (option: string, number: number): string => (field.numbered ? `${option} ${number}${unit}` : option);
   return field.several ? `${pick(first, 60)}, ${pick(second, 30)}` : pick(first, 60);
@@ -32,9 +33,9 @@ export function ChoiceSettings({ field, session, readOnly, edit }: ChoiceSetting
   return (
     <>
       <TextSetting
-        label="Choices"
+        label={t('sbTemplateTable.opt.choices')}
         value={textFromList(field.options)}
-        placeholder="Small, Medium, Large"
+        placeholder={t('sbTemplateTable.opt.choicesPlaceholder')}
         session={session}
         disabled={readOnly}
         focusKey={CHOICES_FOCUS_KEY}
@@ -43,14 +44,14 @@ export function ChoiceSettings({ field, session, readOnly, edit }: ChoiceSetting
           if (!sameList(options, field.options)) edit({ options: options.length > 0 ? options : undefined });
         }}
       />
-      <SwitchSetting label="Pick several" value={field.several === true} onChange={(several) => edit({ several: several || undefined })} disabled={readOnly} />
-      <SwitchSetting label="Each with a number" value={field.numbered === true} onChange={(numbered) => edit({ numbered: numbered || undefined })} disabled={readOnly} />
+      <SwitchSetting label={t('sbTemplate.menu.pickSeveral')} value={field.several === true} onChange={(several) => edit({ several: several || undefined })} disabled={readOnly} />
+      <SwitchSetting label={t('sbTemplate.menu.eachWithNumber')} value={field.numbered === true} onChange={(numbered) => edit({ numbered: numbered || undefined })} disabled={readOnly} />
       {field.numbered && (
-        <TextSetting label="Unit" value={field.unit ?? ''} placeholder="ft." session={session} disabled={readOnly}
+        <TextSetting label={t('sbTemplateTable.opt.unit')} value={field.unit ?? ''} placeholder={t('sbTemplateTable.opt.unitPlaceholder')} session={session} disabled={readOnly}
           onText={(text) => edit({ unit: text.trim() ? text : undefined })} />
       )}
-      <SwitchSetting label="Allow other values" value={field.open === true} onChange={(open) => edit({ open: open || undefined })} disabled={readOnly} />
-      {(field.options?.length ?? 0) > 0 && <SettingNote>A statblock reads “{choiceExample(field)}”.</SettingNote>}
+      <SwitchSetting label={t('sbTemplateTable.opt.allowOther')} value={field.open === true} onChange={(open) => edit({ open: open || undefined })} disabled={readOnly} />
+      {(field.options?.length ?? 0) > 0 && <SettingNote>{t('sbTemplateTable.opt.choiceExample', { example: choiceExample(field) })}</SettingNote>}
     </>
   );
 }

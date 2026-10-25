@@ -129,7 +129,7 @@ const TagManager: React.FC<TagManagerProps> = ({
   const handleSaveEdit = (): void => {
     const name = editValue.trim();
     if (!name) {
-      setError('Name cannot be empty');
+      setError(t('am.manage.nameEmpty'));
       return;
     }
     if (editingId && nameTaken(name, editingId)) {

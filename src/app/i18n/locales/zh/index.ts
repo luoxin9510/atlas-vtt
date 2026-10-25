@@ -92,6 +92,15 @@ import { senses } from './senses';
 import { tables } from './tables';
 import { toolbarEdit } from './toolbarEdit';
 import { vaultImages } from './vaultImages';
+import { experimental } from './experimental';
+import { panelBoundary } from './panelBoundary';
+import { sbEditor } from './sbEditor';
+import { sbEditorPane } from './sbEditorPane';
+import { sbModel } from './sbModel';
+import { sbTemplate } from './sbTemplate';
+import { sbTemplateTable } from './sbTemplateTable';
+import { sbValues } from './sbValues';
+import { uvttImport } from './uvttImport';
 
 /** Simplified Chinese. Missing keys fall back to English. */
 export const zh: Translation = {
@@ -190,4 +199,13 @@ export const zh: Translation = {
   ...tables,
   ...toolbarEdit,
   ...vaultImages,
+  ...experimental,
+  ...panelBoundary,
+  ...sbEditor,
+  ...sbEditorPane,
+  ...sbModel,
+  ...sbTemplate,
+  ...sbTemplateTable,
+  ...sbValues,
+  ...uvttImport,
 };

@@ -62,7 +62,7 @@ export function StatblockList({ app, rows, selected, queued, disabled, scrollEle
             className="atlas-statblock-import__row"
             style={{ transform: `translateY(${start - virtualizer.options.scrollMargin}px)` }}
           >
-            <input type="checkbox" aria-label={`Select ${row.name}`} checked={selected.has(row.path)} disabled={disabled || row.status !== 'ready' || isQueued} onChange={() => onToggle(row.path)} />
+            <input type="checkbox" aria-label={t('sbImport.select', { name: row.name })} checked={selected.has(row.path)} disabled={disabled || row.status !== 'ready' || isQueued} onChange={() => onToggle(row.path)} />
             <span className="atlas-statblock-import__portrait">{url ? <TokenPortrait src={url} alt="" showRing={false} reveal /> : <ImageOff size={20} />}</span>
             <span className="atlas-statblock-import__identity"><strong>{row.name}</strong><span>{row.path}</span></span>
             {row.status === 'ready' ? status : <LabelTooltip label={row.detail} describe>{status}</LabelTooltip>}

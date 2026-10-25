@@ -5,6 +5,7 @@ import { loadAtlasView } from '../../../../plugin/atlasLeaves';
 import { FALLBACK_PITCH, cellPitch, formationGridFromOptions, type FormationGrid } from '../../../../encounters/encounterFormation';
 import { showNotice } from '../../../../ui/notice';
 import type { PlacementRequest } from '../../../../pixi/tokenPlacement/TokenPlacer';
+import { t } from '../../../../i18n';
 
 // ─── Viewport helpers ───────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ export interface SpawnTarget {
 export async function getSpawnTarget(ctx: SpawnContext): Promise<SpawnTarget | null> {
   const view = ctx.view ?? await loadAtlasView(ctx.app);
   if (!view) {
-    showNotice('No scene is open. Open a scene to add tokens to it.');
+    showNotice(t('notice.noSceneOpen'));
     return null;
   }
   if (view !== ctx.view) void ctx.app.workspace.revealLeaf(view.leaf);
@@ -73,7 +74,7 @@ export function spawnTargetOf(view: AtlasView): SpawnTarget | null {
   const viewport = rendererService.getViewport() as ViewportLike | null;
   const { mapPath, isMapLoading, grid: gridState } = view.getStore().getState();
   if (!viewport || !mapPath || isMapLoading) {
-    showNotice('The scene is still loading. Add the tokens once it is open.');
+    showNotice(t('notice.sceneStillLoading'));
     return null;
   }
   const gridSystem = rendererService.getGridSystem() as GridSystemLike | null;

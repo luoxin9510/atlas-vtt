@@ -7,6 +7,7 @@ import { SettingsService } from '../../services/SettingsService';
 import { LinkedStatblock } from './LinkedStatblock';
 import { useNativeTemplateId } from './useLinkedStatblock';
 import './statblock-fence.scss';
+import { t } from '../../i18n';
 
 export interface FenceStatblockProps {
   app: App;
@@ -31,7 +32,7 @@ export function FenceStatblock({ app, path, onEdit }: FenceStatblockProps): Reac
         <div className="atlas-vtt-plugin atlas-statblock-fence__bar">
           <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(path)}>
             <Pencil aria-hidden />
-            Edit statblock
+            {t('sbModel.fence.edit')}
           </Button>
         </div>
       )}

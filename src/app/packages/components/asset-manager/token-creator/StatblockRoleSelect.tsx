@@ -1,6 +1,7 @@
 import React, { useId } from 'react';
 import { Select, type SelectOption } from '../../primitives/Select';
 import type { StatblockRow } from './useStatblockRow';
+import { t } from '../../../../i18n';
 
 /** The Select's value for tokens without a statblock. */
 const NONE = '';
@@ -12,7 +13,7 @@ const NONE = '';
 export function StatblockRoleSelect({ row }: { row: StatblockRow }): React.JSX.Element {
   const labelId = useId();
   const options: SelectOption<string>[] = [
-    { value: NONE, label: 'None' },
+    { value: NONE, label: t('common.none') },
     ...row.choices.map((choice) => ({
       value: choice.roleId,
       label: choice.name,
@@ -21,10 +22,10 @@ export function StatblockRoleSelect({ row }: { row: StatblockRow }): React.JSX.E
   ];
   return (
     <section className="atlas-token-creator__section">
-      <div id={labelId} className="atlas-token-creator__section-title">Statblocks</div>
+      <div id={labelId} className="atlas-token-creator__section-title">{t('am.statblockRole.title')}</div>
       <Select value={row.roleId ?? NONE} options={options} onChange={(value) => row.setRoleId(value === NONE ? null : value)} labelledBy={labelId} />
       <p className="atlas-token-creator__empty-note">
-        {row.roleId === null ? 'New tokens get no statblock.' : 'Each new token gets a statblock of this role, linked to it.'}
+        {row.roleId === null ? t('am.statblockRole.none') : t('am.statblockRole.some')}
       </p>
     </section>
   );

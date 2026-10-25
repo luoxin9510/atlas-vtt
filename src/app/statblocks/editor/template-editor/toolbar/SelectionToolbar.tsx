@@ -13,6 +13,7 @@ import { blockGlyph, fieldTypeGlyph } from '../editorGlyphs';
 import type { ChromeStyle } from '../LabelEditor';
 import { shortcutText } from '../shortcutText';
 import { HIDDEN_TOOLBAR, placeBelow, type ToolbarPlacement } from './toolbarBelow';
+import { t } from '../../../../i18n';
 import './selection-toolbar.scss';
 
 export interface SelectionToolbarProps {
@@ -115,7 +116,7 @@ export function SelectionToolbar(props: SelectionToolbarProps): React.JSX.Elemen
     '--atlas-te-toolbar-y': `${placement.top}px`,
   };
   const Glyph = blockGlyph(block.type);
-  const chipLabel = props.count > 1 ? `${props.count} blocks` : props.chipLabel;
+  const chipLabel = props.count > 1 ? t('sbTemplate.blocksCount', { count: props.count }) : props.chipLabel;
   const single = props.count === 1;
 
   return createPortal(
@@ -123,7 +124,7 @@ export function SelectionToolbar(props: SelectionToolbarProps): React.JSX.Elemen
       ref={ref}
       className={cn('atlas-te-toolbar', keepInView.capped && 'atlas-keep-in-view--capped')}
       role="toolbar"
-      aria-label={`${chipLabel} toolbar`}
+      aria-label={t('sbTemplate.toolbar.label', { chip: chipLabel })}
       style={style}
       {...{ [CHROME_ATTRIBUTE]: '' }}
       data-hidden={placement.hidden || props.menuOpen || undefined}
@@ -140,11 +141,11 @@ export function SelectionToolbar(props: SelectionToolbarProps): React.JSX.Elemen
         <span className="atlas-te-toolbar__type-name">{chipLabel}</span>
       </span>
       {single && props.valueKind && (
-        <AnchoredButton icon={fieldTypeGlyph(props.valueKind.type)} label={`Kind of value: ${props.valueKind.label}`} attribute="data-value-kind"
+        <AnchoredButton icon={fieldTypeGlyph(props.valueKind.type)} label={t('sbTemplate.toolbar.valueKind', { kind: props.valueKind.label })} attribute="data-value-kind"
           onPress={props.valueKind.onOpen} />
       )}
       {single && props.onOptions && (
-        <AnchoredButton icon={Settings2} label="Options" shortcut={shortcutText(['Shift'], '⏎')} attribute="data-options" onPress={props.onOptions} />
+        <AnchoredButton icon={Settings2} label={t('sbTemplate.toolbar.options')} shortcut={shortcutText(['Shift'], '⏎')} attribute="data-options" onPress={props.onOptions} />
       )}
       {single && props.addPart && (
         <ToolButton icon={BetweenVerticalEnd} label={props.addPart.label} isActive={false} disabled={!editable || !props.addPart.canAdd}
@@ -153,17 +154,17 @@ export function SelectionToolbar(props: SelectionToolbarProps): React.JSX.Elemen
       )}
       {props.headerPart ? (
         <>
-          <ToolButton icon={Pencil} label="Rename" shortcut="⏎" isActive={false} disabled={!editable} onClick={props.headerPart.onRename} />
-          {props.headerPart.hideable && <ToolButton icon={EyeOff} label="Hide from card" isActive={false} disabled={!editable} onClick={props.onToggleHidden} />}
+          <ToolButton icon={Pencil} label={t('sbTemplate.menu.rename')} shortcut="⏎" isActive={false} disabled={!editable} onClick={props.headerPart.onRename} />
+          {props.headerPart.hideable && <ToolButton icon={EyeOff} label={t('sbTemplate.menu.hideFromCard')} isActive={false} disabled={!editable} onClick={props.onToggleHidden} />}
         </>
       ) : (
         <>
-          <ToolButton icon={Plus} label="Add below" shortcut="/" isActive={false} disabled={!editable} onClick={props.onAddBelow} />
-          <ToolButton icon={Trash2} label="Delete" shortcut="Del" isActive={false} disabled={!editable} onClick={props.onDelete} />
+          <ToolButton icon={Plus} label={t('sbTemplate.toolbar.addBelow')} shortcut="/" isActive={false} disabled={!editable} onClick={props.onAddBelow} />
+          <ToolButton icon={Trash2} label={t('sbTemplate.menu.delete')} shortcut="Del" isActive={false} disabled={!editable} onClick={props.onDelete} />
         </>
       )}
       <span ref={more} className="atlas-te-toolbar__more">
-        <ToolButton icon={Ellipsis} label="More" shortcut={shortcutText(['Shift'], 'F10')} isActive={false} onClick={() => { if (more.current) props.onMore(more.current); }} />
+        <ToolButton icon={Ellipsis} label={t('sbTemplate.toolbar.more')} shortcut={shortcutText(['Shift'], 'F10')} isActive={false} onClick={() => { if (more.current) props.onMore(more.current); }} />
       </span>
     </div>,
     layer,

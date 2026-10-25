@@ -6,6 +6,7 @@ import { useScrollbarGutter } from '../../primitives/useScrollbarGutter';
 import { ENCOUNTER_PREVIEW_COUNT, encounterPreviewStyle } from '../utils/encounterPreviewLayout';
 import { useGridMetrics } from './useGridMetrics';
 import { assetTypeOfTab } from '../utils/tabKinds';
+import { t } from '../../../../i18n';
 
 export interface ContentSkeletonProps {
   tab: Tab;
@@ -65,7 +66,7 @@ export function ContentSkeleton({ tab, folderCount, assetCount }: ContentSkeleto
   return (
     <SkeletonGroup
       ref={setPane}
-      label={`Loading ${tabName.toLowerCase()}`}
+      label={t('am.loadingTab', { tab: tabName.toLowerCase() })}
       className="atlas-asset-manager-content atlas-content-skeleton"
     >
       <div className="atlas-content-sections">

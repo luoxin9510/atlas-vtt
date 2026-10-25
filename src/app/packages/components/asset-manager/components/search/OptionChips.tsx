@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import type { FacetOption } from '../../../../../creatures/creatureFilterEngine';
 import type { OptionState } from '../../../../../types/creatureFilterTypes';
 import { Button } from '../../../primitives/button';
+import { t } from '../../../../../i18n';
 
 interface OptionChipsProps {
   options: readonly FacetOption[];
@@ -41,7 +42,7 @@ export function OptionChips({ options, label, onChange }: OptionChipsProps): Rea
           variant="ghost"
           className={`atlas-filter-chip${option.state === 'include' ? ' atlas-active' : ''}${option.state === 'exclude' ? ' atlas-excluded' : ''}${option.count === 0 ? ' atlas-empty' : ''}`}
           aria-pressed={option.state === 'include'}
-          aria-label={`${option.label}, ${option.count}${option.state === 'exclude' ? ', excluded' : ''}`}
+          aria-label={t(option.state === 'exclude' ? 'filters.optionLabelExcluded' : 'filters.optionLabel', { label: option.label, count: option.count })}
           onClick={(event) => click(option, event)}
           onDoubleClick={() => doubleClick(option)}
         >

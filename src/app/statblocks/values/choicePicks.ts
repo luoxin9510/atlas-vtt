@@ -7,6 +7,7 @@
  * the line that is no pick is kept as it is written. Pure.
  */
 
+import { t } from '../../i18n';
 import type { FieldValue, TemplateField } from '../model/templateTypes';
 import { splitListText } from './listText';
 import { formatNumber, parseNumberText } from './numberText';
@@ -135,9 +136,9 @@ export function optionsLeft(field: ChoiceShape, picks: readonly ChoicePick[]): s
 export function unreadProblem(field: ChoiceShape, unread: readonly string[]): string | null {
   const first = unread[0];
   if (first === undefined) return null;
-  const options = (field.options ?? []).join(', ');
-  const number = field.numbered ? `, with a number${field.unit?.trim() ? ` in ${field.unit.trim()}` : ''}` : '';
-  const sentence = `${quoted(first)} isn't one of ${options}${number}`;
+  const values = { value: quoted(first), options: (field.options ?? []).join(', ') };
+  if (!field.numbered) return t('sbValues.pick.unread', values);
   // A unit written with its own full stop ("ft.") ends the sentence.
-  return sentence.endsWith('.') ? sentence : `${sentence}.`;
+  const unit = field.unit?.trim().replace(/\.$/, '');
+  return unit ? t('sbValues.pick.unreadUnit', { ...values, unit }) : t('sbValues.pick.unreadNumber', values);
 }

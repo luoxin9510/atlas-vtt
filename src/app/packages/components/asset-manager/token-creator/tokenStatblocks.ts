@@ -10,6 +10,7 @@ import { showNotice } from '../../../../ui/notice';
 import { chosenRole, roleTemplateId } from '../../../../statblocks/editor/create/collectionRoles';
 import { createStatblockNote } from '../../../../statblocks/notes/createStatblockNote';
 import { roleFolder } from '../../../../statblocks/roles/collectionStatblockRoles';
+import { t } from '../../../../i18n';
 
 /** A token the creator has just registered. */
 export interface SavedToken {
@@ -34,14 +35,15 @@ export function nameList(names: readonly string[]): string {
   if (names.length <= 1) return names.join('');
   const listed = names.slice(0, LISTED_NAMES);
   const rest = names.length - listed.length;
-  if (rest > 0) return `${listed.join(', ')} and ${rest} more`;
-  return `${listed.slice(0, -1).join(', ')} and ${listed[listed.length - 1] ?? ''}`;
+  const separator = t('common.listSeparator');
+  if (rest > 0) return t('transfer.namesAndMore', { names: listed.join(separator), count: rest });
+  return t('common.listAnd', { names: listed.slice(0, -1).join(separator), last: listed[listed.length - 1] ?? '' });
 }
 
 /** What the notice says. */
 export function tokenStatblocksMessage({ created, failed }: TokenStatblocksResult): string {
-  const made = created.length === 0 ? '' : `Created ${created.length === 1 ? 'a statblock' : 'statblocks'} for ${nameList(created)}.`;
-  const missed = failed.length === 0 ? '' : `Couldn't create ${failed.length === 1 ? 'a statblock' : 'statblocks'} for ${nameList(failed)}.`;
+  const made = created.length === 0 ? '' : t('creator.statblocksMade', { count: created.length, names: nameList(created) });
+  const missed = failed.length === 0 ? '' : t('creator.statblocksFailed', { count: failed.length, names: nameList(failed) });
   return [made, missed].filter(Boolean).join(' ');
 }
 

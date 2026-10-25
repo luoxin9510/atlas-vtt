@@ -177,8 +177,7 @@ export function FantasyStatblock({
 
     return (
       <div className="atlas-statblock-missing-hint">
-        No Fantasy Statblocks creature found for this note. Note-based creatures require
-        &quot;Parse Frontmatter for Creatures&quot; to be enabled in Fantasy Statblocks settings.
+        {t('statblock.noCreatureForNote')}
       </div>
     );
   }

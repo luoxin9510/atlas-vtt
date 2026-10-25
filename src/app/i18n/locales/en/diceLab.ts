@@ -124,4 +124,6 @@ export const diceLab = {
   'diceLab.default': 'Default',
   'diceLab.collectionDice': "Collection's dice",
   'diceLab.ofCollection': '{name} collection',
+  'diceLab.defaultDiceExplanation': 'The default dice are the set\'s dice, {dice}. Atlas rolls them when a statblock gives only a bonus without dice: +3 rolls {roll}+3, −3 rolls {roll}−3.',
+  'diceLab.fanLabel': '{caption}, {name}',
 } as const satisfies Record<string, Message>;

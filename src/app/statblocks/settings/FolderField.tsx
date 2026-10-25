@@ -2,6 +2,7 @@ import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Folder } from 'lucide-react';
 import { normalizePath, type App, type TFolder } from 'obsidian';
 import { cn } from '../../../utils/cn';
+import { t } from '../../i18n';
 
 /** At most this many folders are suggested; typing narrows the list. */
 const MAX_SUGGESTIONS = 50;
@@ -115,7 +116,7 @@ export function FolderField({ app, value, onChange, label }: FolderFieldProps): 
         aria-expanded={showing}
         aria-controls={showing ? listId : undefined}
         aria-activedescendant={showing ? optionId(active) : undefined}
-        placeholder="Default location for new notes"
+        placeholder={t('sbModel.folder.placeholder')}
         spellCheck={false}
         value={value}
         onChange={(event) => type(event.target.value)}
@@ -125,7 +126,7 @@ export function FolderField({ app, value, onChange, label }: FolderFieldProps): 
       />
       {showing && (
         // Pressing a folder keeps the focus in the field, so it is picked before the field is left.
-        <div ref={listRef} id={listId} role="listbox" aria-label="Folders" className="atlas-sb-folder-field__list" onMouseDown={(event) => event.preventDefault()}>
+        <div ref={listRef} id={listId} role="listbox" aria-label={t('sbModel.folder.list')} className="atlas-sb-folder-field__list" onMouseDown={(event) => event.preventDefault()}>
           {suggestions.map((path, index) => (
             <div
               key={path}

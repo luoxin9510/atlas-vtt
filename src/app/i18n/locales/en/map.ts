@@ -16,4 +16,6 @@ export const map = {
   'map.noGridFound': 'No grid was found on this map, so none is shown.',
   'map.openFailed': 'Atlas VTT could not open the scene {name} ({reason}).',
   'map.imageUnshown': 'Atlas VTT could not show the map image {file}. {reason}',
+  'map.reasonInvalidJson': 'invalid JSON',
+  'map.reasonStructure': 'unexpected structure',
 } as const satisfies Record<string, Message>;

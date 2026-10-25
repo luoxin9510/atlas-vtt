@@ -36,4 +36,8 @@ export const filters = {
   'filters.filterBy': 'Filter by',
   'filters.excludeField': 'Exclude {field}',
   'filters.keyword.range': '{label}: a value or a range, like {example1} or {example2}',
+  'filters.optionLabel': '{label}, {count}',
+  'filters.optionLabelExcluded': '{label}, {count}, excluded',
+  'filters.detailWithStatblock': 'with a statblock',
+  'filters.detailWithoutStatblock': 'without a statblock',
 } as const satisfies Record<string, Message>;

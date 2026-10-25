@@ -1,4 +1,5 @@
 import { showNotice } from '../ui/notice';
+import { t } from '../i18n';
 
 
 let shown = false;
@@ -7,8 +8,5 @@ let shown = false;
 export function showSoftwareRenderingNotice(): void {
   if (shown) return;
   shown = true;
-  showNotice(
-    'Atlas cannot use your graphics card, so maps are drawn without it: they may be slower, and outlines, glows and some effects are missing. Turn on hardware acceleration in Obsidian\'s general settings, or check your graphics drivers.',
-    15000,
-  );
+  showNotice(t('notice.softwareRendering'), 15000);
 }

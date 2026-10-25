@@ -25,6 +25,7 @@ import { freeName, nameTakenIn } from '../template-editor/save/saveChoice';
 import { blankTemplate, firstBlockId } from './gallerySources';
 import { noteName } from '../../../utils/pathUtils';
 import { noteBodyAt, statblockTemplate } from './statblockNotes';
+import { t } from '../../../i18n';
 
 /** What the user picked in the gallery. */
 export type GalleryPick =
@@ -116,7 +117,7 @@ export async function openPick(app: App, pick: GalleryPick, collectionId: string
 export async function saveStatblockAsTemplate(app: App, notePath: string, values: FrontmatterRecord, collectionId: string | null): Promise<void> {
   const shaped = statblockTemplate(values);
   if (!shaped) {
-    showNotice('This statblock has no values to build a template from.');
+    showNotice(t('sbEditor.gallery.noTemplateValues'));
     return;
   }
   const { name } = draftOf(app, { kind: 'statblock', path: notePath, template: shaped });

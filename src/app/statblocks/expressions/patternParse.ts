@@ -9,6 +9,7 @@ import { isExpressionError, syntaxError, type ExpressionError } from './errors';
 import { parseFilter } from './filters';
 import { parseFormula } from './parse';
 import type { PatternAst, PatternFilter, PatternNode } from './patternTypes';
+import { t } from '../../i18n';
 
 const ESCAPABLE: ReadonlySet<string> = new Set(['{', '}', '[', ']', '\\', ',', '|']);
 const ESCAPABLE_CHARACTERS = /[{}[\]\\,|]/g;
@@ -63,23 +64,23 @@ class PatternParser {
         nodes.push(this.value());
       } else if (char === '[') {
         flush();
-        if (depth >= MAX_OPTIONAL_DEPTH) fail('Optional parts are nested too deeply.', this.index);
+        if (depth >= MAX_OPTIONAL_DEPTH) fail(t('sbModel.pattern.tooDeep'), this.index);
         const at = this.index;
         this.index += 1;
         nodes.push({ kind: 'optional', nodes: this.sequence(at, depth + 1) });
       } else if (char === ']') {
-        if (openAt === null) fail(`There is a ${quoted(']')} without a ${quoted('[')}. Write \\] for the character itself.`, this.index);
+        if (openAt === null) fail(t('sbModel.pattern.closeBracketWithoutOpen'), this.index);
         this.index += 1;
         flush();
         return nodes;
       } else if (char === '}') {
-        fail(`There is a ${quoted('}')} without a ${quoted('{')}. Write \\} for the character itself.`, this.index);
+        fail(t('sbModel.pattern.closeBraceWithoutOpen'), this.index);
       } else {
         text += char;
         this.index += 1;
       }
     }
-    if (openAt !== null) fail(`A ${quoted('[')} is never closed.`, openAt);
+    if (openAt !== null) fail(t('sbModel.pattern.bracketNotClosed'), openAt);
     flush();
     return nodes;
   }
@@ -92,7 +93,7 @@ class PatternParser {
     let ref = '';
     let refAt = this.index;
     for (let char = this.char(); ; char = this.char()) {
-      if (char === '') fail(`A ${quoted('{')} is never closed.`, openAt);
+      if (char === '') fail(t('sbModel.pattern.braceNotClosed'), openAt);
       if (char === '\\') {
         ref += this.escaped();
         continue;
@@ -106,7 +107,7 @@ class PatternParser {
         continue;
       }
       if (char === '{' || char === '[' || char === ']') {
-        fail(`${quoted(char)} can't be used inside { }. Write \\${char} for the character itself.`, this.index);
+        fail(t('sbModel.pattern.badCharInBraces', { char: quoted(char), literal: char }), this.index);
       }
       ref += char;
       this.index += 1;
@@ -116,7 +117,7 @@ class PatternParser {
 
   private finishedRef(text: string, at: number): string {
     const ref = text.trim();
-    if (ref === '') fail('A value needs the name of a field, like {hp}.', at);
+    if (ref === '') fail(t('sbModel.pattern.needsField'), at);
     return ref;
   }
 
@@ -124,7 +125,7 @@ class PatternParser {
     this.index += 1;
     const start = this.index;
     while (this.char() !== '' && this.char() !== '|' && this.char() !== '}') this.index += 1;
-    if (this.char() === '') fail(`A ${quoted('{')} is never closed.`, openAt);
+    if (this.char() === '') fail(t('sbModel.pattern.braceNotClosed'), openAt);
     const source = this.source.slice(start, this.index);
     const formula = parseFormula(source, start);
     if (isExpressionError(formula)) throw new PatternFailure(formula);
@@ -139,7 +140,7 @@ class PatternParser {
       const at = this.index;
       let text = '';
       for (let char = this.char(); char !== '|' && char !== '}'; char = this.char()) {
-        if (char === '') fail(`A ${quoted('{')} is never closed.`, openAt);
+        if (char === '') fail(t('sbModel.pattern.braceNotClosed'), openAt);
         if (char === '\\') {
           text += this.escaped();
         } else {
@@ -158,7 +159,7 @@ class PatternParser {
 
 /** The pattern's syntax tree, or a syntax error with the offset it is at. Never throws. */
 export function parsePattern(source: string): PatternAst | ExpressionError {
-  if (source.length > MAX_LENGTH) return syntaxError('The pattern is too long.', 0);
+  if (source.length > MAX_LENGTH) return syntaxError(t('sbModel.pattern.tooLong'), 0);
   try {
     return new PatternParser(source).parse();
   } catch (failure) {

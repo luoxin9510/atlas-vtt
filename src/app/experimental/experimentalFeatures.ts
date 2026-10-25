@@ -1,5 +1,6 @@
 import type { App } from 'obsidian';
 import { SettingsService } from '../services/SettingsService';
+import { t } from '../i18n';
 
 /**
  * Features the GM switches on in the command palette's Experimental features page. All are off
@@ -9,13 +10,13 @@ import { SettingsService } from '../services/SettingsService';
 export const EXPERIMENTAL_FEATURES = [
   {
     id: 'statblockEditor',
-    label: 'Statblock editor',
-    hint: 'Statblock roles and templates: a collection\'s Statblocks settings, and editing statblocks in Atlas. While off, statblocks show as before.',
+    label: t('experimental.statblockEditor.label'),
+    hint: t('experimental.statblockEditor.hint'),
   },
   {
     id: 'onlinePlay',
-    label: 'Online play',
-    hint: 'Host a table that players join from their browsers: the online control at the bottom left of a map, and the account settings. While off, Atlas connects to nothing.',
+    label: t('experimental.onlinePlay.label'),
+    hint: t('experimental.onlinePlay.hint'),
   },
 ] as const;
 

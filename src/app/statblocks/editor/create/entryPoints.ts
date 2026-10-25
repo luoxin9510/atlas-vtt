@@ -15,6 +15,7 @@ import { roleChoicesFor } from './collectionRoles';
 import { createStatblock } from './createFlow';
 import { createStatblockMenuEntry } from './RoleMenu';
 import type { NewStatblockOption } from './roleChoices';
+import { t } from '../../../i18n';
 
 export interface EntryContext {
   /** The entry point's collection: the asset manager's, the map's; null where there is none. */
@@ -53,7 +54,7 @@ export function editInStatblockPane(app: App, path: string, context: EntryContex
   runInBackground(
     openStatblockEditor(app, { notePath: path, collectionId: context.collectionId, from: context.from }),
     `Opening the statblock of ${path}`,
-    "Couldn't open the statblock",
+    t('sbEditor.openStatblockFailed'),
   );
   return true;
 }

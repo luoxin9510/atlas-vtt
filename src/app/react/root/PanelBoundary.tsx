@@ -3,6 +3,7 @@ import type { Notice } from 'obsidian';
 import type { RootOptions } from 'react-dom/client';
 import { useAtlasStore } from '../ViewStoreContext';
 import { showNotice } from '../../ui/notice';
+import { t } from '../../i18n';
 
 interface BoundaryProps {
   /** The surface as the GM reads it, e.g. "the initiative tracker". */
@@ -32,7 +33,7 @@ class Boundary extends React.Component<BoundaryProps, BoundaryState> {
     console.error(`[Atlas VTT] Could not show ${this.props.name}:`, error, info.componentStack);
     // The notice stays until it is clicked; a surface that fails on every scene would stack one per load
     this.notice?.hide();
-    this.notice = showNotice(`Atlas VTT could not show ${this.props.name}. The rest of the map keeps working.`, 0);
+    this.notice = showNotice(t('panelBoundary.message', { name: this.props.name }), 0);
   }
 
   override componentDidUpdate(previous: BoundaryProps): void {

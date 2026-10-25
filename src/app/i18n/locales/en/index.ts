@@ -91,6 +91,15 @@ import { migration } from './migration';
 import { wall } from './wall';
 import { sceneLight } from './sceneLight';
 import { vision } from './vision';
+import { experimental } from './experimental';
+import { panelBoundary } from './panelBoundary';
+import { sbEditor } from './sbEditor';
+import { sbEditorPane } from './sbEditorPane';
+import { sbModel } from './sbModel';
+import { sbTemplate } from './sbTemplate';
+import { sbTemplateTable } from './sbTemplateTable';
+import { sbValues } from './sbValues';
+import { uvttImport } from './uvttImport';
 
 /** English, the source language: every key exists here, and other languages translate a subset of it. */
 export const en = {
@@ -189,4 +198,13 @@ export const en = {
   ...wall,
   ...sceneLight,
   ...vision,
+  ...experimental,
+  ...panelBoundary,
+  ...sbEditor,
+  ...sbEditorPane,
+  ...sbModel,
+  ...sbTemplate,
+  ...sbTemplateTable,
+  ...sbValues,
+  ...uvttImport,
 } as const;

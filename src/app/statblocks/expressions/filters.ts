@@ -17,6 +17,7 @@ import { formatSigned, numericValue, parseRatingText } from '../values/numberTex
 import { quoted, valueText } from '../values/valueText';
 import { refError, syntaxError, type ExpressionError } from './errors';
 import type { PatternFilter, PatternFilterName } from './patternTypes';
+import { t } from '../../i18n';
 
 /** The template's lookup tables: name, then row, then the row's text. */
 export type Lookups = Readonly<Record<string, Readonly<Record<string, string>>>>;
@@ -27,7 +28,6 @@ export interface FilterStep {
 }
 
 const PLAIN_FILTERS: ReadonlySet<string> = new Set<PatternFilterName>(['signed', 'upper', 'lower', 'count', 'avg']);
-const ALL_FILTERS = 'signed, upper, lower, count, avg, lookup and join';
 
 function isPlainFilter(name: string): name is 'signed' | 'upper' | 'lower' | 'count' | 'avg' {
   return PLAIN_FILTERS.has(name);
@@ -40,16 +40,16 @@ export function parseFilter(source: string, at: number): PatternFilter | Express
   const argument = colon < 0 ? null : source.slice(colon + 1);
   if (name === 'lookup') {
     const table = argument?.trim();
-    return table ? { name, table } : syntaxError('lookup needs the name of a table, like {cr|lookup:xp}.', at);
+    return table ? { name, table } : syntaxError(t('sbModel.pattern.lookupNeedsTable'), at);
   }
   if (name === 'join') {
-    return argument === null ? syntaxError('join needs the text to join with, like {a, b|join:; }.', at) : { name, text: argument };
+    return argument === null ? syntaxError(t('sbModel.pattern.joinNeedsText'), at) : { name, text: argument };
   }
   if (isPlainFilter(name)) {
-    return argument === null ? { name } : syntaxError(`${name} takes nothing after ${quoted(':')}.`, at);
+    return argument === null ? { name } : syntaxError(t('sbModel.pattern.takesNothing', { name }), at);
   }
-  if (name === '') return syntaxError(`A filter is missing after ${quoted('|')}.`, at);
-  return syntaxError(`There is no filter called ${quoted(name)}. There are ${ALL_FILTERS}.`, at);
+  if (name === '') return syntaxError(t('sbModel.pattern.filterMissing'), at);
+  return syntaxError(t('sbModel.pattern.noFilter', { name: quoted(name) }), at);
 }
 
 /** A table's row for a value: as written, then in any case, then as the same rating ("½" finds "1/2"). */
@@ -76,7 +76,7 @@ function present(items: FieldValue[]): FilterStep {
 
 function lookUp(items: readonly FieldValue[], tableName: string, lookups: Lookups | undefined): FilterStep {
   const table = lookups && Object.hasOwn(lookups, tableName) ? lookups[tableName] : undefined;
-  if (!table) return { items: [], problem: refError('unbound', tableName, `There is no lookup table called ${quoted(tableName)}.`) };
+  if (!table) return { items: [], problem: refError('unbound', tableName, t('sbModel.pattern.noTable', { name: quoted(tableName) })) };
   return present(items.map((item) => lookupRow(table, valueText(item)) ?? null));
 }
 

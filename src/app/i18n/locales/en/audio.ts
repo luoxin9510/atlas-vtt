@@ -7,4 +7,5 @@ export const audio = {
   'audio.volume': 'Volume',
   'audio.range': 'Range',
   'audio.loop': 'Loop',
+  'audio.delete': 'Delete Sound Source',
 } as const satisfies Record<string, Message>;

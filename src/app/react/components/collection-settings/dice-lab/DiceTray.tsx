@@ -254,7 +254,7 @@ export function DiceTray({ dice, editable, setName, onDice, edgeDice = NO_EDGE_D
               onStep={(next) => { setStep(next === step ? null : next); setRefusal(null); }}
               onCopy={openEdge ? undefined : () => { if (change(withCopy(dice, open.id), 'now')) setRefusal(null); }}
               {...(openEdge && {
-                label: `${edgeCaption(openEdge.side)}, ${open.name.trim() || `d${open.sides}`}`,
+                label: t('diceLab.fanLabel', { caption: edgeCaption(openEdge.side), name: open.name.trim() || `d${open.sides}` }),
                 removeLabel: openEdge.side === 'advantage' ? t('diceLab.fanRemoveEdge') : t('diceLab.fanRemoveDisadvantageEdge'),
               })}
               onRemove={() => {

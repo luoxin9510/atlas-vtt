@@ -36,9 +36,9 @@ const TAB_LABELS: Record<SettingsTab, { label: string; icon: React.ReactNode }> 
   vision: { label: t('csm.tab.vision'), icon: <Eye size={16} /> },
   widgets: { label: t('csm.tab.widgets'), icon: <LayoutGrid size={16} /> },
   conditions: { label: t('csm.tab.conditions'), icon: <ShieldAlert size={16} /> },
-  resources: { label: 'Resources', icon: <Gauge size={16} /> },
+  resources: { label: t('editToken.resources'), icon: <Gauge size={16} /> },
   initiative: { label: t('csm.tab.initiative'), icon: <Swords size={16} /> },
-  statblocks: { label: 'Statblocks', icon: <ScrollText size={16} /> },
+  statblocks: { label: t('bundle.group.statblocks'), icon: <ScrollText size={16} /> },
   creatureFilters: { label: t('csm.tab.creatureFilters'), icon: <ListFilter size={16} /> },
   loot: { label: t('csm.tab.loot'), icon: <CoinIcon size={16} /> },
 };

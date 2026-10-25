@@ -29,4 +29,6 @@ export const grid: Translation = {
   'grid.type.hexFlat': '六角格（平顶）',
   'grid.type.hexPointy': '六角格（尖顶）',
   'grid.type.square': '方格',
+  'grid.numbers.letterNumber': '字母和数字（A1）',
+  'grid.coneAngle': '锥形角度（°）',
 };

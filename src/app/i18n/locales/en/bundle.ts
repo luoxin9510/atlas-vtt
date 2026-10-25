@@ -45,4 +45,6 @@ export const bundle = {
   'bundle.damaged': 'This collection export is damaged.',
   'bundle.unsafe': 'This collection export contains a file Atlas will not write: {path}',
   'bundle.checksum': { one: 'This collection export is damaged: {count} file does not match its checksum ({names}). Nothing was imported.', other: 'This collection export is damaged: {count} files do not match their checksum ({names}). Nothing was imported.' },
+  'bundle.group.attachments': 'Images and PDFs',
+  'bundle.group.loot': 'Loot tables',
 } as const satisfies Record<string, Message>;

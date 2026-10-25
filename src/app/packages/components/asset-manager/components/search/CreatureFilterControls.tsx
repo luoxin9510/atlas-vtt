@@ -42,7 +42,7 @@ const SKELETON_FILTERS = [
 /** Stands in for the filters while the statblocks they come from are read. */
 function FilterSkeleton(): React.JSX.Element {
   return (
-    <SkeletonGroup label="Reading statblocks…" className="atlas-filter-skeleton">
+    <SkeletonGroup label={t('am.readingStatblocks')} className="atlas-filter-skeleton">
       {SKELETON_FILTERS.map((filter) => (
         <div key={filter.title} className="atlas-filter-section">
           <div className="atlas-filter-section__header"><Skeleton shape="text" width={filter.title} /></div>

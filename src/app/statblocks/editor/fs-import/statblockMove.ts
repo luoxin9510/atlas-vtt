@@ -19,6 +19,7 @@ import type { TemplateId } from '../../model/templateTypes';
 import { NoteFieldWriter } from '../../notes/NoteFieldWriter';
 import { eachNote, type NoteBatchOptions } from '../../notes/noteBatch';
 import { switchTemplates } from '../../notes/templateSwitch';
+import { t } from '../../../i18n';
 
 export interface StatblockMoveResult {
   moved: string[];
@@ -35,26 +36,26 @@ function creatureProblem(params: Readonly<Record<string, unknown>>): string | nu
   const named = params.creature ?? params.monster;
   if (typeof named !== 'string') return null;
   const api = getFantasyStatblocksApi();
-  if (!api) return `It is based on the creature ${named}; turn on Fantasy Statblocks to move it.`;
-  if (!isBestiaryResolved(api)) return 'Fantasy Statblocks is still reading its bestiary; try again in a moment.';
-  return bestiaryCreatureByName(api, named) ? null : `Fantasy Statblocks has no creature named ${named}.`;
+  if (!api) return t('sbEditor.move.creatureNeedsPlugin', { name: named });
+  if (!isBestiaryResolved(api)) return t('sbEditor.move.bestiaryReading');
+  return bestiaryCreatureByName(api, named) ? null : t('sbEditor.move.noCreature', { name: named });
 }
 
 async function switchFrontmatter(app: App, path: string, templateId: TemplateId): Promise<string | null> {
   const result = await switchTemplates(app, [{ path, from: null }], templateId);
-  return result.switched.length > 0 ? null : result.skipped[0]?.reason ?? 'It was left as it was.';
+  return result.switched.length > 0 ? null : result.skipped[0]?.reason ?? t('sbEditor.move.leftAsItWas');
 }
 
 /** Moves the note's one fence into its properties; the reason it was left as it was, or null. */
 export async function moveFenceNote(app: App, path: string, templateId: TemplateId): Promise<string | null> {
   const file = app.vault.getFileByPath(path);
-  if (!file) return 'The note no longer exists.';
+  if (!file) return t('sbEditor.move.noteGone');
   const text = await app.vault.read(file);
   const fences = findStatblockFences(text);
   const [fence] = fences;
-  if (!fence) return 'Its statblock is no longer in the note.';
+  if (!fence) return t('sbEditor.move.statblockGone');
   if (fences.length > 1) return severalFencesReason(fences.length);
-  if (!fence.params) return 'Its statblock can\'t be read.';
+  if (!fence.params) return t('sbEditor.move.unreadable');
   const problem = creatureProblem(fence.params);
   if (problem) return problem;
 
@@ -81,7 +82,7 @@ export async function moveStatblocks(
       reason = kind === 'frontmatter' ? await switchFrontmatter(app, path, templateId) : await moveFenceNote(app, path, templateId);
     } catch (error) {
       console.error(`[Atlas] Moving the statblock of ${path} failed:`, error);
-      reason = `Couldn't move it: ${error instanceof Error ? error.message : String(error)}`;
+      reason = t('sbEditor.move.failed', { error: error instanceof Error ? error.message : String(error) });
     }
     if (reason === null) result.moved.push(path);
     else result.skipped.push({ path, reason });

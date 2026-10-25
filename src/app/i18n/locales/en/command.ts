@@ -16,4 +16,5 @@ export const command = {
   'command.toggleInitiativeTracker': 'Toggle initiative tracker',
   'command.toggleLootRoller': 'Toggle random tables',
   'command.viewChangelog': 'View changelog',
+  'command.newStatblockTemplate': 'New statblock template…',
 } as const satisfies Record<string, Message>;

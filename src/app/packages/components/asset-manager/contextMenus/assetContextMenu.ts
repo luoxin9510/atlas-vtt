@@ -78,7 +78,7 @@ export function buildAssetContextMenuEntries(
   if (asset.type === 'maps') {
     entries.push({
       type: 'item',
-      label: 'Create Scene',
+      label: t('am.menu.createSceneTitle'),
       icon: 'clapperboard',
       onClick: () => deps.openCreateScene(scenePrefillFromMap(asset)),
     });

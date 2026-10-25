@@ -36,4 +36,5 @@ export const statblock = {
   'statblock.traitDescription': 'trait description',
   'statblock.traitName': 'trait name',
   'statblock.valueN': 'value {n}',
+  'statblock.noCreatureForNote': 'No Fantasy Statblocks creature found for this note. Note-based creatures require "Parse Frontmatter for Creatures" to be enabled in Fantasy Statblocks settings.',
 } as const satisfies Record<string, Message>;

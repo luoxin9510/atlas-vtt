@@ -6,6 +6,7 @@
  */
 
 import { parseRating } from '../../creatures/creatureValues';
+import { t } from '../../i18n';
 import type { FieldType, FieldValue } from '../model/templateTypes';
 import { choiceText, readChoice, unreadProblem, type ChoiceShape } from './choicePicks';
 import { parseDiceNotation } from './diceNotation';
@@ -27,8 +28,6 @@ export type CoercionConstraints = ChoiceShape;
 
 type Coercer = (text: string, input: string, constraints: CoercionConstraints | undefined) => CoercionResult;
 
-const DICE_EXAMPLE = 'like 2d6 + 3';
-
 function kept(value: FieldValue): CoercionResult {
   return { ok: true, value };
 }
@@ -42,18 +41,18 @@ function coerceNumber(text: string, input: string): CoercionResult {
   if (value !== null) return kept(value);
   // `10 + @dex` is kept as written: the card shows its total
   if (namesReference(text) && NUMBER_SUM.test(withReferencesAsOne(text).trim())) return kept(text);
-  return refused(input, `${quoted(text)} isn't a number.`);
+  return refused(input, t('sbValues.coerce.notNumber', { value: quoted(text) }));
 }
 
 function coerceRating(text: string, input: string): CoercionResult {
   if (isWholeNumberText(text)) return coerceNumber(text, input);
-  return parseRating(text) === null ? refused(input, `${quoted(text)} isn't a rating, like 3 or 1/4.`) : kept(text);
+  return parseRating(text) === null ? refused(input, t('sbValues.coerce.notRating', { value: quoted(text) })) : kept(text);
 }
 
 function coerceDice(text: string, input: string): CoercionResult {
   // `2d6 + @str` is kept as written: the card shows and rolls it with the number in
   if (isDiceValue(namesReference(text) ? withReferencesAsOne(text) : text)) return kept(text);
-  const problem = parseDiceNotation(text) ? `${quoted(text)} rolls no dice, ${DICE_EXAMPLE}.` : `${quoted(text)} isn't dice, ${DICE_EXAMPLE}.`;
+  const problem = t(parseDiceNotation(text) ? 'sbValues.coerce.noDice' : 'sbValues.coerce.notDice', { value: quoted(text) });
   return refused(input, problem);
 }
 
@@ -71,7 +70,7 @@ function coerceChoice(text: string, input: string, constraints: CoercionConstrai
   const option = options.find((candidate) => candidate.trim().toLowerCase() === wanted);
   if (option !== undefined) return kept(option);
   if (constraints?.open || options.length === 0) return kept(text);
-  return refused(input, `${quoted(text)} isn't one of ${options.join(', ')}.`);
+  return refused(input, t('sbValues.coerce.notOption', { value: quoted(text), options: options.join(', ') }));
 }
 
 /**
@@ -97,7 +96,7 @@ function coercePairs(text: string, input: string): CoercionResult {
   const pairs: FieldValue[] = [];
   for (const part of splitListText(text)) {
     const pair = parsePairText(part);
-    if (!pair) return refused(input, `${quoted(part)} isn't a name and a number, like Dex +5.`);
+    if (!pair) return refused(input, t('sbValues.coerce.notPair', { value: quoted(part) }));
     pairs.push({ [pair.key]: pair.value });
   }
   return kept(pairs);
@@ -112,11 +111,11 @@ const COERCERS: Readonly<Record<FieldType, Coercer>> = {
   choice: coerceChoice,
   list: (text) => kept(splitListText(text)),
   scores: coerceScores,
-  entries: (_text, input) => refused(input, 'Entries are added one at a time.'),
+  entries: (_text, input) => refused(input, t('sbValues.coerce.entries')),
   pairs: coercePairs,
   image: (text) => kept(text),
   spells: (text) => kept(text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== '')),
-  counters: (_text, input) => refused(input, 'Counters are changed with their pips.'),
+  counters: (_text, input) => refused(input, t('sbValues.coerce.counters')),
 };
 
 /**

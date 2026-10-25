@@ -9,6 +9,7 @@ import type { StatblockRole } from '../../model/roleTypes';
 import {
   TEMPLATE_FORMAT, TEMPLATE_VERSION, isBuiltInTemplateId, type StatblockTemplate, type TemplateId,
 } from '../../model/templateTypes';
+import { t } from '../../../i18n';
 
 export type GallerySourceId = 'system' | 'built-ins' | 'simple' | 'statblock' | 'fantasy-statblocks' | 'blank';
 
@@ -27,12 +28,12 @@ const SIMPLE_TEMPLATE_IDS: readonly TemplateId[] = [GENERIC_CREATURE.id, GENERIC
  */
 export function gallerySources(systemTemplateIds: readonly TemplateId[], fantasyStatblocks = false): GallerySource[] {
   return [
-    ...(systemTemplateIds.length > 0 ? [{ id: 'system' as const, label: 'This system' }] : []),
-    { id: 'built-ins', label: 'All built-ins' },
-    { id: 'simple', label: 'Simple' },
-    { id: 'statblock', label: 'From a statblock' },
-    ...(fantasyStatblocks ? [{ id: 'fantasy-statblocks' as const, label: 'From Fantasy Statblocks' }] : []),
-    { id: 'blank', label: 'Blank' },
+    ...(systemTemplateIds.length > 0 ? [{ id: 'system' as const, label: t('sbEditor.gallery.source.system') }] : []),
+    { id: 'built-ins', label: t('sbEditor.gallery.source.builtIns') },
+    { id: 'simple', label: t('sbEditor.gallery.source.simple') },
+    { id: 'statblock', label: t('sbEditor.gallery.source.statblock') },
+    ...(fantasyStatblocks ? [{ id: 'fantasy-statblocks' as const, label: t('sbEditor.gallery.source.fantasyStatblocks') }] : []),
+    { id: 'blank', label: t('sbEditor.gallery.source.blank') },
   ];
 }
 

@@ -1,6 +1,7 @@
 import { quoted } from '../values/valueText';
 import { syntaxError, type ExpressionError } from './errors';
 import type { BinaryOperator, FormulaToken } from './formulaTypes';
+import { t } from '../../i18n';
 
 /** "14", "2.5", ".5", "3." */
 const NUMBER = /\d+(?:\.\d*)?|\.\d+/y;
@@ -53,7 +54,7 @@ export function tokenizeFormula(source: string, offset = 0): FormulaToken[] | Ex
     const punctuation = PUNCTUATION[char];
     if (op !== undefined) tokens.push({ type: 'op', op, at });
     else if (punctuation !== undefined) tokens.push({ type: punctuation, at });
-    else return syntaxError(`${quoted(char)} can't be used in a formula.`, at);
+    else return syntaxError(t('sbModel.formula.badChar', { char: quoted(char) }), at);
     index += 1;
   }
   tokens.push({ type: 'end', at: offset + source.length });

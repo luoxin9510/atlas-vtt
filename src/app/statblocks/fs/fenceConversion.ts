@@ -14,6 +14,7 @@ import { frontmatterProblem } from '../notes/frontmatterProblem';
 import type { NotePatch } from '../notes/patchTypes';
 import { TEMPLATE_KEY } from '../notes/statblockSource';
 import { findStatblockFences } from './statblockFences';
+import { t } from '../../i18n';
 
 /** What the fence's statblock holds, as the note will keep it. */
 export interface FenceConversion {
@@ -36,13 +37,13 @@ const NAMED_KEYS = 3;
 function keyList(keys: readonly string[]): string {
   const named = keys.slice(0, NAMED_KEYS);
   const rest = keys.length - named.length;
-  const parts = rest > 0 ? [...named, `${rest} more`] : named;
-  return parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]!}`;
+  const parts = rest > 0 ? [...named, t('sbModel.fence.more', { count: rest })] : named;
+  return parts.length === 1 ? parts[0]! : t('sbModel.list.and', { init: parts.slice(0, -1).join(t('sbModel.list.separator')), last: parts[parts.length - 1]! });
 }
 
 /** Why a note with several fences is left as it is. */
 export function severalFencesReason(count: number): string {
-  return `It holds ${count} statblocks; only a note with one is moved.`;
+  return t('sbModel.fence.several', { count });
 }
 
 /** The patches that make the note's frontmatter the fence's statblock; each applies only where the note holds nothing else there. */
@@ -62,9 +63,9 @@ function conversionPatches(statblock: FieldValue | undefined, conversion: FenceC
 export function convertFenceText(text: string, conversion: FenceConversion): FenceConversionResult {
   const fences = findStatblockFences(text);
   const [fence] = fences;
-  if (!fence) return { problem: 'Its statblock is no longer in the note.' };
+  if (!fence) return { problem: t('sbModel.fence.gone') };
   if (fences.length > 1) return { problem: severalFencesReason(fences.length) };
-  if (text.slice(fence.from, fence.to) !== conversion.fence) return { problem: 'Its statblock changed while it was being moved.' };
+  if (text.slice(fence.from, fence.to) !== conversion.fence) return { problem: t('sbModel.fence.changed') };
 
   const without = text.slice(0, fence.from) + text.slice(fence.to);
   const problem = frontmatterProblem(without);
@@ -73,7 +74,7 @@ export function convertFenceText(text: string, conversion: FenceConversion): Fen
   const result = applyFrontmatterPatches(without, conversionPatches(model?.statblock, conversion));
   if (result.conflicts.length > 0) {
     const keys = result.conflicts.flatMap((patch) => (patch.op === 'set' ? [String(patch.path[0])] : []));
-    return { problem: `The note already holds other values for ${keyList(keys)}.` };
+    return { problem: t('sbModel.fence.conflict', { keys: keyList(keys) }) };
   }
   return { text: result.text, applied: result.applied };
 }

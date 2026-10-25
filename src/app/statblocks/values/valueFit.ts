@@ -5,6 +5,7 @@
  * label ("Not a number") and a sentence saying why. Pure: no React, no Obsidian.
  */
 
+import { t, type MessageKey } from '../../i18n';
 import { formulaReferences, namedReferences } from './fillReferences';
 import type { FieldType, FieldValue, TemplateField } from '../model/templateTypes';
 import { picksChoice } from './choicePicks';
@@ -23,21 +24,21 @@ export interface ValueMisfit {
 
 type FitField = Pick<TemplateField, 'type' | 'options' | 'open' | 'several' | 'numbered' | 'unit'>;
 
-/** What each type holds, for the label and the sentence. */
-const TYPE_NOUNS: Readonly<Record<FieldType, { noun: string; label: string }>> = {
-  text: { noun: 'plain text', label: 'Not text' },
-  markdown: { noun: 'plain text', label: 'Not text' },
-  number: { noun: 'a number', label: 'Not a number' },
-  rating: { noun: 'a rating', label: 'Not a rating' },
-  dice: { noun: 'dice', label: 'Not dice' },
-  choice: { noun: 'one of the options', label: 'Not an option' },
-  list: { noun: 'a list', label: 'Not a list' },
-  scores: { noun: 'a list of table values', label: 'Not table values' },
-  entries: { noun: 'a list of entries', label: 'Not entries' },
-  pairs: { noun: 'names with numbers', label: 'Not pairs' },
-  image: { noun: 'an image path', label: 'Not an image' },
-  spells: { noun: 'a spell list', label: 'Not spells' },
-  counters: { noun: 'rows of counters, each with a name, as many used as its maximum at most and a dice formula of what it regains', label: 'Not counters' },
+/** The label and the sentence each type shows for a value that does not fit. */
+const TYPE_MISFITS: Readonly<Record<FieldType, { label: MessageKey; problem: MessageKey }>> = {
+  text: { label: 'sbValues.fit.text.label', problem: 'sbValues.fit.text.problem' },
+  markdown: { label: 'sbValues.fit.text.label', problem: 'sbValues.fit.text.problem' },
+  number: { label: 'sbValues.fit.number.label', problem: 'sbValues.fit.number.problem' },
+  rating: { label: 'sbValues.fit.rating.label', problem: 'sbValues.fit.rating.problem' },
+  dice: { label: 'sbValues.fit.dice.label', problem: 'sbValues.fit.dice.problem' },
+  choice: { label: 'sbValues.fit.choice.label', problem: 'sbValues.fit.choice.problem' },
+  list: { label: 'sbValues.fit.list.label', problem: 'sbValues.fit.list.problem' },
+  scores: { label: 'sbValues.fit.scores.label', problem: 'sbValues.fit.scores.problem' },
+  entries: { label: 'sbValues.fit.entries.label', problem: 'sbValues.fit.entries.problem' },
+  pairs: { label: 'sbValues.fit.pairs.label', problem: 'sbValues.fit.pairs.problem' },
+  image: { label: 'sbValues.fit.image.label', problem: 'sbValues.fit.image.problem' },
+  spells: { label: 'sbValues.fit.spells.label', problem: 'sbValues.fit.spells.problem' },
+  counters: { label: 'sbValues.fit.counters.label', problem: 'sbValues.fit.counters.problem' },
 };
 
 /** Types whose text is checked by coercion; the others keep any text as it is written. */
@@ -100,7 +101,7 @@ export function referenceMisfit(field: Pick<FitField, 'type'>, shown: FieldValue
   const names = [...new Set(formula ? namedReferences(shown) : formulaReferences(shown))];
   if (names.length === 0) return null;
   const listed = names.map((name) => `@${name}`).join(', ');
-  return { label: 'Unknown reference', problem: `${listed} ${names.length === 1 ? 'names' : 'name'} no number of this statblock.` };
+  return { label: t('sbValues.fit.unknownReference.label'), problem: t('sbValues.fit.unknownReference.problem', { names: listed, count: names.length }) };
 }
 
 /**
@@ -110,14 +111,14 @@ export function referenceMisfit(field: Pick<FitField, 'type'>, shown: FieldValue
  * a newer template are taken as they come.
  */
 export function valueMisfit(field: FitField, value: FieldValue | undefined): ValueMisfit | null {
-  if (value === undefined || isEmptyValue(value) || !Object.hasOwn(TYPE_NOUNS, field.type)) return null;
+  if (value === undefined || isEmptyValue(value) || !Object.hasOwn(TYPE_MISFITS, field.type)) return null;
   const problem = misfitProblem(field, value);
-  return problem === null ? null : { label: TYPE_NOUNS[field.type].label, problem };
+  return problem === null ? null : { label: t(TYPE_MISFITS[field.type].label), problem };
 }
 
 function misfitProblem(field: FitField, value: FieldValue): string | null {
   if (CHECKED_TEXT.has(field.type) && isScalar(value)) return textProblem(field, valueText(value));
   // Several picks may be stored as a list, or as a record of options and numbers.
   if (picksChoice(field) && !holdsRecords(value)) return textProblem(field, valueText(value));
-  return SHAPE_FITS[field.type](value) ? null : `${shortQuote(value)} isn't ${TYPE_NOUNS[field.type].noun}.`;
+  return SHAPE_FITS[field.type](value) ? null : t(TYPE_MISFITS[field.type].problem, { value: shortQuote(value) });
 }

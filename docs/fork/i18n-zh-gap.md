@@ -297,3 +297,25 @@ Open points for later:
 - `recoveryEditor.notResource` quotes 「Tracked」 because the template editor's
   option label is hard-coded English (`TrackedSetting.tsx`); see the
   hard-coded string list above.
+
+## Hard-coded strings wired to `t()` (after phase 2)
+
+About 900 user-facing strings outside Atlas Online now go through `t()`,
+with English text unchanged and Simplified Chinese translations: the
+statblock template editor (`sbTemplate`, `sbTemplateTable`, `sbEditor`,
+`sbEditorPane`), the rest of `statblocks/` (`sbModel`, `sbValues`), and the
+lighting, toolbar, asset manager, React panels, UVTT import and services code
+(`experimental`, `panelBoundary`, `uvttImport`, plus keys added to existing
+modules). English holds 3347 keys; zh has all of them.
+
+Deliberately left English:
+- Atlas Online (`src/app/online/`), out of scope for this fork.
+- Text that is stored or compared: default field and part labels, new
+  template names, tab headings, light preset labels (compared by name),
+  default statblock role names, built-in sound names, filter values such as
+  Yes/No, file-name fallbacks.
+- Messages built from fragments, which need a refactor into whole sentences
+  first: statblock template parse diagnostics (`statblocks/format/*`) and
+  UVTT import refusals (`import/uvtt/*`).
+- Thrown error messages, log and `runInBackground` labels, the issue report,
+  game content (presets, sample statblock values), key and product names.

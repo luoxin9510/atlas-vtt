@@ -5,6 +5,7 @@ import { isUvttFileName } from '../../../../import/uvtt/uvttFileNames';
 import { useStableCallback } from '../../../../react/hooks/useStableCallback';
 import type { AssetService } from '../../../../services/AssetService';
 import { showNotice } from '../../../../ui/notice';
+import { t } from '../../../../i18n';
 
 /**
  * Imports Universal VTT files into a collection and opens the scene of the last one that
@@ -50,8 +51,9 @@ function overManager(event: DragEvent): DataTransfer | null {
 function sayNotMaps(files: readonly File[]): void {
   const names = files.map((file) => file.name);
   const last = names.pop();
-  const which = names.length > 0 ? `${names.join(', ')} and ${last} are not maps` : `${last} is not a map`;
-  showNotice(`${which} Atlas can import. Drop a .dd2vtt, .uvtt or .df2vtt file.`);
+  showNotice(names.length > 0
+    ? t('uvttImport.notMapsMany', { names: names.join(', '), last: last ?? '' })
+    : t('uvttImport.notMapsOne', { name: last ?? '' }));
 }
 
 /**
@@ -88,7 +90,7 @@ export function useUvttImport(options: UvttImportOptions): ImportMaps {
       await app.workspace.getLeaf(false).openFile(scene);
     } catch (error) {
       console.error('[Atlas] An imported scene could not be opened', error);
-      showNotice(`"${last.name}" could not be opened. It is in the Scenes tab.`);
+      showNotice(t('uvttImport.notOpened', { name: last.name }));
       return;
     }
     now.onSceneOpened();

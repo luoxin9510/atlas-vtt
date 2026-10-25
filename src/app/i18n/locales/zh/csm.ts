@@ -110,4 +110,6 @@ export const csm: Translation = {
   'csm.widgets.timer': '计时器',
   'csm.widgets.timerDesc': '用于限时遭遇或休息的倒计时',
   'csm.loot.views': { other: '{count} 个视图' },
+  'csm.filters.otherFields': '本合集属性块中的其他字段',
+  'csm.widgets.defaultsIntro': '这些默认设置适用于本合集的新地图。',
 };

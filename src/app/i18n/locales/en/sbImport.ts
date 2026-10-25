@@ -26,4 +26,5 @@ export const sbImport = {
   'sbImport.addN': 'Add {count} to import',
   'sbImport.scanningNotes': 'Scanning notes',
   'sbImport.loadingImagesStatus': 'Loading images',
+  'sbImport.select': 'Select {name}',
 } as const satisfies Record<string, Message>;

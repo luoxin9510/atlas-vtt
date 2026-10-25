@@ -11,6 +11,7 @@ import { headerPartOf, isHeaderBlockId, shownHeaderParts } from './templateHeade
 import type { TreeTarget } from './treeEdit';
 import { findBlock } from './treeQueries';
 import type { StatblockTemplate, TemplateBlock, TemplateLayout } from './templateTypes';
+import { t } from '../../i18n';
 
 /** What a tile is to the person editing: the editor's seven kinds, and `other` for blocks it shows as they render. */
 export type TileKind = 'value' | 'metric' | 'abilities' | 'table' | 'counters' | 'text' | 'divider' | 'other';
@@ -53,7 +54,8 @@ export function tileKind(block: TemplateBlock): TileKind {
 }
 
 const KIND_NAMES: Readonly<Record<Exclude<TileKind, 'other'>, string>> = {
-  value: 'Value', metric: 'Metric', abilities: 'Abilities', table: 'Table', counters: 'Counters', text: 'Text', divider: 'Divider',
+  value: t('sbModel.kind.value'), metric: t('sbModel.kind.metric'), abilities: t('sbModel.kind.abilities'), table: t('sbModel.kind.table'),
+  counters: t('sbModel.kind.counters'), text: t('sbModel.kind.text'), divider: t('sbModel.kind.divider'),
 };
 
 /** What a block is called before it has a name of its own: its kind in the grid, else its block's name in the format ("Section", "Tabs"). */

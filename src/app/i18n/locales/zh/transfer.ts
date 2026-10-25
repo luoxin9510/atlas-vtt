@@ -15,4 +15,13 @@ export const transfer: Translation = {
   'transfer.moveFailed': '无法移动{what}：{error}',
   'transfer.moved': '已把{what}移动到{target}',
   'transfer.selection': '所选内容',
+  'transfer.included': '包含内容',
+  'transfer.templateCopiesOne': '你的这个模板版本与之不同，因此合集中的模板将作为副本导入。你的模板保持不变。',
+  'transfer.templateCopiesMany': '你的这些模板版本与之不同，因此合集中的模板将作为副本导入。你的模板保持不变。',
+  'transfer.switchNotes': { other: '将你已有的 {count} 个属性块切换到副本：{names}' },
+  'transfer.namesAndMore': '{names} 等另外 {count} 项',
+  'transfer.openedIn': '在 {name} 中打开',
+  'transfer.openedInMore': '在 {name} 等另外 {count} 处中打开',
+  'transfer.linkedFrom': '链接自 {name}',
+  'transfer.linkedFromMore': '链接自 {name} 等另外 {count} 处',
 };

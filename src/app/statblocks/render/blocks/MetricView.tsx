@@ -17,15 +17,16 @@ import { useBlockChrome } from '../blockChrome';
 import { TrackedText, trackedShown } from '../values/trackedShown';
 import type { FieldKey, MetricBlock } from '../../model/templateTypes';
 import type { BlockViewProps } from './blockViewProps';
+import { t } from '../../../i18n';
 
 /** Marks one number of a Metric with its place among the block's numbers; the editors find the number clicked by it. */
 export const METRIC_INDEX_ATTRIBUTE = 'data-metric-index';
 
 /** What a number not named yet is called on the card. */
-export const UNNAMED_NUMBER = 'Number';
+export const UNNAMED_NUMBER = t('sbModel.metric.unnamedNumber');
 
 /** What the group's name reads while editing, before it has one: where to double-click to name it. */
-export const UNNAMED_GROUP = 'Group name';
+export const UNNAMED_GROUP = t('sbModel.metric.unnamedGroup');
 
 /** What an empty number shows where a statblock is read: a dash, so the box keeps its columns. */
 const BLANK = '–';

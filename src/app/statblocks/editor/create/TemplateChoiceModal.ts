@@ -1,5 +1,6 @@
 import { SuggestModal, type App } from 'obsidian';
 import { findOffers, type TemplateOffer } from './templateOffers';
+import { t } from '../../../i18n';
 
 /**
  * "New statblock…" in the middle of the window, as Obsidian's command palette
@@ -11,11 +12,11 @@ export class TemplateChoiceModal extends SuggestModal<TemplateOffer> {
 
   constructor(app: App, private readonly offers: readonly TemplateOffer[], private readonly done: (offer: TemplateOffer | null) => void) {
     super(app);
-    this.setPlaceholder('New statblock from…');
+    this.setPlaceholder(t('sbEditor.newStatblockFrom'));
     this.setInstructions([
-      { command: '↑↓', purpose: 'to choose' },
-      { command: '↵', purpose: 'to name it' },
-      { command: 'esc', purpose: 'to leave' },
+      { command: '↑↓', purpose: t('sbEditor.hint.choose') },
+      { command: '↵', purpose: t('sbEditor.hint.name') },
+      { command: 'esc', purpose: t('sbEditor.hint.leave') },
     ]);
     this.modalEl.addClass('atlas-vtt-plugin', 'atlas-sb-template-choice');
   }

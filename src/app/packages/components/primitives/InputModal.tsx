@@ -67,7 +67,7 @@ const InputModal: React.FC<InputModalProps> = ({
     const trimmedValue = value.trim();
     
     if (!trimmedValue) {
-      setError('Value cannot be empty');
+      setError(t('common.valueEmpty'));
       return;
     }
 
