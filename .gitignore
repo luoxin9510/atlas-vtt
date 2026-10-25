@@ -78,3 +78,8 @@ party/
 # GPU test failure artifacts
 **/__screenshots__/
 .vitest-attachments/
+
+# Fork-local development (luoxin9510/atlas-vtt)
+dev-vault/
+.envrc
+CLAUDE.local.md
