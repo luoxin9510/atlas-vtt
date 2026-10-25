@@ -17,7 +17,7 @@ Checklist for a writer:
 1. Edit only scene files that are NOT open in Atlas (see section 10, R1). Atlas rewrites the whole file on any change and has no locking (LS/sceneFileWriter.ts:44-112).
 2. Envelope: `{ "state": {...}, "version": 4 }`. Write `version: 4` in BOTH the envelope and `state.version` (MP:136, 226-233). Never write a number above 4: the file is refused (`newer`).
 3. `state.schema` must be exactly `"atlas-vtt"` (LS/mapFileFallback.ts:8-42).
-4. Write all eight object maps, each as `{}` when empty: `tokens, fog, pins, texts, drawings, walls, lights, audios` (`objects` replaces the default wholesale and `audios` is never back-filled, see 4.2 and R2).
+4. Write all eight object maps, each as `{}` when empty: `tokens, fog, pins, texts, drawings, walls, lights, audios` (`objects` replaces the default wholesale; upstream 0.9.1 never back-fills `audios`, see R2).
 5. Tokens: use the ON-DISK resource fields (`hp`, `stress`, `maxStress`, `hope`, `statblockResources`, `maxHpOverridden`, ...), not the in-memory `resources` map (RFF:32-81).
 6. Write a complete `tokenSettings` object including `showHPBars` and `showStressBars` (replaced wholesale; a missing `showStressBars` hides stress bars, RFF:94-108).
 7. Record key must equal the entity `id`; ids unique within the file across ALL kinds (section 7).
@@ -241,7 +241,7 @@ No generic zone object exists; the only zone kind is `lightZones`. Player view s
 | tokenSettings | `hiddenResources` only | + `showHPBars`, `showStressBars` | RFF:94-114 |
 | initiative entries | no vitals | + `hp`, `stress`, `isDefeated` | RFF:146,151-163 |
 | `objects.walls`, `objects.lights` | always present | back-filled on load if missing | MP:213-218 |
-| `objects.audios` | always present in initial state | NOT back-filled; absent in the file = undefined in memory | R2 |
+| `objects.audios` | always present in initial state | upstream 0.9.1: NOT back-filled (absent in the file = undefined in memory); this fork back-fills it like walls/lights | R2 |
 | collection widgets | merged into `widgetSettings` | stripped | SF:1450 |
 | `mapPath` | real path | repeated, overwritten on load | MP:238 |
 | formatting | n/a | Atlas saves: compact JSON; `createScene` and `FileReferenceService` rewrites: 2-space | MP:160; createScene.ts:39-56; FileReferenceService.ts:142-174 |
@@ -341,7 +341,7 @@ Not `atlasRecord`; record-folder mechanism: `JSON.stringify({format, ...record},
 
 **R1. Atlas has the scene open and overwrites it.** No locking or merge. Atlas rewrites the whole file (compact JSON, `partialize` key order) 500 ms after any persisted change (`SAVE_DELAY_MS`, LS/sceneFileWriter.ts:12,44-52), via `vault.process` (atomic per file, last write wins; sceneFileWriter.ts:93-112). An external edit to an open scene is lost on its next change. Whether Atlas re-reads on `modify`: **UNVERIFIED**. Edit only closed scenes; also do not edit within the debounce window after closing (`flush()` waits up to 5 s, sceneFileWriter.ts, `STALLED_SAVE_MS`).
 
-**R2. `objects.audios` is never back-filled.** `objects` is replaced wholesale by merge (SF:1475-1488); `getItem` back-fills only `walls` and `lights` (MP:213-218). Confirmed unguarded accesses: `addAudio` (SF:1254), `deleteMapObject` (SF:882), `AudioRenderer.ts:88,148`, `SpatialAudioEngine.ts:118`. Atlas's own `newSceneFile` omits `walls/lights/audios` (LS/newSceneFile.ts:28-60), so the initial state is overwritten there; whether another path repairs it was not found. Always write all eight maps.
+**R2. `objects.audios` is never back-filled (upstream 0.9.1; fixed in this fork).** `objects` is replaced wholesale by merge (SF:1475-1488); `getItem` back-fills only `walls` and `lights` (MP:213-218). Confirmed unguarded accesses: `addAudio` (SF:1254), `deleteMapObject` (SF:882), `AudioRenderer.ts:88,148`, `SpatialAudioEngine.ts:118`. Atlas's own `newSceneFile` omits `walls/lights/audios` (LS/newSceneFile.ts:28-60), so the initial state is overwritten there; whether another path repairs it was not found. Confirmed by `tests/unit/sceneAudiosBackfill.test.ts`: a scene made by `newSceneFile` loaded with `objects.audios === undefined`, so placing the first audio source threw. This fork back-fills `audios` in `getItem` next to `walls` and `lights`. Upstream Atlas still has the bug, so always write all eight maps.
 
 **R3. Version semantics.** `ATLAS_VERSION = 4` (MP:28) and never bumps. The store's persist `version` is 4 (SF:1439) and no `migrate` is configured; zustand discards a state whose envelope version is a number other than the store's (node_modules/zustand/middleware.js:360-376). Atlas prevents that on its own read path: `getItem` raises a lower `state.version` and envelope `version` to 4 in place before zustand sees them (MP:226-233), and a missing envelope version skips the check. So lower or missing versions load; > 4 in either place is refused by `parseSceneFile`, not backed up, left untouched (MP:136-137; tests/unit/mapPersistence.unreadableData.test.ts:47-56). Older Atlas builds load higher versions as empty and overwrite them (CLAUDE.md "Token resources"). Write 4 in both places; a reader that bypasses `getItem` must apply the same bump.
 

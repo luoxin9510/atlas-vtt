@@ -4,6 +4,7 @@ import type { App } from 'obsidian';
 import type { TokenEntity, TextElement, DrawingStroke, NotePin } from '../types';
 import type { WallSegment } from '../types/wallTypes';
 import type { LightSource, LightZone } from '../types/lightingTypes';
+import type { AudioSource } from '../types/audioTypes';
 import type { WidgetSettings } from '../types/widgetTypes';
 import type { CellNumberFormat } from '../grid/cellNumbering';
 import type AtlasVTTPlugin from '../../../main';
@@ -47,6 +48,8 @@ export interface MapFile {
     lights: Record<string, LightSource>;
     /** Absent in files from before light zones, and until a map has one. */
     lightZones?: Record<string, LightZone>;
+    /** Absent in a new scene's file (`newSceneFile`); reading fills it in. */
+    audios?: Record<string, AudioSource>;
   };
   camera: CameraState;
 }
@@ -217,6 +220,11 @@ export function createAtlasStorage<T extends { mapPath: string | null; mapLoaded
       }
       if (state?.objects && !state.objects.lights) {
         state.objects.lights = {};
+      }
+      // A new scene's file has no audio sources yet (`newSceneFile`); the merge takes `objects`
+      // whole, so without this the store would have no map to place the first one in
+      if (state?.objects && !state.objects.audios) {
+        state.objects.audios = {};
       }
       // Files keep the token fields older versions of Atlas read; in memory tokens hold resources
       if (state) Object.assign(state, sceneFromFile(state));
