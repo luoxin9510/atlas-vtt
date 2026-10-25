@@ -1,6 +1,9 @@
 import type { Translation } from '../../types';
 
 export const dashboard: Translation = {
+  'dashboard.allCreatures': '全部（{count}）',
+  'dashboard.inThisFight': '本场战斗（{count}）',
+  'dashboard.statblockScope': '显示的属性块',
   'dashboard.linkNote': '为此地图关联一篇笔记',
   'dashboard.linkOther': '关联另一篇笔记',
   'dashboard.loading': '正在加载属性块...',
@@ -12,7 +15,9 @@ export const dashboard: Translation = {
   'dashboard.daysAgo': '{count} 天前',
   'dashboard.createScene': '新建场景',
   'dashboard.assets': '素材库',
+  'dashboard.begin': '开始',
   'dashboard.continue': '继续冒险',
+  'dashboard.resume': '继续',
   'dashboard.firstScene': '创建你的第一个场景',
   'dashboard.firstSceneMeta': '选择一张地图，开始你的战役',
   'dashboard.recent': '最近的场景',

@@ -19,6 +19,7 @@ export const sbImport: Translation = {
   'sbImport.added': '已加入导入',
   'sbImport.noMatch': '没有符合搜索的属性块。',
   'sbImport.noneFound': '没有找到属性块笔记。请在 Fantasy Statblocks 中启用 frontmatter 解析，或在笔记里加入 statblock 代码块。',
+  'sbImport.noneFoundInVault': '你的库中没有找到属性块笔记。',
   'sbImport.scanAgain': '重新扫描',
   'sbImport.back': '返回预览',
   'sbImport.loadingImages': '正在加载图片…',

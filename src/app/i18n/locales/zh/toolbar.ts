@@ -32,6 +32,7 @@ export const toolbar: Translation = {
   'toolbar.rollDice': '掷骰',
   'toolbar.size': '大小',
   'toolbar.textOptions': '文字选项',
+  'toolbar.optionsOf': '{label}选项',
   'toolbar.textTool': '文字工具',
   'toolbar.moveSelect': '移动/选择',
   'toolbar.drawTool': '绘图工具',

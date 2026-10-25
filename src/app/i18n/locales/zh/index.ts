@@ -80,6 +80,18 @@ import { migration } from './migration';
 import { wall } from './wall';
 import { sceneLight } from './sceneLight';
 import { vision } from './vision';
+import { campaign } from './campaign';
+import { diceLab } from './diceLab';
+import { diceRoll } from './diceRoll';
+import { diceSettings } from './diceSettings';
+import { initRules } from './initRules';
+import { quest } from './quest';
+import { recoveryEditor } from './recoveryEditor';
+import { rest } from './rest';
+import { senses } from './senses';
+import { tables } from './tables';
+import { toolbarEdit } from './toolbarEdit';
+import { vaultImages } from './vaultImages';
 
 /** Simplified Chinese. Missing keys fall back to English. */
 export const zh: Translation = {
@@ -166,4 +178,16 @@ export const zh: Translation = {
   ...wall,
   ...sceneLight,
   ...vision,
+  ...campaign,
+  ...diceLab,
+  ...diceRoll,
+  ...diceSettings,
+  ...initRules,
+  ...quest,
+  ...recoveryEditor,
+  ...rest,
+  ...senses,
+  ...tables,
+  ...toolbarEdit,
+  ...vaultImages,
 };

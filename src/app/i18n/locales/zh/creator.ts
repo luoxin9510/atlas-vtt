@@ -16,6 +16,7 @@ export const creator: Translation = {
   'creator.firstTag': '输入名称来创建第一个标签。',
   'creator.imageSource': '图片来源',
   'creator.importPreviews': '导入预览',
+  'creator.statblockNotes': '属性块笔记',
   'creator.map.browse': '或点击浏览地图图片',
   'creator.map.count': { other: '{count} 张地图' },
   'creator.map.create': '创建地图',

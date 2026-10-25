@@ -8,5 +8,6 @@ export const editToken: Translation = {
   'editToken.namePlaceholder': '棋子名称',
   'editToken.showNameplate': '显示名牌',
   'editToken.resources': '资源',
+  'editToken.token': '棋子',
   'editToken.resetStatblock': '重置为属性块默认值',
 };

@@ -26,6 +26,7 @@ export const issue: Translation = {
   'issue.area.asset-manager': '素材库',
   'issue.area.player-view': '玩家视图',
   'issue.area.settings': '设置、命令和更新',
+  'issue.area.online': '线上游戏',
   'issue.area.unknown': '不确定 / 其他',
   'issue.intro': '直接从 Atlas 提交报告。报告和附带的诊断信息会公开贴到 GitHub。不需要 GitHub 账号。',
   'issue.typeLabel': '问题类型',
