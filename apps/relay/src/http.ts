@@ -71,16 +71,26 @@ export function createHandler(context: HttpContext): RequestHandler {
   const lock = new HostKeyLock();
   const rate = new TableRateLimit();
 
+  /** The one host-key check for every endpoint: 429 while the address is locked, a wrong key counts toward the lock. */
+  function authorize(req: IncomingMessage, res: ServerResponse, address: string): boolean {
+    if (lock.isLocked(address)) {
+      send(res, 429, { error: 'locked' });
+      return false;
+    }
+    if (!sameText(bearerOf(req), config.hostKey)) {
+      lock.failed(address);
+      send(res, 401, { error: 'unauthorized' });
+      return false;
+    }
+    lock.succeeded(address);
+    return true;
+  }
+
   async function createTable(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (!originAllowed(req, config)) return send(res, 403, { error: 'origin' });
     const address = clientAddress(req, config.trustProxy);
-    if (lock.isLocked(address)) return send(res, 429, { error: 'locked' });
-    if (!rate.allow(address)) return send(res, 429, { error: 'rate-limited' });
-    if (!sameText(bearerOf(req), config.hostKey)) {
-      lock.failed(address);
-      return send(res, 401, { error: 'unauthorized' });
-    }
-    lock.succeeded(address);
+    if (!lock.isLocked(address) && !rate.allow(address)) return send(res, 429, { error: 'rate-limited' });
+    if (!authorize(req, res, address)) return;
     const code = codeIn(await readBody(req));
     if (code === null) return send(res, 400, { error: 'bad-code' });
     const table = tables.create(code);
@@ -95,7 +105,7 @@ export function createHandler(context: HttpContext): RequestHandler {
   }
 
   function me(req: IncomingMessage, res: ServerResponse): void {
-    if (!sameText(bearerOf(req), config.hostKey)) return send(res, 401, { error: 'unauthorized' });
+    if (!authorize(req, res, clientAddress(req, config.trustProxy))) return;
     send(res, 200, { account: { id: 'host', handle: 'host', name: 'Host' }, access: { plan: 'host', maxPlayers: config.maxPlayers } });
   }
 

@@ -128,6 +128,23 @@ describe('other routes', () => {
     expect((await fetch(`${relay.origin}/api/me`, { headers: { authorization: 'Bearer nope' } })).status).toBe(401);
   });
 
+  it('locks GET /api/me after 5 wrong bearers: the right one then answers 429', async () => {
+    const relay = await start();
+    const me = (bearer: string): Promise<Response> => fetch(`${relay.origin}/api/me`, { headers: { authorization: `Bearer ${bearer}` } });
+    for (let i = 0; i < 5; i += 1) expect((await me('wrong-host-key-wrong-host-key')).status).toBe(401);
+    expect((await me(TEST_HOST_KEY)).status).toBe(429);
+  });
+
+  it('shares the lock between endpoints: wrong keys on /api/me lock POST /api/tables and back', async () => {
+    const relay = await start();
+    for (let i = 0; i < 5; i += 1) await fetch(`${relay.origin}/api/me`, { headers: { authorization: 'Bearer wrong-host-key-wrong-host-key' } });
+    expect((await postTable(relay.origin, CODE)).status).toBe(429);
+    const other = await start();
+    for (let i = 0; i < 3; i += 1) await postTable(other.origin, CODE, { bearer: 'wrong-host-key-wrong-host-key' });
+    for (let i = 0; i < 2; i += 1) await fetch(`${other.origin}/api/me`, { headers: { authorization: 'Bearer wrong-host-key-wrong-host-key' } });
+    expect((await fetch(`${other.origin}/api/me`, { headers: { authorization: `Bearer ${TEST_HOST_KEY}` } })).status).toBe(429);
+  });
+
   it('answers POST /api/feedback with 204', async () => {
     const relay = await start();
     expect((await fetch(`${relay.origin}/api/feedback`, { method: 'POST', body: '{}' })).status).toBe(204);
@@ -172,7 +189,7 @@ describe('config and client address', () => {
   it('reads the client address from the peer unless a proxy is trusted', () => {
     const request = { socket: { remoteAddress: '10.0.0.1' }, headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8', 'cf-connecting-ip': '9.9.9.9' } } as never;
     expect(clientAddress(request, 'none')).toBe('10.0.0.1');
-    expect(clientAddress(request, 'xff')).toBe('1.2.3.4');
+    expect(clientAddress(request, 'xff')).toBe('5.6.7.8');
     expect(clientAddress(request, 'cf')).toBe('9.9.9.9');
   });
 });

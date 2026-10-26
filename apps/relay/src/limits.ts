@@ -16,8 +16,9 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
 export function clientAddress(req: IncomingMessage, trust: RelayConfig['trustProxy']): string {
   const peer = req.socket.remoteAddress ?? 'unknown';
   if (trust === 'xff') {
-    const first = firstHeader(req.headers['x-forwarded-for'])?.split(',')[0]?.trim();
-    return first ? first : peer;
+    // The last entry is the one our own proxy appended; earlier ones can be forged by the client.
+    const last = firstHeader(req.headers['x-forwarded-for'])?.split(',').at(-1)?.trim();
+    return last ? last : peer;
   }
   if (trust === 'cf') {
     const address = firstHeader(req.headers['cf-connecting-ip'])?.trim();
