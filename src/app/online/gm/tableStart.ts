@@ -14,8 +14,8 @@ import { t } from '../../i18n';
 export interface HostAccount {
   /** The account's token (a self-hosted server's host key), or null while there is none. */
   token(): string | null;
-  /** The relay refused the token. */
-  signedOutByServer(): void;
+  /** The relay refused the token. `selfHosted` says whether the server asked was a self-hosted one when the request was made (the setting may have changed since). */
+  signedOutByServer(selfHosted?: boolean): void;
   /** Asks the relay again what the account may host. */
   refresh(force: boolean): Promise<void>;
 }
@@ -60,6 +60,8 @@ export const OTHER_LINK_TEXT = t('onlineGm.start.otherLink');
  * another link is ended, never run: its players would not find it at the campaign's link.
  */
 export async function createCampaignTable(campaigns: TableCampaigns, campaignId: string, token: string, origin: string, account: HostAccount, outdated: (minLevel: number) => void = () => undefined): Promise<CampaignTable | null> {
+  // Which kind of server this is was decided when the request was made: the setting may change before the answer comes.
+  const selfHosted = isSelfHosted();
   const seats = await campaigns.open(campaignId).catch(() => null);
   const link = seats === null ? null : campaignLink(seats);
   if (seats === null || link === null) return refused(seats === null ? CAMPAIGNS_LOADING_TEXT : linkRefusal(seats));
@@ -71,8 +73,8 @@ export async function createCampaignTable(campaigns: TableCampaigns, campaignId:
   }
   if (!('message' in created)) return { created, seats };
   if (created.minLevel !== undefined) outdated(created.minLevel);
-  if (created.status === 401) account.signedOutByServer();
+  if (created.status === 401) account.signedOutByServer(selfHosted);
   else if (created.status === 403) void account.refresh(true);
   // A refused host key stays and is named here; a refused account token is forgotten, and the account says so.
-  return created.status === 401 && !isSelfHosted() ? null : refused(created.message);
+  return created.status === 401 && !selfHosted ? null : refused(created.message);
 }

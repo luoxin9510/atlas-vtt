@@ -140,9 +140,9 @@ export class AccountControl {
   }
 
   /** The server refused the token: it is forgotten, and the GM hears that running tables go on. */
-  signedOutByServer(): void {
-    // A host key the server refuses stays: the GM replaces it in the settings.
-    if (isSelfHosted() || this.token() === null) return;
+  signedOutByServer(selfHosted: boolean = isSelfHosted()): void {
+    // A host key the server refuses stays: the GM replaces it in the settings. `selfHosted` is what it was when the request went out.
+    if (selfHosted || isSelfHosted() || this.token() === null) return;
     this.forget('server');
     this.ports.notify(SERVER_SIGNED_OUT_TEXT);
   }

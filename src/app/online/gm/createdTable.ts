@@ -22,8 +22,8 @@ export function seatsOf(value: unknown): number {
 export const LINK_TAKEN_TEXT = t('onlineGm.create.linkTaken');
 
 /** The sentence for an answer of the relay that made no table. Who may host is the server's word: this only reads it out. */
-function refusalText(status: number, error: unknown): string {
-  if (status === 401) return isSelfHosted() ? HOST_KEY_REFUSED_TEXT : SERVER_SIGNED_OUT_TEXT;
+function refusalText(status: number, error: unknown, selfHosted: boolean): string {
+  if (status === 401) return selfHosted ? HOST_KEY_REFUSED_TEXT : SERVER_SIGNED_OUT_TEXT;
   if (status === 403) return accessText(accessRefusal(error));
   if (status === 409 && error === 'link-taken') return LINK_TAKEN_TEXT;
   if (status === 426) return OUTDATED_TEXT;
@@ -35,9 +35,10 @@ function refusalText(status: number, error: unknown): string {
 }
 
 /** The created table from the relay's answer, or a sentence saying why there is none. */
-export function readCreated(status: number, body: unknown): CreatedTable | string {
+/** `selfHosted` is what the server was when the request went out (the setting may have changed before the answer). */
+export function readCreated(status: number, body: unknown, selfHosted: boolean = isSelfHosted()): CreatedTable | string {
   const fields = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
-  if (status !== 201) return refusalText(status, fields.error);
+  if (status !== 201) return refusalText(status, fields.error, selfHosted);
   const { code, secret } = fields;
   if (typeof code !== 'string' || !TABLE_CODE_PATTERN.test(code) || typeof secret !== 'string' || secret.length < 32) return 'The server answered with something that is no table.';
   return { code, secret, maxPlayers: seatsOf(fields.maxPlayers) };

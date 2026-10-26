@@ -144,6 +144,19 @@ describe('online play\'s settings', () => {
     expect(of.requests).toEqual([]);
   });
 
+  it('keep the host key when its field is emptied by hand: the Remove button clears it', () => {
+    setServerOrigin('https://tables.example.com');
+    const of = host({ status: 200, json: {} });
+    typed(draw(of).row('Host key'), 'secret-host-key');
+    expect(of.keyIs()).toBe('secret-host-key');
+    typed(draw(of).row('Host key'), '');
+    typed(draw(of).row('Host key'), '   ');
+    expect(of.keyIs()).toBe('secret-host-key');
+    const remove = draw(of).row('Host key').controlEl.querySelector('button');
+    remove?.click();
+    expect(of.keyIs()).toBeNull();
+  });
+
   it('say in the account row, self-hosted, whether a host key is set, with no sign-in and no account page', () => {
     setServerOrigin('https://tables.example.com');
     const of = host({ status: 200, json: {} });

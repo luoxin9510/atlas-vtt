@@ -67,6 +67,8 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
             text.inputEl.addEventListener('change', () => {
               const key = text.inputEl.value;
               text.setValue('');
+              // Emptying the field does not clear the key by accident: the Remove button does.
+              if (key.trim() === '') return;
               host.account.setHostKey(key);
               draw();
             });

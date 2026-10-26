@@ -125,6 +125,30 @@ describe('starting a table on a self-hosted server', () => {
     expect(socket?.frames().some((frame) => frame.t === 'end')).toBe(true);
   });
 
+  it('ends a table made while the control was closed for a reload, since nothing keeps it', async () => {
+    const { leaf } = tab();
+    const saves: (SavedTable | null)[] = [];
+    const online = new OnlineControl(app, boundOwnership([]), fakeCampaigns(), (table) => saves.push(table), account);
+    seen.during = () => online.close();
+    expect(await online.start(leaf, 'c1')).toBeNull();
+    await advance(0);
+    expect(online.table).toBeNull();
+    expect(saves).toEqual([]);
+    expect(FakeSocket.all.map((socket) => socket.url)).toEqual([`wss://tables.example.com/api/tables/${FAKE_LINK}/socket`]);
+    FakeSocket.all[0]?.relay({ t: 'welcome', role: 'gm', players: [] });
+    expect(FakeSocket.all[0]?.frames().some((frame) => frame.t === 'end')).toBe(true);
+  });
+
+  it('tells the account that the self-hosted server refused, even when the address was switched upstream meanwhile', async () => {
+    const { leaf } = tab();
+    seen.answer = { status: 401, json: { error: 'unauthorized' } };
+    seen.during = () => setServerOrigin(UPSTREAM_RELAY_ORIGIN);
+    const online = new OnlineControl(app, boundOwnership([]), fakeCampaigns(), () => undefined, account);
+    expect(await online.start(leaf, 'c1')).toBeNull();
+    expect(hostKey.refused).toHaveBeenCalledWith(true);
+    expect(seen.notices).toEqual(['The host key is not accepted by this server.']);
+  });
+
   it('ends a table made when the address was cleared before it runs', async () => {
     const { leaf } = tab();
     const online = new OnlineControl(app, boundOwnership([]), fakeCampaigns(), () => undefined, account);

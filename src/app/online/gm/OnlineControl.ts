@@ -284,7 +284,12 @@ export class OnlineControl {
     const closings = this.closings;
     const made = await createCampaignTable(this.campaigns, campaignId, token, origin, this.account, (level) => rememberMinLevel(this.app, level)).finally(() => (this.starting = false));
     this.changed();
-    if (made === null || closings !== this.closings) return null;
+    if (made === null) return null;
+    // The control was closed while the table was made: nothing keeps this table, so it is ended on the server it was made on.
+    if (closings !== this.closings) {
+      endStrayTable(origin, made.created);
+      return null;
+    }
     // The address was edited while the table was made: it belongs to a server that is no longer the one set.
     if (relayOrigin() !== origin) {
       endStrayTable(origin, made.created);

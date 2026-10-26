@@ -51,6 +51,13 @@ describe('the account on a self-hosted server', () => {
     expect(hostKey.value).toBe('host-key-0123456789');
   });
 
+  it('lets a late 401 from the self-hosted server leave the upstream account token alone', () => {
+    const { control, account } = setup();
+    setServerOrigin(UPSTREAM_RELAY_ORIGIN);
+    control.signedOutByServer(true);
+    expect(account.value).toBe('account-token');
+  });
+
   it('shows whether a host key is set, instead of an account', () => {
     const { control, hostKey } = setup();
     expect(control.view()).toEqual({ kind: 'host-key', set: true });
