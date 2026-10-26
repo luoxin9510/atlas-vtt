@@ -29,7 +29,8 @@ grep -n '^#\{1,2\} ' CLAUDE.md          # list the sections and their lines
 
 - Never remove or alter license headers, `LICENSE`, `THIRD_PARTY_NOTICES.md`,
   `CLA.md` or attributions.
-- Never touch Atlas Online code, auth, or network endpoints.
+- `src/app/online/`, `apps/` and the online protocol are fork-owned: no upstream
+  merges there, and conflicts resolve to the fork (spec 6.6).
 - Never change `manifest.json`, `versions.json` or plugin ids.
 - Fork documentation is English and lives under `docs/fork/`.
 - Commit at the end of each phase with a clear message. Never push unless the
@@ -59,6 +60,10 @@ npm run lint              # eslint-plugin-obsidianmd, zero warnings
 npm test                  # vitest unit project (watch mode; use `npx vitest run --project unit` for one run)
 npm run build             # vite build, then scripts/copy-plugin.js
 ```
+
+The self-hosted relay is the `apps/relay` npm workspace (Node >= 22.18, runs
+TypeScript natively): `npm run relay` starts it, `npm run check:relay` type
+checks it. ESLint ignores `apps/`.
 
 - `npm run test:gpu` runs browser tests locally only.
 - A unit test needing a DOM starts with `// @vitest-environment jsdom`.
