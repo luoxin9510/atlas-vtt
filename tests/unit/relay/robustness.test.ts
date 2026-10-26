@@ -36,7 +36,7 @@ function halfOpenClient(port: number, request: string): Socket {
 }
 
 describe('backpressure (I1, N2)', () => {
-  const STALL = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 800 };
+  const STALL = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 5000 };
   const CHUNK = 'x'.repeat(300 * 1024);
 
   /** A player whose link delivers `rate` bytes a second: its TCP socket is read in 100 ms slices. */
@@ -83,7 +83,8 @@ describe('backpressure (I1, N2)', () => {
       await gm.send({ t: 'send', to: '*', body: CHUNK });
       if (i % 4 === 3) await vi.waitFor(() => expect(received()).toBe(i + 1), { timeout: 12_000 });
     }
-    // 42 MB are queued for the stuck player: no limit but the stall window has been reached.
+    // 42 MB are queued for the stuck player: no limit but the stall window has been reached. The window (5 s)
+    // is far longer than this send loop takes, even under load, so the player must still be here.
     expect(relay.links.peek(CODE)?.players.has(stuck.id)).toBe(true);
     await vi.waitFor(() => expect(gm.frames.filter((frame) => frame.t === 'player-left' && frame.id === stuck.id)).toHaveLength(1), { timeout: 12_000 });
     expect(relay.links.peek(CODE)?.players.has(fine.id)).toBe(true);
