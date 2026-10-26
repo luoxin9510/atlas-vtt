@@ -22,7 +22,8 @@ export async function startTestRelay(overrides: Partial<RelayConfig> = {}): Prom
     statePath: join(directory, 'relay-state.json'),
     staticDir: null,
     trustProxy: 'none',
-    timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 },
+    maxBacklogBytes: 96 * 1024 * 1024,
+    timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 },
     ...overrides,
   };
   const running = await startRelay(config);

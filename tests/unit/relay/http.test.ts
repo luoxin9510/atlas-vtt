@@ -108,7 +108,7 @@ describe('POST /api/tables', () => {
   });
 
   it('deletes a table nobody hosted after unhostedTableMs', async () => {
-    const relay = await start({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 50, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 } });
+    const relay = await start({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 50, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 } });
     const { secret } = (await (await postTable(relay.origin, CODE)).json()) as { secret: string };
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(relay.tables.checkSecret(CODE, secret)).toBe(false);
@@ -175,7 +175,7 @@ describe('config and client address', () => {
   it('loads defaults and normalises the public origin', () => {
     const config = loadConfig(env);
     expect(config).toMatchObject({ host: '127.0.0.1', port: 8787, publicOrigin: 'https://play.example.test', maxPlayers: 8, statePath: './relay-state.json', staticDir: null, trustProxy: 'none' });
-    expect(config.timing).toEqual({ knockWaitMs: 180_000, wrongCodeWindowMs: 600_000, wrongCodePauseMs: 600_000, unhostedTableMs: 1_209_600_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 });
+    expect(config.timing).toEqual({ knockWaitMs: 180_000, wrongCodeWindowMs: 600_000, wrongCodePauseMs: 600_000, unhostedTableMs: 1_209_600_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 });
   });
 
   it('rejects a short host key, a missing or path-bearing origin and a bad MAX_PLAYERS', () => {

@@ -50,7 +50,7 @@ describe('join gate over sockets', () => {
   });
 
   it('closes an unanswered knock with 4013 and tells the GM knock-gone', async () => {
-    const { origin, gm } = await table({ timing: { knockWaitMs: 150, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 } });
+    const { origin, gm } = await table({ timing: { knockWaitMs: 150, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 } });
     await gm.send({ t: 'gate', code: '123456', ask: true });
     const player = playerOf(origin, sockets, { code: '123456' });
     const knock = await gm.frameOf('knock');
@@ -114,7 +114,7 @@ describe('join gate over sockets', () => {
 });
 
 describe('a pause and the GM\'s new code', () => {
-  const LONG_PAUSE = { knockWaitMs: 500, wrongCodeWindowMs: 60_000, wrongCodePauseMs: 60_000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 };
+  const LONG_PAUSE = { knockWaitMs: 500, wrongCodeWindowMs: 60_000, wrongCodePauseMs: 60_000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 };
 
   async function paused(): Promise<Awaited<ReturnType<typeof table>>> {
     const t = await table({ timing: LONG_PAUSE });
@@ -344,12 +344,12 @@ describe('player limits', () => {
   });
 
   it('closes 4006 for a socket without an accepted hello after helloTimeoutMs', async () => {
-    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000 } });
+    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000, stallMs: 30_000 } });
     expect(await new Client(origin, sockets).closed).toBe(CLOSE.protocol);
   });
 
   it('does not close a welcomed player when the hello timeout passes', async () => {
-    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000 } });
+    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000, stallMs: 30_000 } });
     const { player } = await joined(origin, sockets);
     await new Promise((done) => setTimeout(done, 300));
     expect(player.socket.readyState).toBe(1);

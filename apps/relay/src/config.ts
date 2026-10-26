@@ -11,6 +11,8 @@ export interface RelayTiming {
    * dead connection is gone within two intervals and frees its seat and its address slot.
    */
   readonly pingIntervalMs: number;
+  /** A socket whose backlog of unsent bytes has not gone down for this long is closed 1013 (a slow reader keeps going). */
+  readonly stallMs: number;
 }
 
 export interface RelayConfig {
@@ -22,6 +24,8 @@ export interface RelayConfig {
   readonly statePath: string;
   readonly staticDir: string | null;
   readonly trustProxy: 'none' | 'xff' | 'cf';
+  /** Hard cap on one socket's unsent bytes (memory protection): over it the socket is closed 1013 at once. */
+  readonly maxBacklogBytes: number;
   readonly timing: RelayTiming;
 }
 
@@ -32,7 +36,11 @@ export const DEFAULT_TIMING: RelayTiming = {
   unhostedTableMs: 1_209_600_000,
   helloTimeoutMs: 10_000,
   pingIntervalMs: 30_000,
+  stallMs: 30_000,
 };
+
+/** One whole asset (the largest, 25 MB, in base64) plus slack. */
+export const DEFAULT_MAX_BACKLOG_BYTES = 96 * 1024 * 1024;
 
 const MIN_HOST_KEY_LENGTH = 24;
 
@@ -81,6 +89,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): RelayConfig {
     statePath: env.STATE_PATH || './relay-state.json',
     staticDir: env.STATIC_DIR || null,
     trustProxy: trustProxyIn(env.TRUST_PROXY),
+    maxBacklogBytes: DEFAULT_MAX_BACKLOG_BYTES,
     timing: DEFAULT_TIMING,
   };
 }

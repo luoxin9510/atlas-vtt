@@ -7,7 +7,7 @@ import { removeTestState, startTestRelay, TEST_PUBLIC_ORIGIN } from './relayHarn
 const running: Array<{ close(): Promise<void> }> = [];
 const sockets: WebSocket[] = [];
 const raw: Socket[] = [];
-const FAST_PING = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 100 };
+const FAST_PING = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 250, stallMs: 30_000 };
 
 async function start(...args: Parameters<typeof startTestRelay>): ReturnType<typeof startTestRelay> {
   const relay = await startTestRelay(...args);
@@ -35,28 +35,71 @@ function halfOpenClient(port: number, request: string): Socket {
   return socket;
 }
 
-describe('backpressure (I1)', () => {
-  it('closes a player that stops reading, keeps the GM and the other players going', async () => {
-    const relay = await start();
+describe('backpressure (I1, N2)', () => {
+  const STALL = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 800 };
+  const CHUNK = 'x'.repeat(300 * 1024);
+
+  /** A player whose link delivers `rate` bytes a second: its TCP socket is read in 100 ms slices. */
+  function slowReader(client: Client, rate: number): () => void {
+    const tcp = (client.socket as unknown as { _socket: Socket })._socket;
+    let budget = 0;
+    tcp.on('data', (bytes: Buffer) => {
+      budget -= bytes.length;
+      if (budget <= 0) tcp.pause();
+    });
+    const tick = setInterval(() => {
+      budget = rate / 10;
+      tcp.resume();
+    }, 100);
+    tcp.pause();
+    return () => clearInterval(tick);
+  }
+
+  it('lets a slow player that keeps reading receive a 30 MB asset completely', async () => {
+    const relay = await start({ timing: STALL });
+    const secret = await createTable(relay.origin);
+    const gm = await gmOf(relay.origin, sockets, secret);
+    const slow = await joined(relay.origin, sockets, 'Slow');
+    const stop = slowReader(slow.player, 10_000_000);
+    try {
+      for (let i = 0; i < 100; i += 1) await gm.send({ t: 'send', to: slow.id, body: CHUNK });
+      await vi.waitFor(() => expect(slow.player.frames.filter((frame) => frame.t === 'game')).toHaveLength(100), { timeout: 20_000 });
+      expect(relay.links.peek(CODE)?.players.has(slow.id)).toBe(true);
+    } finally {
+      stop();
+    }
+  }, 40_000);
+
+  it('closes a player that stops reading only after the stall window, and spares the GM and the other players', async () => {
+    const relay = await start({ timing: STALL });
     const secret = await createTable(relay.origin);
     const gm = await gmOf(relay.origin, sockets, secret);
     const stuck = await joined(relay.origin, sockets, 'Stuck');
     const fine = await joined(relay.origin, sockets, 'Fine');
     await gm.frameOf('player-joined', 1);
     stuck.player.deaf();
-    const body = 'x'.repeat(300 * 1024);
     const received = (): number => fine.player.frames.filter((frame) => frame.t === 'game').length;
-    for (let i = 0; i < 80; i += 1) {
-      await gm.send({ t: 'send', to: '*', body });
-      // Paced, so the player who reads is never the one that falls behind.
+    for (let i = 0; i < 140; i += 1) {
+      await gm.send({ t: 'send', to: '*', body: CHUNK });
       if (i % 4 === 3) await vi.waitFor(() => expect(received()).toBe(i + 1), { timeout: 12_000 });
     }
+    // 42 MB are queued for the stuck player: no limit but the stall window has been reached.
+    expect(relay.links.peek(CODE)?.players.has(stuck.id)).toBe(true);
     await vi.waitFor(() => expect(gm.frames.filter((frame) => frame.t === 'player-left' && frame.id === stuck.id)).toHaveLength(1), { timeout: 12_000 });
-    expect(relay.links.peek(CODE)?.players.has(stuck.id)).toBe(false);
-    await vi.waitFor(() => expect(received()).toBe(80), { timeout: 12_000 });
     expect(relay.links.peek(CODE)?.players.has(fine.id)).toBe(true);
     expect(relay.links.peek(CODE)?.gm).not.toBeNull();
-  }, 30_000);
+  }, 40_000);
+
+  it('closes a player at once whose backlog passes the hard cap, stall window or not', async () => {
+    const relay = await start({ maxBacklogBytes: 4 * 1024 * 1024 });
+    const secret = await createTable(relay.origin);
+    const gm = await gmOf(relay.origin, sockets, secret);
+    const stuck = await joined(relay.origin, sockets, 'Stuck');
+    await gm.frameOf('player-joined');
+    stuck.player.deaf();
+    for (let i = 0; i < 80; i += 1) await gm.send({ t: 'send', to: '*', body: CHUNK });
+    await vi.waitFor(() => expect(gm.frames.filter((frame) => frame.t === 'player-left' && frame.id === stuck.id)).toHaveLength(1), { timeout: 12_000 });
+  }, 40_000);
 });
 
 describe('liveness (I2)', () => {

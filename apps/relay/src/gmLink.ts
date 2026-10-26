@@ -4,7 +4,7 @@ import type { CampaignSeat } from '../../../src/app/online/protocol/seat.ts';
 import type { RelayTiming } from './config.ts';
 import { JoinGate } from './joinGate.ts';
 import { PlayerLink } from './playerLink.ts';
-import { announceGm, gameFromGm, sendFrame, toGm } from './routing.ts';
+import { announceGm, DEFAULT_BACKLOG_CAP, gameFromGm, sendFrame, toGm } from './routing.ts';
 import type { TableListener, TableRegistry } from './tables.ts';
 
 export { sendFrame };
@@ -40,6 +40,8 @@ export interface TableState {
   readonly joinGate: JoinGate;
   /** Every open socket of the table, welcomed or not; all are closed when the table ends. */
   readonly sockets: Set<WebSocket>;
+  /** The most unsent bytes any socket of the table may hold. */
+  readonly backlogCap: number;
 }
 
 /** Per-table state and the GM's side of the protocol. Players join through the same `stateOf`. */
@@ -48,8 +50,10 @@ export class TableLinks implements TableListener {
   readonly #states = new Map<string, TableState>();
   readonly #timing: RelayTiming;
   readonly #players: PlayerLink;
+  readonly #backlogCap: number;
 
-  constructor(tables: TableRegistry, timing: RelayTiming) {
+  constructor(tables: TableRegistry, timing: RelayTiming, backlogCap: number = DEFAULT_BACKLOG_CAP) {
+    this.#backlogCap = backlogCap;
     this.#tables = tables;
     this.#timing = timing;
     this.#players = new PlayerLink(tables, timing);
@@ -64,7 +68,7 @@ export class TableLinks implements TableListener {
   stateOf(code: string): TableState {
     let state = this.#states.get(code);
     if (state === undefined) {
-      state = { gm: null, gate: { code: null, ask: false }, gateKnown: false, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set() };
+      state = { gm: null, gate: { code: null, ask: false }, gateKnown: false, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set(), backlogCap: this.#backlogCap };
       this.#states.set(code, state);
     }
     return state;

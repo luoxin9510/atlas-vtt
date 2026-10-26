@@ -22,7 +22,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
   const staticDir = config.staticDir === null ? null : resolve(config.staticDir);
   const handler = createHandler({ config: { ...config, staticDir }, tables, log });
-  const links = new TableLinks(tables, config.timing);
+  const links = new TableLinks(tables, config.timing, config.maxBacklogBytes);
   const sockets = createSocketServer(tables, links, config, log);
   const server = createServer(handler);
   server.on('upgrade', (req, socket, head) => sockets.upgrade(req, socket, head));

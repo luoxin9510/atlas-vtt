@@ -6,6 +6,7 @@ import { CLOSE, isOtherVersion, KEEPALIVE_PING, KEEPALIVE_PONG, MAX_PLAYER_FRAME
 import { normalizeOrigin, type RelayConfig } from './config.ts';
 import type { TableLinks } from './gmLink.ts';
 import { clientAddress, SocketCap } from './limits.ts';
+import { overload, stalled } from './routing.ts';
 import type { TableRegistry } from './tables.ts';
 
 /** Largest frame of a welcomed GM (a little over the protocol's 320 KiB chunk, with room for the envelope). */
@@ -57,6 +58,12 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
     }
   }, config.timing.pingIntervalMs);
   liveness.unref();
+  // A socket whose backlog has not gone down for the stall window is stuck, not slow.
+  const stallWatch = setInterval(() => {
+    const now = Date.now();
+    for (const client of wss.clients) if (stalled(client, now, config.timing.stallMs)) overload(client);
+  }, Math.max(50, Math.floor(config.timing.stallMs / 4)));
+  stallWatch.unref();
 
   function handle(code: string, socket: WebSocket, req: IncomingMessage): void {
     const address = clientAddress(req, config.trustProxy);
@@ -160,6 +167,7 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
     },
     close(): void {
       clearInterval(liveness);
+      clearInterval(stallWatch);
       for (const client of wss.clients) client.terminate();
       wss.close();
     },
