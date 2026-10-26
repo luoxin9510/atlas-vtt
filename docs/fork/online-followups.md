@@ -13,6 +13,9 @@ Plan 2; pick them up when touching the code nearby.
 - Newcomer limit is per client address: players behind one NAT share 10 newcomers per 10 minutes (keys and seat codes are not limited).
 - The 5-wrong-code pause is triggerable by anyone with the table link and blocks seat-code re-entry for 10 minutes (keys still enter); accepted trade-off.
 - Known-player records may exceed 128 if roster plus connected players exceed it.
+- No relay-wide memory budget across sockets: each socket may queue up to `maxBacklogBytes` (96 MiB), so many stuck sockets add up (`routing.ts`).
+- Queued outbound data is not freed eagerly when a socket closes; it waits for the outbox to be garbage collected with the socket (`routing.ts`).
+- The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).
 
 ## Plugin (`src/app/online`)
 - `normalizeServerOrigin` accepts `http://` for any host; the host key then travels in clear text. Consider a warning for non-loopback `http:`.
