@@ -32,12 +32,26 @@ export function sameText(a: string, b: string): boolean {
   return timingSafeEqual(Buffer.from(sha256Hex(a)), Buffer.from(sha256Hex(b)));
 }
 
-/** Per client address: 5 wrong host keys lock `POST /api/tables` for 10 minutes. */
+const SWEEP_INTERVAL_MS = MINUTE_MS;
+
+/** Drops every address whose hits are all older than `windowMs`; a throttle keeps it to once a minute. */
+function sweepHits(hits: Map<string, number[]>, now: number, windowMs: number): void {
+  for (const [address, times] of hits) if (times.every((at) => now - at >= windowMs)) hits.delete(address);
+}
+
+/** Per client address: 5 wrong host keys lock `POST /api/tables` for 10 minutes. A count older than the lock time is forgotten. */
 export class HostKeyLock {
-  readonly #wrong = new Map<string, number>();
+  readonly #wrong = new Map<string, { count: number; last: number }>();
   readonly #lockedUntil = new Map<string, number>();
+  #swept = 0;
+
+  /** Addresses with a count or a lock in memory. */
+  get tracked(): number {
+    return new Set([...this.#wrong.keys(), ...this.#lockedUntil.keys()]).size;
+  }
 
   isLocked(address: string, now: number = Date.now()): boolean {
+    this.#sweep(now);
     const until = this.#lockedUntil.get(address);
     if (until === undefined) return false;
     if (now < until) return true;
@@ -47,22 +61,46 @@ export class HostKeyLock {
   }
 
   failed(address: string, now: number = Date.now()): void {
-    const count = (this.#wrong.get(address) ?? 0) + 1;
-    this.#wrong.set(address, count);
+    this.#sweep(now);
+    const previous = this.#wrong.get(address);
+    const count = (previous !== undefined && now - previous.last < LOCK_MS ? previous.count : 0) + 1;
+    this.#wrong.set(address, { count, last: now });
     if (count >= WRONG_KEYS_BEFORE_LOCK) this.#lockedUntil.set(address, now + LOCK_MS);
   }
 
   succeeded(address: string): void {
     this.#wrong.delete(address);
   }
+
+  #sweep(now: number): void {
+    if (now - this.#swept < SWEEP_INTERVAL_MS) return;
+    this.#swept = now;
+    for (const [address, until] of this.#lockedUntil) {
+      if (now >= until) {
+        this.#lockedUntil.delete(address);
+        this.#wrong.delete(address);
+      }
+    }
+    for (const [address, { last }] of this.#wrong) if (now - last >= LOCK_MS && !this.#lockedUntil.has(address)) this.#wrong.delete(address);
+  }
 }
 
 /** Per client address: at most 10 `POST /api/tables` in any minute. */
 export class TableRateLimit {
   readonly #hits = new Map<string, number[]>();
+  #swept = 0;
+
+  /** Addresses with a hit in memory. */
+  get tracked(): number {
+    return this.#hits.size;
+  }
 
   /** Counts one request; false when this address is over its minute. */
   allow(address: string, now: number = Date.now()): boolean {
+    if (now - this.#swept >= SWEEP_INTERVAL_MS) {
+      this.#swept = now;
+      sweepHits(this.#hits, now, MINUTE_MS);
+    }
     const recent = (this.#hits.get(address) ?? []).filter((at) => now - at < MINUTE_MS);
     if (recent.length >= TABLES_PER_MINUTE) {
       this.#hits.set(address, recent);
@@ -80,9 +118,19 @@ const NEWCOMER_WINDOW_MS = 10 * MINUTE_MS;
 /** Per client address: at most 10 new players (admitted or knocking) in 10 minutes. */
 export class NewcomerLimit {
   readonly #hits = new Map<string, number[]>();
+  #swept = 0;
+
+  /** Addresses with a hit in memory. */
+  get tracked(): number {
+    return this.#hits.size;
+  }
 
   /** Counts one newcomer; false when this address has had its ten. */
   allow(address: string, now: number = Date.now()): boolean {
+    if (now - this.#swept >= SWEEP_INTERVAL_MS) {
+      this.#swept = now;
+      sweepHits(this.#hits, now, NEWCOMER_WINDOW_MS);
+    }
     const recent = (this.#hits.get(address) ?? []).filter((at) => now - at < NEWCOMER_WINDOW_MS);
     if (recent.length >= NEWCOMERS_PER_WINDOW) {
       this.#hits.set(address, recent);

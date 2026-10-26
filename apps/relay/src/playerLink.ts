@@ -31,10 +31,13 @@ export class PlayerLink {
       sendFrame(socket, { v: 1, t: 'waiting', wait });
       return true;
     }
-    const decision = state.joinGate.decide(hello, this.#view(code, state), Date.now());
+    const now = Date.now();
+    const wasPaused = state.joinGate.pausedUntil(now) !== null;
+    const decision = state.joinGate.decide(hello, this.#view(code, state), now);
     if (decision.kind === 'close') return this.#turnAway(socket, decision.code);
     if (decision.kind === 'pause') {
-      toGm(state, { v: 1, t: 'gate-paused', until: decision.until });
+      // The GM hears of a pause when it starts, not again for every hello that bounces off it.
+      if (!wasPaused) toGm(state, { v: 1, t: 'gate-paused', until: decision.until });
       return this.#turnAway(socket, CLOSE.paused);
     }
     const seat = state.roster.some((candidate) => candidate.id === decision.id);

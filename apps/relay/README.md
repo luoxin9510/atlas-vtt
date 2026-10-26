@@ -9,7 +9,7 @@ fork-owned (see `docs/fork/FORK_GUIDE.md`).
 ## How to run
 
 ```sh
-HOST_KEY='a long random secret' PUBLIC_ORIGIN=https://play.example.com npm run relay
+HOST_KEY="$(openssl rand -base64 32)" PUBLIC_ORIGIN=https://play.example.com npm run relay
 ```
 
 Configuration is by environment variables:
@@ -33,5 +33,13 @@ public origin and keep the host key.
 Set `PUBLIC_ORIGIN` to the public `https` origin the proxy serves. Use
 `TRUST_PROXY=xff` only with exactly one proxy in front, directly in front of the
 relay, that appends to `X-Forwarded-For` (the last entry is the client). The proxy
-must pass WebSocket upgrades. With `TRUST_PROXY=none` every client appears as the
-proxy's address and shares one set of rate limits.
+must pass WebSocket upgrades.
+
+- Bind the relay to `127.0.0.1` (the default `HOST`) or firewall its port, so that
+  only the proxy can reach it. A client that reaches the relay directly can put
+  any address into `X-Forwarded-For` or `CF-Connecting-IP`.
+- Use `TRUST_PROXY=cf` only when the relay is behind Cloudflare and nothing else.
+- With `TRUST_PROXY=none` behind a proxy every client appears as the proxy's
+  address and shares one set of rate limits. Five wrong host keys then lock the GM
+  out of `POST /api/tables` for 10 minutes (tables that are already running are
+  not affected), and the limit of new players per address is shared by everyone.

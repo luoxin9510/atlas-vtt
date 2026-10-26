@@ -39,14 +39,20 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
   const cap = new SocketCap();
 
   function handle(code: string, socket: WebSocket, req: IncomingMessage): void {
-    const state = links.stateOf(code);
     const address = clientAddress(req, config.trustProxy);
-    state.sockets.add(socket);
+    if (!tables.has(code)) return socket.close(CLOSE.ended);
+    links.stateOf(code).sockets.add(socket);
     /** 'new': no accepted hello yet; 'player': welcomed or waiting. */
     let kind: 'new' | 'gm' | 'player' = 'new';
+    /** Set once this relay closed the socket itself: later frames are ignored and no other close code may replace it. */
+    let done = false;
+    const end = (closeCode: number): void => {
+      done = true;
+      socket.close(closeCode);
+    };
     const frameTimes: number[] = [];
     const helloTimer = setTimeout(() => {
-      if (kind === 'new') socket.close(CLOSE.protocol);
+      if (kind === 'new' && !done) end(CLOSE.protocol);
     }, config.timing.helloTimeoutMs);
     helloTimer.unref();
 
@@ -58,17 +64,18 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
     };
 
     socket.on('message', (data, isBinary) => {
+      if (done) return;
       const bytes = bytesOf(data);
       if (kind !== 'gm') {
-        if (overRate()) return socket.close(CLOSE.rateLimited);
-        if (bytes.length > MAX_PLAYER_FRAME) return socket.close(CLOSE.tooLarge);
+        if (overRate()) return end(CLOSE.rateLimited);
+        if (bytes.length > MAX_PLAYER_FRAME) return end(CLOSE.tooLarge);
       }
       if (isBinary) return;
       const text = bytes.toString('utf8');
       if (text === KEEPALIVE_PING) return socket.send(KEEPALIVE_PONG);
       if (kind === 'gm') {
         // A GM replaced by a newer one is closing; its late frames do not count.
-        if (links.stateOf(code).gm !== socket) return;
+        if (links.peek(code)?.gm !== socket) return;
         const frame = parseClientFrame(text);
         if (frame !== null && frame.t !== 'hello') links.gmFrame(code, frame);
         return;
@@ -78,19 +85,22 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
         if (frame?.t === 'send') links.playerSend(code, socket, frame.body);
         return;
       }
-      if (isOtherVersion(text)) return socket.close(CLOSE.version);
+      if (isOtherVersion(text)) return end(CLOSE.version);
       const frame = parseClientFrame(text);
-      if (frame === null || frame.t !== 'hello') return socket.close(CLOSE.protocol);
+      if (frame === null || frame.t !== 'hello') return end(CLOSE.protocol);
       if (frame.role === 'gm') {
-        if (!tables.checkSecret(code, frame.secret)) return socket.close(CLOSE.badSecret);
+        if (!tables.checkSecret(code, frame.secret)) return end(CLOSE.badSecret);
         kind = 'gm';
         clearTimeout(helloTimer);
         links.acceptGm(code, socket);
         return;
       }
       // Only the public origin's page may be a player; the GM socket (Obsidian) has no such origin.
-      if (normalizeOrigin(req.headers.origin ?? '') !== config.publicOrigin) return socket.close(CLOSE.protocol);
-      if (!links.playerHello(code, socket, frame, address)) return;
+      if (normalizeOrigin(req.headers.origin ?? '') !== config.publicOrigin) return end(CLOSE.protocol);
+      if (!links.playerHello(code, socket, frame, address)) {
+        done = true;
+        return;
+      }
       kind = 'player';
       clearTimeout(helloTimer);
     });

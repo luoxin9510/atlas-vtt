@@ -56,6 +56,11 @@ export class TableLinks implements TableListener {
     tables.subscribe(this);
   }
 
+  /** The table's state if it has one; never creates it (late frames of an ended table must not bring it back). */
+  peek(code: string): TableState | undefined {
+    return this.#states.get(code);
+  }
+
   stateOf(code: string): TableState {
     let state = this.#states.get(code);
     if (state === undefined) {
@@ -88,6 +93,7 @@ export class TableLinks implements TableListener {
 
   /** A GM hello with the right secret arrived on `socket`: it becomes the table's GM and gets its welcome. */
   acceptGm(code: string, socket: WebSocket): void {
+    if (!this.#tables.has(code)) return void socket.close(CLOSE.ended);
     const state = this.stateOf(code);
     const previous = state.gm;
     state.gm = socket;
@@ -96,6 +102,7 @@ export class TableLinks implements TableListener {
     const players = [...state.players.values()].map(({ id, name }) => ({ id, name }));
     const waiting = [...state.waiting.values()].map(({ id, name }) => ({ id, name }));
     sendFrame(socket, { v: 1, t: 'welcome', role: 'gm', players, ...(waiting.length > 0 && { waiting }), batch: true });
+    // The GM who arrives while a pause runs is told once, here; a pause that starts later tells it itself.
     const until = state.joinGate.pausedUntil(Date.now());
     if (until !== null) sendFrame(socket, { v: 1, t: 'gate-paused', until });
     announceGm(state, true);
@@ -103,6 +110,10 @@ export class TableLinks implements TableListener {
 
   /** A player's hello on `socket`. True when accepted (welcomed or waiting), false when the socket was closed. */
   playerHello(code: string, socket: WebSocket, hello: PlayerHello, address: string): boolean {
+    if (!this.#tables.has(code)) {
+      socket.close(CLOSE.ended);
+      return false;
+    }
     return this.#players.hello(code, this.stateOf(code), socket, hello, address);
   }
 
