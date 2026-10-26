@@ -13,6 +13,8 @@ export type AccountView =
   /** The sign-in waits for approval in the browser; the code is null until the service gave one. */
   | { readonly kind: 'waiting'; readonly userCode: string | null }
   | { readonly kind: 'checking' }
+  /** A self-hosted server has no account: only whether a host key is kept. */
+  | { readonly kind: 'host-key'; readonly set: boolean }
   | { readonly kind: 'unreachable' }
   /** The relay says the account may not host; `reason` is null for one this version does not know. */
   | { readonly kind: 'no-access'; readonly account: AccountInfo; readonly reason: AccessRefusal | null }
@@ -23,12 +25,15 @@ export interface AccountFacts {
   readonly signingIn: boolean;
   readonly userCode: string | null;
   readonly token: boolean;
+  /** Whether the server is a self-hosted one, where `token` is the host key. */
+  readonly selfHosted: boolean;
   /** The last answer of `/api/me` for this token; null until one came. */
   readonly me: AccountAnswer | 'unreachable' | null;
   readonly notice: SignedOutNotice;
 }
 
 export function accountView(facts: AccountFacts): AccountView {
+  if (facts.selfHosted) return { kind: 'host-key', set: facts.token };
   if (facts.signingIn) return { kind: 'waiting', userCode: facts.userCode };
   if (!facts.token) return { kind: 'signed-out', notice: facts.notice };
   if (facts.me === null) return { kind: 'checking' };
@@ -50,6 +55,10 @@ export const NO_HOSTING_TEXT = 'This account may not host online tables now.';
 
 /** Why the relay says the account may not host, and where the way on is: the account page. */
 export const accessText = (reason: AccessRefusal | null): string => (reason === null ? `${NO_HOSTING_TEXT} See your account page.` : ACCESS_TEXT[reason]);
+
+export const HOST_KEY_SET_TEXT = 'Host key set';
+export const NO_HOST_KEY_TEXT = 'No host key yet';
+export const HOST_KEY_REFUSED_TEXT = 'The host key is not accepted by this server.';
 
 export const UNREACHABLE_TEXT = 'Can’t reach Atlas sign-in right now.';
 export const SERVER_SIGNED_OUT_TEXT = 'You were signed out. Running tables keep going.';

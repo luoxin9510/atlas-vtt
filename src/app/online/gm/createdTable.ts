@@ -1,7 +1,8 @@
 import { MAX_PLAYERS, TABLE_CODE_PATTERN } from '../protocol/index.ts';
-import { accessText, SERVER_SIGNED_OUT_TEXT, UNREACHABLE_TEXT } from './account/accountView.ts';
+import { accessText, HOST_KEY_REFUSED_TEXT, SERVER_SIGNED_OUT_TEXT, UNREACHABLE_TEXT } from './account/accountView.ts';
 import { accessRefusal } from './account/relayAccount.ts';
 import { OUTDATED_TEXT } from './gmLevel.ts';
+import { isSelfHosted } from './servers.ts';
 
 /** A table the relay created: its code (in the join link), the host secret (only ever in the GM's hello) and its seats. */
 export interface CreatedTable {
@@ -21,7 +22,7 @@ export const LINK_TAKEN_TEXT = 'This campaign\'s link belongs to another account
 
 /** The sentence for an answer of the relay that made no table. Who may host is the server's word: this only reads it out. */
 function refusalText(status: number, error: unknown): string {
-  if (status === 401) return SERVER_SIGNED_OUT_TEXT;
+  if (status === 401) return isSelfHosted() ? HOST_KEY_REFUSED_TEXT : SERVER_SIGNED_OUT_TEXT;
   if (status === 403) return accessText(accessRefusal(error));
   if (status === 409 && error === 'link-taken') return LINK_TAKEN_TEXT;
   if (status === 426) return OUTDATED_TEXT;

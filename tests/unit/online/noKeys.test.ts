@@ -45,6 +45,8 @@ describe('online play\'s source', () => {
     // The secret itself is read by the token store alone, and the store by the account control alone.
     expect(naming(/getSecret\(/)).toEqual(['gm/account/tokenStore.ts']);
     expect(naming(/tokens\.get\(/)).toEqual(['gm/account/AccountControl.ts']);
+    // A self-hosted server's host key likewise: read by the account control alone, and the secret by the store.
+    expect(naming(/hostKeys\.get\(/)).toEqual(['gm/account/AccountControl.ts']);
     // A bearer is written by the table request and by the account's own calls (what it may host, sign-out).
     expect(naming(/Bearer \$\{/)).toEqual(['gm/account/relayAccount.ts', 'gm/createTable.ts']);
     // The diagnostics make requests of their own, and never with it.

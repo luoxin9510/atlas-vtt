@@ -2,18 +2,23 @@ import type { AtlasSettingSection } from '../../settings/settingSections';
 import type { AccountControl } from './account/AccountControl.ts';
 import { accountSections } from './account/accountSettings.ts';
 import { COMPANION_REPORTS_NOTE } from './companionReports.ts';
+import { normalizeServerOrigin } from './servers.ts';
+import { serverSections } from './serverSettings.ts';
 
 export interface OnlineSettings {
   /** Whether this plugin's errors are reported to the server; off until the GM switches it on. */
   reportErrors: boolean;
+  /** The table server's origin as `normalizeServerOrigin` made it; empty: none is set, and online play is unavailable. */
+  serverOrigin: string;
 }
 
-export const DEFAULT_SETTINGS: OnlineSettings = { reportErrors: false };
+export const DEFAULT_SETTINGS: OnlineSettings = { reportErrors: false, serverOrigin: '' };
 
 /** Settings read from the plugin's data, each field checked. */
 export function readSettings(data: unknown): OnlineSettings {
   const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
-  return { reportErrors: record.reportErrors === true };
+  const origin = typeof record.serverOrigin === 'string' ? normalizeServerOrigin(record.serverOrigin) : null;
+  return { reportErrors: record.reportErrors === true, serverOrigin: origin ?? '' };
 }
 
 /** What online play's settings rows read and change. */
@@ -31,6 +36,7 @@ export function onlineSettingsSections(host: OnlineSettingsHost): AtlasSettingSe
   };
   const settings = host.settings;
   return [
+    ...serverSections(host),
     ...accountSections(host.account),
     {
       heading: 'Online diagnostics',

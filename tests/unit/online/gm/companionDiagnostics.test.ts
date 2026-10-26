@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompanionFacts } from '../../../../src/app/online/gm/companionDiagnostics.ts';
+import { setServerOrigin } from '../../../../src/app/online/gm/servers.ts';
 import { useUpstreamServer } from './upstreamServer.ts';
 
 useUpstreamServer();
@@ -104,6 +105,27 @@ describe('the companion\'s error reports', () => {
     expect(sent).toEqual([]);
     expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/^Atlas Online: error [0-9a-f]{10} \(error reports are off, nothing was sent\)$/));
     expect(diagnostics.reporter.recentIds()).toHaveLength(1);
+  });
+});
+
+describe('the diagnostics of a server that is not Atlas\'s', () => {
+  it('post nothing, neither errors nor feedback, to a self-hosted server', async () => {
+    setServerOrigin('https://tables.example.com');
+    const { diagnostics, win } = companion();
+    throwIn(win, ownError('boom'));
+    await settle();
+    expect(await diagnostics.send('hello', true)).toBe('failed');
+    expect(sent).toEqual([]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/^Atlas Online: error [0-9a-f]{10} \(no Atlas server is set, nothing was sent\)$/));
+  });
+
+  it('post nothing while no server address is set', async () => {
+    setServerOrigin(null);
+    const { diagnostics, win } = companion();
+    throwIn(win, ownError('boom'));
+    await settle();
+    expect(await diagnostics.send('hello', false)).toBe('failed');
+    expect(sent).toEqual([]);
   });
 });
 

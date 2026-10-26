@@ -1,5 +1,5 @@
 import type { AccountApi } from '../account/AccountControl.ts';
-import { accessText, noticeText, UNREACHABLE_TEXT, type AccountView } from '../account/accountView.ts';
+import { accessText, HOST_KEY_SET_TEXT, noticeText, NO_HOST_KEY_TEXT, UNREACHABLE_TEXT, type AccountView } from '../account/accountView.ts';
 import type { AccountInfo } from '../account/relayAccount.ts';
 import { openUpdate } from '../../../updates/updateNotice';
 import { OUTDATED_TEXT } from '../gmLevel.ts';
@@ -88,7 +88,7 @@ function startButton(layer: HTMLElement, starting: boolean, enabled: boolean, ac
 }
 
 /**
- * The menu before a table runs: signed out, waiting for the browser,
+ * The menu before a table runs: on a self-hosted server only whether a host key is set (and Start where it is); otherwise signed out, waiting for the browser,
  * checking the account, unreachable, signed in without access (the relay's reason, and the way to the
  * account page), or able to host: the campaign the table plays (`campaigns`), and Start, where Update stands in while the relay needs a newer Atlas (`outdated`). `lost` says how the last table ended when the server ended it; a
  * table closed because the account may not host comes with the way to the account page in every state.
@@ -121,6 +121,13 @@ export function renderAccountMenu(layer: HTMLElement, account: AccountView, star
     case 'checking':
       statusLine(head, { text: 'Checking your account…', tone: 'muted' });
       return startButton(layer, starting, false, actions);
+    case 'host-key':
+      // A self-hosted server has no account: the host key is set in the settings, and Start needs it.
+      statusLine(head, { text: account.set ? HOST_KEY_SET_TEXT : NO_HOST_KEY_TEXT, tone: account.set ? 'muted' : 'amber' });
+      if (!account.set) return help(head, 'Set the host key in Atlas settings.');
+      if (outdated) return updateFoot(layer, head, actions);
+      renderCampaignPicker(layer, campaigns, actions, starting);
+      return startButton(layer, starting, campaigns.chosen !== null, actions);
     case 'unreachable':
       statusLine(head, { text: UNREACHABLE_TEXT, tone: 'red' });
       help(head, 'Running tables are unaffected.');

@@ -4,7 +4,7 @@ import {
 } from '../protocol/index.ts';
 import { apiVersion, Platform, requestUrl } from 'obsidian';
 import type { CompanionFeedback } from './companionReports.ts';
-import { relayOrigin } from './servers.ts';
+import { isSelfHosted, relayOrigin } from './servers.ts';
 
 /** Where the companion's own code runs in a stack: Obsidian names a plugin's script by its id. */
 const OWN_FRAMES = 'plugin:atlas-online';
@@ -19,6 +19,11 @@ export interface CompanionFacts {
   /** The names of the table's players. */
   playerNames(): readonly string[];
   connection(): ConnectionStats | null;
+}
+
+/** Where reports and feedback go: Atlas's own server only. A self-hosted server, or none, gets nothing. */
+function reportsOrigin(): string | null {
+  return isSelfHosted() ? null : relayOrigin();
 }
 
 async function postJson(url: string, body: unknown): Promise<number> {
@@ -53,7 +58,7 @@ export class CompanionDiagnostics implements CompanionFeedback {
         return [table?.code ?? '', table?.secret ?? '', ...this.joinCodes(), ...facts.playerNames()].filter((text) => text !== '');
       },
       post: async (report) => {
-        const origin = relayOrigin();
+        const origin = reportsOrigin();
         if (origin !== null) await postJson(`${origin}${REPORTS_PATH}`, report);
       },
       now: () => Date.now(),
@@ -87,7 +92,7 @@ export class CompanionDiagnostics implements CompanionFeedback {
       v: 1, source: 'companion', text: withoutKnown(text, this.joinCodes()),
       diagnostics: withDiagnostics ? { ...this.environment(), table: await this.tag(), errors: this.reporter.recentIds(), connection: this.facts.connection() } : null,
     };
-    const origin = relayOrigin();
+    const origin = reportsOrigin();
     if (origin === null) return 'failed';
     try {
       return feedbackResultOf(await postJson(`${origin}${FEEDBACK_PATH}`, post));
@@ -100,8 +105,9 @@ export class CompanionDiagnostics implements CompanionFeedback {
     if (!(thrown instanceof Error) || thrown.stack?.includes(OWN_FRAMES) !== true) return;
     void this.reporter.capture(kind, thrown).then((id) => {
       if (id === null) return;
-      const origin = relayOrigin();
-      const where = this.facts.reportErrors() && origin !== null ? ` reported to ${new URL(origin).host}` : ' (error reports are off, nothing was sent)';
+      const origin = reportsOrigin();
+      const sent = this.facts.reportErrors() && origin !== null;
+      const where = sent ? ` reported to ${new URL(origin).host}` : this.facts.reportErrors() ? ' (no Atlas server is set, nothing was sent)' : ' (error reports are off, nothing was sent)';
       console.warn(`Atlas Online: error ${id}${where}`);
     });
   }

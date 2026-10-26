@@ -4,7 +4,7 @@ import { showNotice } from '../../ui/notice';
 import type { AtlasSettingSection } from '../../settings/settingSections';
 import { AccountControl } from './account/AccountControl.ts';
 import { obsidianHttp } from './account/obsidianHttp.ts';
-import { secretTokenStore } from './account/tokenStore.ts';
+import { secretHostKeyStore, secretTokenStore } from './account/tokenStore.ts';
 import { activeAtlasLeaf } from './atlasView.ts';
 import { AssetService } from '../../services/AssetService';
 import { CampaignBooks } from '../../campaigns/players/CampaignBooks';
@@ -35,6 +35,8 @@ import { carryAssignmentsOver, readLegacyAssignments } from './legacyAssignments
 import { NO_ASSIGNMENTS, type TokenAssignments } from '../../campaigns/players/tokenAssignments';
 import { appCampaignChoices } from './campaignChoices.ts';
 import { DASHBOARD_VIEW_TYPE } from '../../dashboard-view';
+import { setServerOrigin } from './servers.ts';
+import { applyServerSetting } from './serverSettings.ts';
 import { DEFAULT_SETTINGS, onlineSettingsSections, readSettings, type OnlineSettings } from './settings.ts';
 
 /** How long a change of the table's log waits before the data file is written. */
@@ -87,6 +89,7 @@ export class OnlineFeature extends Component {
       http: obsidianHttp,
       timers: companionTimers(),
       tokens: secretTokenStore(this.app),
+      hostKeys: secretHostKeyStore(this.app),
       openUrl: (url) => void window.open(url),
       notify: (text) => showNotice(text),
     });
@@ -130,6 +133,9 @@ export class OnlineFeature extends Component {
     // Switched off while the data was read: nothing more is set up.
     if (!this.live) return;
     this.settings = readSettings(data);
+    applyServerSetting(this.settings);
+    // The module-wide server address goes with this feature.
+    this.register(() => setServerOrigin(null));
     this.ready = true;
     const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
     const campaigns = this.campaigns();

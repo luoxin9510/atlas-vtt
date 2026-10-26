@@ -1,10 +1,11 @@
 import type { AtlasSettingSection } from '../../../settings/settingSections';
 import type { AccountControl } from './AccountControl.ts';
-import { accessText, accountText, planText, UNREACHABLE_TEXT, type AccountView } from './accountView.ts';
+import { accessText, accountText, HOST_KEY_SET_TEXT, NO_HOST_KEY_TEXT, planText, UNREACHABLE_TEXT, type AccountView } from './accountView.ts';
 
 /** What the account row says. */
 function accountDesc(view: AccountView): string {
   switch (view.kind) {
+    case 'host-key': return view.set ? HOST_KEY_SET_TEXT : NO_HOST_KEY_TEXT;
     case 'waiting': return 'Approve the sign-in in your browser.';
     case 'checking': return 'Checking your account…';
     case 'unreachable': return UNREACHABLE_TEXT;
@@ -32,6 +33,8 @@ export function accountSections(account: AccountControl): AtlasSettingSection[] 
           const view = account.view();
           setting.setDesc(accountDesc(view));
           setting.clear();
+          // A self-hosted server has no account to sign in to or to open a page for.
+          if (view.kind === 'host-key') return;
           if (signedIn(view)) setting.addButton((button) => button.setButtonText('Sign out').onClick(() => void account.signOut()));
           else if (view.kind === 'signed-out') setting.addButton((button) => button.setButtonText('Sign in').setCta().onClick(() => void account.signIn()));
           else if (view.kind === 'waiting') setting.addButton((button) => button.setButtonText('Cancel').onClick(() => account.cancelSignIn()));
