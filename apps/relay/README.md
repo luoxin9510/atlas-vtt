@@ -43,3 +43,13 @@ must pass WebSocket upgrades.
   address and shares one set of rate limits. Five wrong host keys then lock the GM
   out of `POST /api/tables` for 10 minutes (tables that are already running are
   not affected), and the limit of new players per address is shared by everyone.
+
+## Limits that keep one bad connection from hurting the rest
+
+These are fixed in the code (`apps/relay/src/routing.ts`, `socket.ts`, `http.ts`); only the ping interval is part of the configuration (`RelayConfig.timing.pingIntervalMs`, 30 s by default).
+
+- **A socket that stops reading is dropped.** Everything the relay sends is checked against the socket's unsent bytes. A player past 8 MiB, or a GM past 32 MiB, is closed with code 1013 ("try again later") and its connection is cut a second later. The page reconnects and resyncs; nobody else is held up. The GM has the larger allowance because every player's messages go to it.
+- **Dead connections are removed.** Every 30 s the relay sends each socket a WebSocket ping. A socket that has sent nothing (no frame, no pong) since the previous ping is terminated, so a phone that dropped off the network leaves the roster, its seat and its address slot within about a minute. Browsers and Obsidian answer pings by themselves.
+- **Refused upgrades free their connection.** A 404 or 429 to a socket request is followed by closing the TCP connection (at the latest 2 s later), and an upgrade that does not finish in 10 s is cut. Without this a client that never closed its side could use up file descriptors.
+- **Bodies are small.** Only `POST /api/tables` reads a body, at most 4 KiB. `/api/reports`, `/api/feedback` and every other answer to a request that may carry a body send `Connection: close`, so a client that keeps streaming is cut off.
+- **A player page on the wrong Origin** is closed with 4017 (final: the page stops instead of retrying) and the relay logs `player origin refused`. Check `PUBLIC_ORIGIN` (scheme, `www.`, port).

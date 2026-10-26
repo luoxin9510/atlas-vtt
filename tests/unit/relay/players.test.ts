@@ -50,7 +50,7 @@ describe('join gate over sockets', () => {
   });
 
   it('closes an unanswered knock with 4013 and tells the GM knock-gone', async () => {
-    const { origin, gm } = await table({ timing: { knockWaitMs: 150, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000 } });
+    const { origin, gm } = await table({ timing: { knockWaitMs: 150, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 } });
     await gm.send({ t: 'gate', code: '123456', ask: true });
     const player = playerOf(origin, sockets, { code: '123456' });
     const knock = await gm.frameOf('knock');
@@ -315,12 +315,12 @@ describe('player limits', () => {
   });
 
   it('closes 4006 for a socket without an accepted hello after helloTimeoutMs', async () => {
-    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150 } });
+    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000 } });
     expect(await new Client(origin, sockets).closed).toBe(CLOSE.protocol);
   });
 
   it('does not close a welcomed player when the hello timeout passes', async () => {
-    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150 } });
+    const { origin } = await table({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 150, pingIntervalMs: 30_000 } });
     const { player } = await joined(origin, sockets);
     await new Promise((done) => setTimeout(done, 300));
     expect(player.socket.readyState).toBe(1);
@@ -331,9 +331,9 @@ describe('player limits', () => {
     const ok = playerOf(origin, sockets, {}, { origin: TEST_PUBLIC_ORIGIN });
     expect((await ok.frameOf('welcome')).role).toBe('player');
     for (const bad of ['https://play.example.test:8443', 'http://play.example.test', 'https://other.example.test']) {
-      expect(await playerOf(origin, sockets, {}, { origin: bad }).closed).toBe(CLOSE.protocol);
+      expect(await playerOf(origin, sockets, {}, { origin: bad }).closed).toBe(CLOSE.badOrigin);
     }
-    expect(await playerOf(origin, sockets, {}, {}).closed).toBe(CLOSE.protocol);
+    expect(await playerOf(origin, sockets, {}, {}).closed).toBe(CLOSE.badOrigin);
   });
 });
 

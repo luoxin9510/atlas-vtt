@@ -5,6 +5,12 @@ export interface RelayTiming {
   readonly unhostedTableMs: number;
   /** A socket that has not sent an accepted hello by then is closed 4006. */
   readonly helloTimeoutMs: number;
+  /**
+   * Liveness: every interval the relay pings each socket with a WebSocket ping frame (browsers answer
+   * with a pong by themselves) and terminates one that has said nothing since the previous tick, so a
+   * dead connection is gone within two intervals and frees its seat and its address slot.
+   */
+  readonly pingIntervalMs: number;
 }
 
 export interface RelayConfig {
@@ -25,6 +31,7 @@ export const DEFAULT_TIMING: RelayTiming = {
   wrongCodePauseMs: 600_000,
   unhostedTableMs: 1_209_600_000,
   helloTimeoutMs: 10_000,
+  pingIntervalMs: 30_000,
 };
 
 const MIN_HOST_KEY_LENGTH = 24;

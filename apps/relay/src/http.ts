@@ -112,10 +112,7 @@ export function createHandler(context: HttpContext): RequestHandler {
   async function route(req: IncomingMessage, res: ServerResponse, method: string, path: string): Promise<void> {
     if (method === 'POST' && path === '/api/tables') return createTable(req, res);
     if (method === 'GET' && path === '/api/me') return me(req, res);
-    if (method === 'POST' && (path === '/api/feedback' || path === '/api/reports')) {
-      req.resume();
-      return send(res, 204);
-    }
+    if (method === 'POST' && (path === '/api/feedback' || path === '/api/reports')) return send(res, 204);
     if ((method === 'GET' || method === 'HEAD') && config.staticDir !== null && !path.startsWith('/api/')) return serveStatic(config.staticDir, path, method, res);
     send(res, 404);
   }
@@ -124,6 +121,9 @@ export function createHandler(context: HttpContext): RequestHandler {
     const method = req.method ?? 'GET';
     const path = (req.url ?? '/').split('?')[0] ?? '/';
     res.on('finish', () => context.log?.(`${method} ${path} ${res.statusCode}`));
+    // Only POST /api/tables reads a body (4 KiB at most). Every other answer to a request that may carry one closes the connection, so whatever
+    // a client goes on streaming (the unauthenticated sinks, a refusal, a 404) is cut off instead of drained.
+    if (method !== 'GET' && method !== 'HEAD' && !(method === 'POST' && path === '/api/tables')) res.setHeader('connection', 'close');
     route(req, res, method, path).catch(() => {
       if (!res.headersSent) send(res, 500);
       else res.end();

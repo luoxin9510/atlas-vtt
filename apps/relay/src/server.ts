@@ -12,6 +12,8 @@ export interface RunningRelay {
   readonly origin: string;
   readonly tables: TableRegistry;
   readonly links: TableLinks;
+  /** How many TCP connections the HTTP server holds open right now (for tests and diagnostics). */
+  openConnections(): Promise<number>;
   close(): Promise<void>;
 }
 
@@ -42,6 +44,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
     origin: `http://${hostName}:${port}`,
     tables,
     links,
+    openConnections: () => new Promise<number>((done, fail) => server.getConnections((error, count) => (error === null ? done(count) : fail(error)))),
     async close(): Promise<void> {
       sockets.close();
       await new Promise<void>((done) => {

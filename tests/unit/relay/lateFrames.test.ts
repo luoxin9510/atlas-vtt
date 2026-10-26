@@ -71,7 +71,7 @@ describe('the join gate over sockets', () => {
   });
 
   it('ignores a rejected player socket afterwards: the hello timer cannot change the close code', async () => {
-    const relay = await start({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 80 } });
+    const relay = await start({ timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 80, pingIntervalMs: 30_000 } });
     const secret = await createTable(relay.origin);
     const gm = await gmOf(relay.origin, sockets, secret);
     await gm.send({ t: 'gate', code: '123456', ask: false });

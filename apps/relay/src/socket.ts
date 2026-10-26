@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+import { Socket } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { type RawData, WebSocketServer, type WebSocket } from 'ws';
 import { CLOSE, isOtherVersion, KEEPALIVE_PING, KEEPALIVE_PONG, MAX_PLAYER_FRAME, parseClientFrame, TABLE_CODE_PATTERN } from '../../../src/app/online/protocol/relay.ts';
@@ -18,7 +19,14 @@ function bytesOf(data: RawData): Buffer {
   return data instanceof ArrayBuffer ? Buffer.from(data) : data;
 }
 
+/** A refused or unfinished upgrade gets this long before its TCP socket is cut. */
+const HANDSHAKE_TIMEOUT_MS = 10_000;
+const REFUSAL_GRACE_MS = 2000;
+
+/** Writes the refusal and then destroys the socket: a peer that never closes its side must not keep a file descriptor. */
 function refuse(socket: Duplex, status: '404 Not Found' | '429 Too Many Requests'): void {
+  socket.once('finish', () => socket.destroy());
+  setTimeout(() => socket.destroy(), REFUSAL_GRACE_MS).unref();
   socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
 }
 
@@ -37,6 +45,18 @@ export interface SocketServer {
 export function createSocketServer(tables: TableRegistry, links: TableLinks, config: RelayConfig, log?: (line: string) => void): SocketServer {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WELCOMED_FRAME });
   const cap = new SocketCap();
+  /** Sockets that were heard from (any frame or a pong) since the last liveness tick. */
+  const heard = new WeakSet<WebSocket>();
+  const liveness = setInterval(() => {
+    for (const client of wss.clients) {
+      if (!heard.delete(client)) {
+        client.terminate();
+        continue;
+      }
+      if (client.readyState === client.OPEN) client.ping();
+    }
+  }, config.timing.pingIntervalMs);
+  liveness.unref();
 
   function handle(code: string, socket: WebSocket, req: IncomingMessage): void {
     const address = clientAddress(req, config.trustProxy);
@@ -63,7 +83,10 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
       return frameTimes.length > MAX_FRAMES_PER_SECOND;
     };
 
+    heard.add(socket);
+    socket.on('pong', () => heard.add(socket));
     socket.on('message', (data, isBinary) => {
+      heard.add(socket);
       if (done) return;
       const bytes = bytesOf(data);
       if (kind !== 'gm') {
@@ -96,7 +119,10 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
         return;
       }
       // Only the public origin's page may be a player; the GM socket (Obsidian) has no such origin.
-      if (normalizeOrigin(req.headers.origin ?? '') !== config.publicOrigin) return end(CLOSE.protocol);
+      if (normalizeOrigin(req.headers.origin ?? '') !== config.publicOrigin) {
+        log?.('player origin refused');
+        return end(CLOSE.badOrigin);
+      }
       if (!links.playerHello(code, socket, frame, address)) {
         done = true;
         return;
@@ -124,9 +150,16 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
       if (!cap.acquire(address)) return refuse(socket, '429 Too Many Requests');
       // The connection ends when its TCP socket does, whether or not the upgrade got through.
       socket.once('close', () => cap.release(address));
-      wss.handleUpgrade(req, socket, head, (ws) => handle(code, ws, req));
+      // After 'upgrade' Node's own header timeouts no longer apply: a stalled handshake must not pin the descriptor either.
+      const tcp = socket instanceof Socket ? socket : null;
+      tcp?.setTimeout(HANDSHAKE_TIMEOUT_MS, () => socket.destroy());
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        tcp?.setTimeout(0);
+        handle(code, ws, req);
+      });
     },
     close(): void {
+      clearInterval(liveness);
       for (const client of wss.clients) client.terminate();
       wss.close();
     },

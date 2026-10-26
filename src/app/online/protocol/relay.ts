@@ -56,13 +56,15 @@ export const CLOSE = {
   noAccess: 4015,
   /** The table ended because its account started another table. */
   superseded: 4016,
+  /** A player hello came from a page whose Origin is not the relay's public origin (a misconfigured PUBLIC_ORIGIN): retrying cannot help. */
+  badOrigin: 4017,
 } as const;
 
 /** The close codes of the join gates: the player's page stops and says why; only a new try by the player connects again. */
 export const GATE_CLOSE_CODES: readonly number[] = [CLOSE.wrongCode, CLOSE.paused, CLOSE.declined, CLOSE.noAnswer, CLOSE.tooManyKnocks];
 
 /** Close codes after which a client gives up instead of reconnecting. */
-export const FINAL_CLOSE_CODES: readonly number[] = [CLOSE.badSecret, CLOSE.version, CLOSE.ended, CLOSE.replaced, CLOSE.kicked, CLOSE.noAccess, CLOSE.superseded, ...GATE_CLOSE_CODES];
+export const FINAL_CLOSE_CODES: readonly number[] = [CLOSE.badSecret, CLOSE.version, CLOSE.ended, CLOSE.replaced, CLOSE.kicked, CLOSE.noAccess, CLOSE.superseded, CLOSE.badOrigin, ...GATE_CLOSE_CODES];
 
 /** A player as the GM knows them: the relay's id and the name they gave, shown as text only. */
 export interface PlayerInfo {
