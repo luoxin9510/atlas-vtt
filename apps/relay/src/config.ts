@@ -39,7 +39,7 @@ export const DEFAULT_TIMING: RelayTiming = {
   stallMs: 30_000,
 };
 
-/** One whole asset (the largest, 25 MB, in base64) plus slack. */
+/** One whole asset (the largest, 64 MiB, in base64) plus slack. */
 export const DEFAULT_MAX_BACKLOG_BYTES = 96 * 1024 * 1024;
 
 const MIN_HOST_KEY_LENGTH = 24;
