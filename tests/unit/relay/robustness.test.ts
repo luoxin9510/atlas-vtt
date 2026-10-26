@@ -151,6 +151,46 @@ describe('refused upgrades (I3)', () => {
   });
 });
 
+describe('POST /api/tables bodies (M7)', () => {
+  /** Streams a body to POST /api/tables with `headers`; true when the relay ended the connection within 1.5 s. */
+  async function cutOff(headers: string, chunked = false): Promise<{ closed: boolean; status: string }> {
+    const relay = await start();
+    const { port } = new URL(relay.origin);
+    const socket = connect({ port: Number(port), host: '127.0.0.1' });
+    raw.push(socket);
+    socket.on('error', () => undefined);
+    let answer = '';
+    socket.on('data', (bytes: Buffer) => (answer += bytes.toString('latin1')));
+    const closed = new Promise<boolean>((done) => socket.once('close', () => done(true)));
+    await new Promise<void>((done) => socket.once('connect', () => done()));
+    socket.write(`POST /api/tables HTTP/1.1\r\nHost: x\r\n${headers}${chunked ? 'Transfer-Encoding: chunked\r\n' : 'Content-Length: 100000000\r\n'}\r\n`);
+    const body = Buffer.alloc(32 * 1024, 'a');
+    const piece = chunked ? Buffer.concat([Buffer.from(`${body.length.toString(16)}\r\n`), body, Buffer.from('\r\n')]) : body;
+    const timer = setInterval(() => socket.write(piece), 5);
+    const result = await Promise.race([closed, new Promise<boolean>((done) => setTimeout(() => done(false), 1500))]);
+    clearInterval(timer);
+    return { closed: result, status: answer.split('\r\n')[0] ?? '' };
+  }
+
+  it('stops reading and closes after a 401 for a wrong host key', async () => {
+    const result = await cutOff(`Origin: ${TEST_PUBLIC_ORIGIN}\r\nAuthorization: Bearer wrong-key-wrong-key-wrong-key\r\n`, true);
+    expect(result).toMatchObject({ closed: true });
+    expect(result.status).toContain('401');
+  });
+
+  it('stops reading and closes after a 403 for a wrong Origin', async () => {
+    const result = await cutOff('Origin: https://evil.example.test\r\n', true);
+    expect(result).toMatchObject({ closed: true });
+    expect(result.status).toContain('403');
+  });
+
+  it('refuses a body that declares more than 4 KiB before looking at the key, and closes', async () => {
+    const result = await cutOff(`Origin: ${TEST_PUBLIC_ORIGIN}\r\n`);
+    expect(result).toMatchObject({ closed: true });
+    expect(result.status).toContain('413');
+  });
+});
+
 describe('unauthenticated bodies (M7)', () => {
   async function floods(path: string): Promise<boolean> {
     const relay = await start();

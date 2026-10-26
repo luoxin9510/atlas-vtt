@@ -87,6 +87,9 @@ export function createHandler(context: HttpContext): RequestHandler {
   }
 
   async function createTable(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    // Whatever the answer is, a refusal ends the connection: a body still being streamed is not read on.
+    res.setHeader('connection', 'close');
+    if (Number(req.headers['content-length'] ?? 0) > MAX_BODY) return send(res, 413, { error: 'too-large' });
     if (!originAllowed(req, config)) return send(res, 403, { error: 'origin' });
     const address = clientAddress(req, config.trustProxy);
     if (!lock.isLocked(address) && !rate.allow(address)) return send(res, 429, { error: 'rate-limited' });
@@ -101,6 +104,7 @@ export function createHandler(context: HttpContext): RequestHandler {
       return send(res, 503, { error: 'not-saved' });
     }
     if (!SECRET_PATTERN.test(table.secret)) return send(res, 500);
+    res.removeHeader('connection');
     send(res, 201, table);
   }
 
