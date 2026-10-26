@@ -3,6 +3,8 @@ export interface RelayTiming {
   readonly wrongCodeWindowMs: number;
   readonly wrongCodePauseMs: number;
   readonly unhostedTableMs: number;
+  /** A socket that has not sent an accepted hello by then is closed 4006. */
+  readonly helloTimeoutMs: number;
 }
 
 export interface RelayConfig {
@@ -22,6 +24,7 @@ export const DEFAULT_TIMING: RelayTiming = {
   wrongCodeWindowMs: 600_000,
   wrongCodePauseMs: 600_000,
   unhostedTableMs: 1_209_600_000,
+  helloTimeoutMs: 10_000,
 };
 
 const MIN_HOST_KEY_LENGTH = 24;

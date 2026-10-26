@@ -73,3 +73,24 @@ export class TableRateLimit {
     return true;
   }
 }
+
+/** Sockets one client address may hold open at once, GM and players together. */
+export const MAX_SOCKETS_PER_ADDRESS = 20;
+
+export class SocketCap {
+  readonly #open = new Map<string, number>();
+
+  /** Counts one more socket; false when the address is at its limit. */
+  acquire(address: string): boolean {
+    const count = this.#open.get(address) ?? 0;
+    if (count >= MAX_SOCKETS_PER_ADDRESS) return false;
+    this.#open.set(address, count + 1);
+    return true;
+  }
+
+  release(address: string): void {
+    const count = (this.#open.get(address) ?? 0) - 1;
+    if (count > 0) this.#open.set(address, count);
+    else this.#open.delete(address);
+  }
+}

@@ -1,8 +1,10 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { loadTables, saveTables, sha256Hex, type StoredTable, type StoredTables } from './persist.ts';
+import { loadTables, saveTables, sha256Hex, type StoredPlayer, type StoredTable, type StoredTables } from './persist.ts';
 
 export const MAX_TABLES = 10;
 const MAX_TIMER_MS = 2 ** 31 - 1;
+/** Most players a table remembers keys for; the oldest who are not connected go first. */
+const MAX_KNOWN_PLAYERS = 128;
 
 export interface TableRegistryOptions {
   readonly statePath: string;
@@ -44,6 +46,10 @@ export class TableRegistry {
     return this.#tables.size;
   }
 
+  get maxPlayers(): number {
+    return this.#options.maxPlayers;
+  }
+
   has(code: string): boolean {
     return this.#tables.has(code);
   }
@@ -58,7 +64,7 @@ export class TableRegistry {
     if (!this.#tables.has(code) && this.#tables.size >= MAX_TABLES) return 'full';
     const existed = this.#tables.has(code);
     const secret = randomBytes(32).toString('base64url');
-    this.#tables.set(code, { secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
+    this.#tables.set(code, { players: this.#tables.get(code)?.players, secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
     this.#schedule(code);
     this.#save();
     if (existed) this.#listener?.replaced(code);
@@ -69,6 +75,38 @@ export class TableRegistry {
     const table = this.#tables.get(code);
     if (table === undefined) return false;
     return timingSafeEqual(Buffer.from(sha256Hex(secret)), Buffer.from(table.secretHash));
+  }
+
+  /** The player whose key this is (compared in constant time), or null. */
+  playerForKey(code: string, key: string): { id: string; name: string } | null {
+    const players = this.#tables.get(code)?.players ?? {};
+    const hash = Buffer.from(sha256Hex(key));
+    let found: { id: string; name: string } | null = null;
+    for (const [id, player] of Object.entries(players)) if (timingSafeEqual(hash, Buffer.from(player.keyHash))) found = { id, name: player.name };
+    return found;
+  }
+
+  /** Remembers a player's key hash; past the limit the oldest players not in `live` are forgotten. */
+  rememberPlayer(code: string, id: string, player: StoredPlayer, live: { has(id: string): boolean }): void {
+    const table = this.#tables.get(code);
+    if (table === undefined) return;
+    const { [id]: _replaced, ...others } = table.players ?? {};
+    const players: Record<string, StoredPlayer> = { ...others, [id]: player };
+    for (const old of Object.keys(players)) {
+      if (Object.keys(players).length <= MAX_KNOWN_PLAYERS) break;
+      if (old !== id && !live.has(old)) delete players[old];
+    }
+    this.#tables.set(code, { ...table, players });
+    this.#save();
+  }
+
+  /** The player's key stops working. */
+  forgetPlayer(code: string, id: string): void {
+    const table = this.#tables.get(code);
+    if (table?.players?.[id] === undefined) return;
+    const { [id]: _gone, ...players } = table.players;
+    this.#tables.set(code, { ...table, players });
+    this.#save();
   }
 
   /** The WebSocket side calls this when a GM socket arrives (true) or goes (false); the 14 days count from the last one. */
