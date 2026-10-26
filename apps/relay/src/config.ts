@@ -1,0 +1,76 @@
+export interface RelayTiming {
+  readonly knockWaitMs: number;
+  readonly wrongCodeWindowMs: number;
+  readonly wrongCodePauseMs: number;
+  readonly unhostedTableMs: number;
+}
+
+export interface RelayConfig {
+  readonly hostKey: string;
+  readonly host: string;
+  readonly port: number;
+  readonly publicOrigin: string;
+  readonly maxPlayers: number;
+  readonly statePath: string;
+  readonly staticDir: string | null;
+  readonly trustProxy: 'none' | 'xff' | 'cf';
+  readonly timing: RelayTiming;
+}
+
+export const DEFAULT_TIMING: RelayTiming = {
+  knockWaitMs: 180_000,
+  wrongCodeWindowMs: 600_000,
+  wrongCodePauseMs: 600_000,
+  unhostedTableMs: 1_209_600_000,
+};
+
+const MIN_HOST_KEY_LENGTH = 24;
+
+/**
+ * An origin as the plugin writes it: http(s)://host[:port], lowercase, default port dropped, and no
+ * path, query, fragment or credentials. Returns null for anything else.
+ */
+export function normalizeOrigin(text: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== '/') return null;
+  if (/[?#]/.test(text)) return null;
+  return url.origin;
+}
+
+function integerIn(name: string, text: string | undefined, fallback: number, min: number, max: number): number {
+  if (text === undefined || text === '') return fallback;
+  const value = Number(text);
+  if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${name} must be a whole number from ${min} to ${max}`);
+  return value;
+}
+
+function trustProxyIn(text: string | undefined): RelayConfig['trustProxy'] {
+  if (text === undefined || text === '' || text === 'none') return 'none';
+  if (text === 'xff' || text === 'cf') return text;
+  throw new Error('TRUST_PROXY must be none, xff or cf');
+}
+
+/** Reads the relay's settings from environment variables; throws an Error naming the bad one. */
+export function loadConfig(env: NodeJS.ProcessEnv): RelayConfig {
+  const hostKey = env.HOST_KEY ?? '';
+  if (hostKey.length < MIN_HOST_KEY_LENGTH) throw new Error(`HOST_KEY is required and must be at least ${MIN_HOST_KEY_LENGTH} characters`);
+  const publicOrigin = normalizeOrigin(env.PUBLIC_ORIGIN ?? '');
+  if (publicOrigin === null) throw new Error('PUBLIC_ORIGIN is required and must look like https://play.example.com (no path)');
+  return {
+    hostKey,
+    host: env.HOST || '127.0.0.1',
+    port: integerIn('PORT', env.PORT, 8787, 0, 65535),
+    publicOrigin,
+    maxPlayers: integerIn('MAX_PLAYERS', env.MAX_PLAYERS, 8, 1, 12),
+    statePath: env.STATE_PATH || './relay-state.json',
+    staticDir: env.STATIC_DIR || null,
+    trustProxy: trustProxyIn(env.TRUST_PROXY),
+    timing: DEFAULT_TIMING,
+  };
+}
