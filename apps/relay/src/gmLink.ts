@@ -47,7 +47,13 @@ export class TableLinks implements TableListener {
 
   /** The table's secret was replaced: the GM who holds the old one is out. */
   replaced(code: string): void {
-    this.#states.get(code)?.gm?.close(CLOSE.replaced);
+    const state = this.#states.get(code);
+    const gm = state?.gm;
+    if (state === undefined || gm === null || gm === undefined) return;
+    // It stops being the GM before it is closed: ws waits for the peer's answer, and until then its frames must count for nothing.
+    state.gm = null;
+    this.#tables.setHosted(code, false);
+    gm.close(CLOSE.replaced);
   }
 
   /** The table is gone: every socket of it is closed as ended. */

@@ -1,3 +1,4 @@
+import type { Socket } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import { CLOSE } from '../../../src/app/online/protocol/relay.ts';
@@ -142,6 +143,49 @@ describe('GM socket', () => {
     expect(await client.closed).toBe(CLOSE.replaced);
     const again = await welcomed(relay.origin, fresh);
     expect(again.socket.readyState).toBe(WebSocket.OPEN);
+  });
+
+  /** Stops the client reading, so it never sees the close frame and can still send as the superseded GM. */
+  function deaf(client: Client): void {
+    (client.socket as unknown as { _socket: Socket })._socket.pause();
+  }
+
+  async function frameFromSuperseded(old: Client): Promise<void> {
+    old.socket.send(JSON.stringify({ v: 1, t: 'gate', code: '123456', ask: true }));
+    old.socket.send(JSON.stringify({ v: 1, t: 'players', players: [{ id: 'a'.repeat(20), name: 'Ann', code: '654321' }] }));
+    old.socket.send(JSON.stringify({ v: 1, t: 'end' }));
+    await new Promise((done) => setTimeout(done, 150));
+  }
+
+  it('ignores gate, players and end from a GM superseded by a re-POST', async () => {
+    const relay = await start();
+    const old = await welcomed(relay.origin, await createTable(relay.origin));
+    deaf(old);
+    await createTable(relay.origin);
+    await frameFromSuperseded(old);
+    expect(relay.tables.has(CODE)).toBe(true);
+    expect(relay.links.stateOf(CODE).gate).toEqual({ code: null, ask: false });
+    expect(relay.links.stateOf(CODE).roster).toEqual([]);
+  });
+
+  it('ignores gate, players and end from a GM superseded by a second hello', async () => {
+    const relay = await start();
+    const secret = await createTable(relay.origin);
+    const old = await welcomed(relay.origin, secret);
+    deaf(old);
+    await welcomed(relay.origin, secret);
+    await frameFromSuperseded(old);
+    expect(relay.tables.has(CODE)).toBe(true);
+    expect(relay.links.stateOf(CODE).gate).toEqual({ code: null, ask: false });
+    expect(relay.links.stateOf(CODE).roster).toEqual([]);
+  });
+
+  it('a re-POST unhosts the table when no new GM comes', async () => {
+    const relay = await start();
+    await welcomed(relay.origin, await createTable(relay.origin));
+    const hosted = vi.spyOn(relay.tables, 'setHosted');
+    await createTable(relay.origin);
+    expect(hosted).toHaveBeenCalledWith(CODE, false);
   });
 
   it('reports hosting: true on an accepted hello, false when that socket closes', async () => {

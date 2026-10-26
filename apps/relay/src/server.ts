@@ -11,6 +11,7 @@ export interface RunningRelay {
   /** Where the relay listens, e.g. `http://127.0.0.1:8787` (with the real port when 0 was asked for). */
   readonly origin: string;
   readonly tables: TableRegistry;
+  readonly links: TableLinks;
   close(): Promise<void>;
 }
 
@@ -40,6 +41,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   return {
     origin: `http://${hostName}:${port}`,
     tables,
+    links,
     async close(): Promise<void> {
       sockets.close();
       await new Promise<void>((done) => {
