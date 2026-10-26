@@ -4,6 +4,7 @@ import type { ComposerProps } from './Composer.tsx';
 import { shownName } from './logAuthors.ts';
 import type { ShownEntry } from './LogState.ts';
 import { isThreadable } from './logThreads.ts';
+import { t } from '../../i18n';
 
 /** The entry of `id` where the viewer holds it and can answer it: a chat message, a roll, an image, a loot card or a found note. */
 export function answerable(entries: readonly ShownEntry[], id: string | null): ShownEntry | undefined {
@@ -17,8 +18,8 @@ export function answerable(entries: readonly ShownEntry[], id: string | null): S
 export function composerReply(replied: ShownEntry | undefined, root: string | null, self: string | null, people: readonly TablePerson[]): ComposerProps['reply'] {
   if (replied === undefined) return null;
   const audience = audienceOf(replied, self);
-  const whisper = audience === null || audience.length === 0 ? null : `Whispering to ${audienceNames(audience, people, self)}`;
-  if (replied.id === root) return { id: replied.id, label: 'Replying in thread', whisper, thread: true };
-  const label = replied.who === self ? 'Replying to yourself' : `Replying to ${shownName(replied.who, replied.name, self)}`;
+  const whisper = audience === null || audience.length === 0 ? null : t('onlineLog.whisperingTo', { names: audienceNames(audience, people, self) });
+  if (replied.id === root) return { id: replied.id, label: t('onlineLog.replyingInThread'), whisper, thread: true };
+  const label = replied.who === self ? t('onlineLog.replyingToSelf') : t('onlineLog.replyingTo', { name: shownName(replied.who, replied.name, self) });
   return { id: replied.id, label, whisper };
 }

@@ -2,15 +2,16 @@ import type { AtlasSettingSection } from '../../settings/settingSections';
 import type { AccountControl } from './account/AccountControl.ts';
 import { isSelfHosted, normalizeServerOrigin, setServerOrigin } from './servers.ts';
 import type { OnlineSettings } from './settings.ts';
+import { t } from '../../i18n';
 
 /** Makes the setting's server the one online play talks to. */
 export function applyServerSetting(settings: OnlineSettings): void {
   setServerOrigin(settings.serverOrigin === '' ? null : settings.serverOrigin);
 }
 
-export const SERVER_ADDRESS_HELP = 'The address of the server you host online tables on. Leave it empty to keep online play off.';
-export const SERVER_ADDRESS_INVALID = 'Enter an address such as https://play.example.com.';
-const HOST_KEY_HELP = 'The key your server gave you for hosting tables. It stays in Obsidian\'s secret storage on this device.';
+export const SERVER_ADDRESS_HELP = t('onlineGm.server.addressHelp');
+export const SERVER_ADDRESS_INVALID = t('onlineGm.server.addressInvalid');
+const HOST_KEY_HELP = t('onlineGm.server.hostKeyHelp');
 
 /** What the server section's rows read and change. */
 export interface ServerSettingsHost {
@@ -31,9 +32,9 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
     for (const redraw of redraws) redraw();
   };
   return [{
-    heading: 'Online server',
+    heading: t('onlineGm.server.heading'),
     rows: [{
-      name: 'Online server address',
+      name: t('onlineGm.server.addressName'),
       desc: SERVER_ADDRESS_HELP,
       render: (setting) => {
         setting.addText((text) => {
@@ -52,7 +53,7 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
         });
       },
     }, {
-      name: 'Host key',
+      name: t('onlineGm.server.hostKeyName'),
       desc: HOST_KEY_HELP,
       render: (setting) => {
         const draw = (): void => {
@@ -62,7 +63,7 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
           setting.addText((text) => {
             text.inputEl.type = 'password';
             text.inputEl.autocomplete = 'off';
-            text.setPlaceholder(host.account.token() !== null ? 'Host key set. Paste a new one to replace it.' : 'Paste the host key');
+            text.setPlaceholder(host.account.token() !== null ? t('onlineGm.server.hostKeyReplace') : t('onlineGm.server.hostKeyPaste'));
             text.inputEl.addEventListener('change', () => {
               const key = text.inputEl.value;
               text.setValue('');
@@ -70,7 +71,7 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
               draw();
             });
           });
-          if (host.account.token() !== null) setting.addButton((button) => button.setButtonText('Remove').onClick(() => (host.account.setHostKey(''), draw())));
+          if (host.account.token() !== null) setting.addButton((button) => button.setButtonText(t('onlineGm.server.hostKeyRemove')).onClick(() => (host.account.setHostKey(''), draw())));
         };
         draw();
         redraws.add(draw);

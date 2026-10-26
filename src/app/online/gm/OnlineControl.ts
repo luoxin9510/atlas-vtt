@@ -19,6 +19,7 @@ import type { TableCampaigns } from './tableCampaigns.ts';
 import { createCampaignTable, NO_ACCOUNT, refused, startBlock, type HostAccount } from './tableStart.ts';
 import type { TableStatus } from './TableConnection.ts';
 import type { LostTable } from './tableEnd.ts';
+import { t } from '../../i18n';
 
 /**
  * The GM's side of online play, free of any panel: start and stop a table of a campaign, which this
@@ -163,7 +164,7 @@ export class OnlineControl {
 
   /** Shows the active scene of this Atlas tab on Atlas's player view, which players online see too. */
   share(leaf: WorkspaceLeaf): void {
-    if (!presentOnPlayerView(this.app, leaf)) showNotice('Atlas cannot show this map on the player view.');
+    if (!presentOnPlayerView(this.app, leaf)) showNotice(t('onlineGm.share.noPlayerView'));
   }
 
   /** Every player of the running table's campaign: those online first, then by name. */

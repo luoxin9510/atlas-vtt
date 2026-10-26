@@ -2,6 +2,7 @@ import type { SecretEntry } from '../protocol/index.ts';
 import { EyeOff } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import { shownName } from './logAuthors.ts';
+import { t } from '../../i18n';
 
 export interface SecretRowProps {
   readonly entry: SecretEntry;
@@ -11,10 +12,10 @@ export interface SecretRowProps {
 
 /** What a private roll's line says: the viewer's own blind roll tells them who sees it, anyone else's only that it was made. */
 export function secretText(entry: SecretEntry, self: string | null): string {
-  if (self !== null && entry.who === self) return entry.mode === 'blind' ? 'You rolled blind. Only the GM sees the result.' : 'You rolled privately.';
+  if (self !== null && entry.who === self) return entry.mode === 'blind' ? t('onlineLog.secret.blind') : t('onlineLog.secret.self');
   const roller = shownName(entry.who, entry.name, self);
   const by = entry.speaker === undefined ? roller : `${entry.speaker.name} (${roller})`;
-  return `${by} rolled privately`;
+  return t('onlineLog.secret.other', { by });
 }
 
 /** A private roll the viewer is not shown: one quiet line in its place. */

@@ -16,6 +16,7 @@ import { SecretRow } from './SecretRow.tsx';
 import { ImageRow, LootRow } from './ShownRows.tsx';
 import type { LogScroll } from './useLogScroll.ts';
 import type { LogUi } from './useLogUi.ts';
+import { t } from '../../i18n';
 
 /** How often the rows' "5m ago" is read again. */
 const CLOCK_MS = 30_000;
@@ -52,7 +53,7 @@ const hasTools = (entry: ShownEntry): boolean => entry.kind === 'chat' || entry.
 
 /** The way down, over the list's lower edge: what arrived below, or just the way where nothing did. */
 function JumpPill({ scroll }: { readonly scroll: LogScroll }): ReactElement {
-  const label = scroll.pending === 0 ? 'Jump to latest' : scroll.pending === 1 ? '1 new message' : `${scroll.pending} new messages`;
+  const label = scroll.pending === 0 ? t('onlineLog.log.jump') : t('onlineLog.log.newMessages', { count: scroll.pending });
   return (
     <button type="button" className={classes('atlas-online-log__jump', scroll.away && 'is-visible')} inert={!scroll.away} onClick={scroll.jump}>
       {label}
@@ -94,7 +95,7 @@ export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, s
         {entries.length === 0 && (
           <div className="atlas-online-log__empty">
             <MessagesSquare />
-            <span>Nothing yet. Say hello, or roll some dice.</span>
+            <span>{t('onlineLog.log.empty')}</span>
           </div>
         )}
         <div ref={scroll.rowsRef} className={classes('atlas-online-log__rows', inThread && 'atlas-online-log__rows--thread')} role="log" onKeyDown={onKeyDown} onFocus={onFocus}>
@@ -111,7 +112,7 @@ export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, s
                   <ChatRow
                     entry={entry} continued={!newDay && continuesPrevious(before, entry)} time={time} thread={thread} api={api} editing={ui.editing === entry.id} {...flags}
                     portrait={entry.style === 'ic' ? portraitOf(entry.speaker) : null}
-                    whisper={entry.to === undefined ? null : `Whisper to ${audienceNames(entry.to, people, api.self)}`}
+                    whisper={entry.to === undefined ? null : t('onlineLog.whisperTo', { names: audienceNames(entry.to, people, api.self) })}
                   />
                 )}
                 {entry.kind === 'roll' && <RollRow entry={entry} face={rollFace?.(entry) ?? null} portrait={portraitOf(entry.speaker)} time={time} thread={thread} api={api} {...flags} />}
@@ -129,7 +130,7 @@ export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, s
               </div>
             );
           })}
-          {inThread && entries.length === 1 && <div className="atlas-online-log__thread-empty">No replies yet. Start the thread.</div>}
+          {inThread && entries.length === 1 && <div className="atlas-online-log__thread-empty">{t('onlineLog.log.threadEmpty')}</div>}
         </div>
       </div>
       <JumpPill scroll={scroll} />

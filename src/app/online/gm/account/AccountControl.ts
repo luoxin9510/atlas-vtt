@@ -5,6 +5,7 @@ import { DeviceSignIn } from './deviceFlow.ts';
 import type { Http } from './http.ts';
 import { RelayAccount, signOutToken, type AccountAnswer } from './relayAccount.ts';
 import type { TokenStore } from './tokenStore.ts';
+import { t } from '../../../i18n';
 
 export interface AccountPorts {
   readonly http: Http;
@@ -66,7 +67,7 @@ export class AccountControl {
       if (trimmed === '') this.ports.hostKeys.clear();
       else this.ports.hostKeys.set(trimmed);
     } catch {
-      this.ports.notify('Obsidian cannot keep the host key on this device: its secure storage is not available.');
+      this.ports.notify(t('onlineGm.account.noStorageHostKey'));
     }
     this.changed();
   }
@@ -109,7 +110,7 @@ export class AccountControl {
       try {
         this.ports.tokens.set(end.token);
       } catch {
-        this.ports.notify('Obsidian cannot keep the sign-in on this device: its secure storage is not available.');
+        this.ports.notify(t('onlineGm.account.noStorageSignIn'));
         void signOutToken(this.ports.http, accountsOrigin(), end.token);
         return this.changed();
       }

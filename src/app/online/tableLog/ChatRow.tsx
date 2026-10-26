@@ -13,6 +13,7 @@ import { ReplyQuote } from './ReplyQuote.tsx';
 import { RowShell } from './RowShell.tsx';
 import { SpeakerFace } from './SpeakerFace.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { t } from '../../i18n';
 
 export interface ChatRowProps extends RowFlags {
   readonly entry: ChatEntry;
@@ -44,7 +45,7 @@ export const ChatRow = memo(function ChatRow({ entry, continued, time, portrait,
   const author = shownName(who, name, api.self);
   const inCharacter = entry.style === 'ic' && speaker !== undefined;
   const emote = entry.style === 'emote';
-  const edited = entry.edited !== undefined && <span className="atlas-online-log__edited"> (edited)</span>;
+  const edited = entry.edited !== undefined && <span className="atlas-online-log__edited"> {t('onlineLog.edited')}</span>;
 
   const body = flags.editing ? (
     <EditField text={text} onSave={(next) => api.saveEdit(id, next)} onCancel={api.cancelEdit} />
@@ -80,7 +81,7 @@ export const ChatRow = memo(function ChatRow({ entry, continued, time, portrait,
               {inCharacter ? (
                 <>
                   <span className="atlas-online-log__speaker">{speaker.name}</span>
-                  <span className={`atlas-online-log__author ${toneClass(who)}`}>{own ? 'you' : author}</span>
+                  <span className={`atlas-online-log__author ${toneClass(who)}`}>{own ? t('onlineLog.author.youLower') : author}</span>
                 </>
               ) : (
                 <span className={`atlas-online-log__name ${toneClass(who)}`}>{author}</span>

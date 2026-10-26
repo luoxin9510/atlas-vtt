@@ -1,5 +1,6 @@
 import { GM_AUTHOR, PLAYER_COLOURS, playerColourVariable, playerTone, type LogEntry, type LogReactionEmoji, type LogSpeaker } from '../protocol/index.ts';
 import { sameAudience } from './audience.ts';
+import { t } from '../../i18n';
 
 /** Rows of one author this close together read as one message block. */
 const GROUP_WINDOW_MS = 7 * 60_000;
@@ -57,6 +58,6 @@ export function monogram(name: string): string {
 
 /** An author's name as the viewer reads it: "You" for their own, "GM" for the GM's. */
 export function shownName(who: string, name: string, self: string | null): string {
-  if (self !== null && who === self) return 'You';
-  return who === GM_AUTHOR ? 'GM' : name;
+  if (self !== null && who === self) return t('onlineLog.author.you');
+  return who === GM_AUTHOR ? t('onlineLog.author.gm') : name;
 }

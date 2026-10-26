@@ -1,17 +1,18 @@
 import type { ChatRefusal } from '../protocol/index.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LogView } from './LogState.ts';
+import { t } from '../../i18n';
 
 /** How long a refusal stays above the message field. */
 export const NOTICE_MS = 4000;
 
 const REFUSALS: Readonly<Record<ChatRefusal, string>> = {
-  rate: 'You are sending too fast. Wait a moment.',
-  text: 'That message cannot be sent.',
-  gone: 'That message is gone.',
-  whisper: 'Nobody at the table has that name.',
-  speaker: 'You cannot speak as that token.',
-  roll: 'A roll in that message does not work. Check the dice, or keep the rolls as they were.',
+  rate: t('onlineLog.refusal.rate'),
+  text: t('onlineLog.refusal.text'),
+  gone: t('onlineLog.refusal.gone'),
+  whisper: t('onlineLog.refusal.whisper'),
+  speaker: t('onlineLog.refusal.speaker'),
+  roll: t('onlineLog.refusal.roll'),
 };
 
 /**

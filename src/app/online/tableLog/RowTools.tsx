@@ -5,17 +5,18 @@ import { LabelTooltip } from '../../packages/components/primitives/tooltip';
 import { classes } from './classes.ts';
 import type { ShownReaction } from './logAuthors.ts';
 import type { RowApi } from './panelTypes.ts';
+import { t } from '../../i18n';
 
 /** How many reactions the tools offer at once; the others unfold behind "+". */
 const QUICK_REACTIONS = 3;
 
 const REACTION_NAMES: Readonly<Record<LogReactionEmoji, { readonly give: string; readonly take: string }>> = {
-  '👍': { give: 'Thumbs up', take: 'Remove thumbs up' },
-  '❤️': { give: 'Heart', take: 'Remove heart' },
-  '😂': { give: 'Laugh', take: 'Remove laugh' },
-  '😮': { give: 'Wow', take: 'Remove wow' },
-  '😢': { give: 'Sad', take: 'Remove sad' },
-  '👎': { give: 'Thumbs down', take: 'Remove thumbs down' },
+  '👍': { give: t('onlineLog.reaction.thumbsUp'), take: t('onlineLog.reaction.thumbsUpOff') },
+  '❤️': { give: t('onlineLog.reaction.heart'), take: t('onlineLog.reaction.heartOff') },
+  '😂': { give: t('onlineLog.reaction.laugh'), take: t('onlineLog.reaction.laughOff') },
+  '😮': { give: t('onlineLog.reaction.wow'), take: t('onlineLog.reaction.wowOff') },
+  '😢': { give: t('onlineLog.reaction.sad'), take: t('onlineLog.reaction.sadOff') },
+  '👎': { give: t('onlineLog.reaction.thumbsDown'), take: t('onlineLog.reaction.thumbsDownOff') },
 };
 
 interface ToolProps {
@@ -97,21 +98,21 @@ export function RowTools({ id, reactions, canEdit, canDelete, asking, api }: Row
             <div className={classes('atlas-online-log__tools-more', more && 'is-open')} inert={!more}>
               <div className="atlas-online-log__tools-inner">{LOG_REACTIONS.slice(QUICK_REACTIONS).map(reaction)}</div>
             </div>
-            <Tool label={more ? 'Fewer reactions' : 'More reactions'} className={classes('atlas-online-log__tool--more', more && 'is-open')} expanded={more} onClick={() => setMore(!more)}>
+            <Tool label={more ? t('onlineLog.reaction.fewer') : t('onlineLog.reaction.more')} className={classes('atlas-online-log__tool--more', more && 'is-open')} expanded={more} onClick={() => setMore(!more)}>
               <Plus />
             </Tool>
             <span className="atlas-online-log__tools-divider" aria-hidden="true" />
-            <Tool label="Reply" onClick={() => api.reply(id)}><Reply /></Tool>
-            {canEdit && <Tool label="Edit" onClick={() => api.edit(id)}><Pencil /></Tool>}
-            {canDelete && <Tool label="Delete" className="atlas-online-log__tool--danger" buttonRef={remove} onClick={onDelete}><Trash2 /></Tool>}
+            <Tool label={t('onlineLog.reply')} onClick={() => api.reply(id)}><Reply /></Tool>
+            {canEdit && <Tool label={t('common.edit')} onClick={() => api.edit(id)}><Pencil /></Tool>}
+            {canDelete && <Tool label={t('common.delete')} className="atlas-online-log__tool--danger" buttonRef={remove} onClick={onDelete}><Trash2 /></Tool>}
           </div>
         </div>
         {canDelete && (
           <div className={classes('atlas-online-log__tools-layer', !asking && 'is-out')} inert={!asking}>
             <div className="atlas-online-log__tools-inner">
-              <span className="atlas-online-log__tools-question">Delete this message?</span>
-              <button type="button" className="atlas-online-log__tool atlas-online-log__tool--text atlas-online-log__tool--danger" onClick={() => api.remove(id)}>Delete</button>
-              <button ref={keep} type="button" className="atlas-online-log__tool atlas-online-log__tool--text" onClick={() => api.askDelete(null)}>Keep</button>
+              <span className="atlas-online-log__tools-question">{t('onlineLog.deleteAsk')}</span>
+              <button type="button" className="atlas-online-log__tool atlas-online-log__tool--text atlas-online-log__tool--danger" onClick={() => api.remove(id)}>{t('common.delete')}</button>
+              <button ref={keep} type="button" className="atlas-online-log__tool atlas-online-log__tool--text" onClick={() => api.askDelete(null)}>{t('onlineLog.keep')}</button>
             </div>
           </div>
         )}

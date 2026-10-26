@@ -16,6 +16,7 @@ import { campaignQuestGate } from './campaignQuestGate';
 import { campaignWorldMapGate } from './campaignWorldMapGate';
 import { characterRestGate } from './characterRestGate';
 import { characterStatblockGate } from './characterStatblockGate';
+import { t } from '../i18n';
 
 /** Online play as the plugin holds it. */
 export interface OnlinePlay {
@@ -39,7 +40,7 @@ export function registerOnlinePlay(plugin: Plugin, settings: SettingsService): O
     const on = wanted && requireApiVersion(SECRET_STORAGE_VERSION);
     if (wanted && !on && !toldTooOld) {
       toldTooOld = true;
-      showNotice(`Online play needs Obsidian ${SECRET_STORAGE_VERSION} or newer.`);
+      showNotice(t('onlineGm.needsObsidian', { version: SECRET_STORAGE_VERSION }));
     }
     if (on !== (feature !== null)) {
       if (feature !== null) plugin.removeChild(feature);

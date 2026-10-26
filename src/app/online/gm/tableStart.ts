@@ -8,6 +8,7 @@ import { createTable } from './createTable.ts';
 import { isSelfHosted, relayOrigin } from './servers.ts';
 import { endStrayTable } from './strayTable.ts';
 import type { TableCampaigns } from './tableCampaigns.ts';
+import { t } from '../../i18n';
 
 /** The GM's account as starting a table needs it. */
 export interface HostAccount {
@@ -28,18 +29,18 @@ export function refused(text: string): null {
 }
 
 /** What the GM reads where no online server address is set. */
-export const NO_SERVER_TEXT = 'Set the online server address in Atlas settings first.';
+export const NO_SERVER_TEXT = t('onlineGm.start.noServer');
 
 /** What the GM reads where a self-hosted server is set and no host key is kept. */
-export const NO_HOST_KEY_START_TEXT = 'Set the host key in Atlas settings first.';
+export const NO_HOST_KEY_START_TEXT = t('onlineGm.start.noHostKey');
 
 /** Why no table can start from the Atlas tab `leaf` for the campaign `campaignId` (null: none is played), or null where one can. */
 export function startBlock(leaf: WorkspaceLeaf | null, campaignId: string | null, account: HostAccount): string | null {
   if (relayOrigin() === null) return NO_SERVER_TEXT;
-  if (leaf === null || sceneStoreOf(leaf) === null) return 'Open an Atlas map tab first.';
+  if (leaf === null || sceneStoreOf(leaf) === null) return t('onlineGm.start.noMapTab');
   if (campaignId === null) return NO_CAMPAIGN_TEXT;
   if (account.token() !== null) return null;
-  return isSelfHosted() ? NO_HOST_KEY_START_TEXT : 'Sign in to host first.';
+  return isSelfHosted() ? NO_HOST_KEY_START_TEXT : t('onlineGm.start.signIn');
 }
 
 /** A table the relay made on a campaign's link, with that campaign's players. */
@@ -49,7 +50,7 @@ export interface CampaignTable {
 }
 
 /** What the GM reads where the relay opened a table on another link than the campaign's (a relay from before lasting links). */
-export const OTHER_LINK_TEXT = 'The server could not open this campaign\'s link. Try again later.';
+export const OTHER_LINK_TEXT = t('onlineGm.start.otherLink');
 
 /**
  * Asks the server `origin` (the one set when the start began) for a table on the lasting link of the campaign `campaignId` once its players file

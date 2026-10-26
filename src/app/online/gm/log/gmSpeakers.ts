@@ -1,6 +1,7 @@
 import { GM_AUTHOR } from '../../protocol/index.ts';
 import type { SpeakerOption } from '../../tableLog/index.ts';
 import { selectedTokenIds, tokenLabel, type SceneState } from '../atlasView.ts';
+import { t } from '../../../i18n';
 
 /** The most tokens the GM's speaker menu lists: the selected ones always, the rest by name. */
 const MAX_LISTED = 60;
@@ -20,7 +21,7 @@ export function gmSpeakerList(imageSrc: (path: string) => string): (state: Scene
     const rest = Object.values(tokens).filter((token) => !chosen.includes(token.id)).sort((a, b) => tokenLabel(a).localeCompare(tokenLabel(b)));
     const listed = [...chosen.flatMap((id) => tokens[id] ?? []), ...rest].slice(0, Math.max(MAX_LISTED, chosen.length));
     const list: SpeakerOption[] = [
-      { key: GM_AUTHOR, name: 'GM', kind: 'self', portrait: null },
+      { key: GM_AUTHOR, name: t('onlineLog.author.gm'), kind: 'self', portrait: null },
       ...listed.map((token): SpeakerOption => ({
         key: token.id,
         name: tokenLabel(token),

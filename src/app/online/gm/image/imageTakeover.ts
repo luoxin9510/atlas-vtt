@@ -1,12 +1,13 @@
 import { field } from '../atlasLighting.ts';
 import type { VaultImage } from '../TokenShare.ts';
 import type { ImageShare, ShowResult } from './ImageShare.ts';
+import { t } from '../../../i18n';
 
-export const SHOWN_TEXT = 'Image shown to players.';
-export const HIDDEN_TEXT = 'Image hidden from players.';
+export const SHOWN_TEXT = t('onlineGm.image.shown');
+export const HIDDEN_TEXT = t('onlineGm.image.hidden');
 const REFUSALS: Readonly<Record<Exclude<ShowResult, 'shown' | 'replaced'>, string>> = {
-  'too-large': 'This image is too large to show online.',
-  unreadable: 'This image cannot be shown online.',
+  'too-large': t('onlineGm.image.tooLarge'),
+  unreadable: t('onlineGm.image.unreadable'),
 };
 
 /** The three calls of Atlas's image display (`ImageDisplayService`) the takeover stands in front of. */

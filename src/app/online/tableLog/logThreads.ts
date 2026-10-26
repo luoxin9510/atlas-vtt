@@ -1,4 +1,5 @@
 import type { ShownEntry } from './LogState.ts';
+import { t } from '../../i18n';
 
 /** Someone who answered in a thread, as its pill shows them. */
 export interface Replier {
@@ -80,5 +81,5 @@ export function threadStats(entries: readonly ShownEntry[]): ReadonlyMap<string,
 
 /** "1 reply", "3 replies". */
 export function repliesLabel(count: number): string {
-  return count === 1 ? '1 reply' : `${count} replies`;
+  return t('onlineLog.thread.replies', { count });
 }

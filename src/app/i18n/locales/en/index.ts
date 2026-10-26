@@ -99,6 +99,9 @@ import { sbModel } from './sbModel';
 import { sbTemplate } from './sbTemplate';
 import { sbTemplateTable } from './sbTemplateTable';
 import { sbValues } from './sbValues';
+import { onlineGm } from './onlineGm';
+import { onlineDock } from './onlineDock';
+import { onlineLog } from './onlineLog';
 import { uvttImport } from './uvttImport';
 
 /** English, the source language: every key exists here, and other languages translate a subset of it. */
@@ -206,5 +209,8 @@ export const en = {
   ...sbTemplate,
   ...sbTemplateTable,
   ...sbValues,
+  ...onlineGm,
+  ...onlineDock,
+  ...onlineLog,
   ...uvttImport,
 } as const;

@@ -3,6 +3,7 @@ import { useRef, type ReactElement } from 'react';
 import { AuthorDisc, toneClass } from './AuthorDisc.tsx';
 import { shownName } from './logAuthors.ts';
 import { toRow, useKeepFocus } from './useKeepFocus.ts';
+import { t } from '../../i18n';
 
 /**
  * What a reply answers, above its byline: a small disc, the name and one line of the original,
@@ -23,7 +24,7 @@ export function ReplyQuote({ reply, self, onOpen }: { readonly reply: LogReply; 
       {reply.gone === true ? (
         <span className="atlas-online-log__quote-line">
           {who}
-          <span className="atlas-online-log__quote-text atlas-online-log__quote-text--gone">Message deleted</span>
+          <span className="atlas-online-log__quote-text atlas-online-log__quote-text--gone">{t('onlineLog.messageDeleted')}</span>
         </span>
       ) : (
         <button type="button" className="atlas-online-log__quote-line" onClick={onOpen}>

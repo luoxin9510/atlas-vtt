@@ -1,5 +1,6 @@
 import type { RollMode } from '../protocol/index.ts';
 import { Crown, EyeOff, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { t } from '../../i18n';
 
 export interface RollModeInfo {
   /** As the roll-mode menu offers it. */
@@ -11,8 +12,8 @@ export interface RollModeInfo {
 
 /** The roll modes as the panel names and draws them. */
 export const ROLL_MODE_INFO: Readonly<Record<RollMode, RollModeInfo>> = {
-  public: { choice: 'Public roll', badge: null, icon: Users },
-  gm: { choice: 'GM only', badge: 'GM only', icon: Crown },
-  blind: { choice: 'Blind (only the GM sees the result)', badge: 'Blind', icon: EyeOff },
-  self: { choice: 'Only me', badge: 'Only you', icon: UserRound },
+  public: { choice: t('onlineLog.mode.public'), badge: null, icon: Users },
+  gm: { choice: t('onlineLog.mode.gm'), badge: t('onlineLog.mode.gm'), icon: Crown },
+  blind: { choice: t('onlineLog.mode.blindChoice'), badge: t('onlineLog.mode.blind'), icon: EyeOff },
+  self: { choice: t('onlineLog.mode.selfChoice'), badge: t('onlineLog.mode.selfBadge'), icon: UserRound },
 };

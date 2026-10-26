@@ -7,6 +7,7 @@ import type { RowApi, RowFlags } from './panelTypes.ts';
 import { ReactionChips } from './ReactionChips.tsx';
 import { RowShell } from './RowShell.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { t } from '../../i18n';
 
 export interface RestRowProps extends Omit<RowFlags, 'editing'> {
   readonly entry: RestEntry;
@@ -38,11 +39,11 @@ export const RestRow = memo(function RestRow({ entry, time, thread, api, ...flag
           </div>
           {(entry.changes !== undefined || entry.picks !== undefined) && (
             <div className="atlas-online-log__rest">
-              {entry.picks !== undefined && <span className="atlas-online-log__rest-picks">{entry.picks.join(', ')}</span>}
+              {entry.picks !== undefined && <span className="atlas-online-log__rest-picks">{entry.picks.join(t('common.listSeparator'))}</span>}
               {entry.changes !== undefined && (entry.changes.length === 0
-                ? <span className="atlas-online-log__rest-quiet">Nothing to restore.</span>
-                : <span className="atlas-online-log__rest-changes">{entry.changes.map(restChangeText).join(', ')}</span>)}
-              {entry.skipped !== undefined && <span className="atlas-online-log__rest-quiet">{`Not changed: ${entry.skipped.join(', ')}`}</span>}
+                ? <span className="atlas-online-log__rest-quiet">{t('onlineLog.rest.nothing')}</span>
+                : <span className="atlas-online-log__rest-changes">{entry.changes.map(restChangeText).join(t('common.listSeparator'))}</span>)}
+              {entry.skipped !== undefined && <span className="atlas-online-log__rest-quiet">{t('onlineLog.rest.notChanged', { names: entry.skipped.join(t('common.listSeparator')) })}</span>}
             </div>
           )}
           <ReactionChips id={entry.id} reactions={reactions} api={api} />
