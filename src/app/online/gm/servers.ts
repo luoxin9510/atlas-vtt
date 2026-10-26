@@ -45,6 +45,11 @@ export function isSelfHosted(): boolean {
   return serverOrigin !== null && serverOrigin !== UPSTREAM_RELAY_ORIGIN;
 }
 
+/** Whether the server address is Atlas's own: the only case where its account service is contacted. */
+export function isUpstream(): boolean {
+  return serverOrigin === UPSTREAM_RELAY_ORIGIN;
+}
+
 /** The account service's origin; only reached where the server is not self-hosted. */
 export function accountsOrigin(): string {
   return UPSTREAM_ACCOUNTS_ORIGIN;

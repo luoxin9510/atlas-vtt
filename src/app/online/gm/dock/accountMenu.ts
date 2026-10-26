@@ -1,5 +1,5 @@
 import type { AccountApi } from '../account/AccountControl.ts';
-import { accessText, HOST_KEY_SET_TEXT, noticeText, NO_HOST_KEY_TEXT, UNREACHABLE_TEXT, type AccountView } from '../account/accountView.ts';
+import { accessText, HOST_KEY_SET_TEXT, noticeText, NO_HOST_KEY_TEXT, NO_SERVER_TEXT, UNREACHABLE_TEXT, type AccountView } from '../account/accountView.ts';
 import type { AccountInfo } from '../account/relayAccount.ts';
 import { openUpdate } from '../../../updates/updateNotice';
 import { OUTDATED_TEXT } from '../gmLevel.ts';
@@ -99,6 +99,10 @@ export function renderAccountMenu(layer: HTMLElement, account: AccountView, star
   const head = intro(layer, lost, account.kind === 'waiting' ? t('onlineDock.signInToHost') : undefined, signedIn);
   if (lost === 'no-access' && account.kind !== 'no-access') accountPageButton(layer, actions);
   switch (account.kind) {
+    case 'no-server':
+      // Nothing is offered but where to set the address; no sign-in, no account call.
+      statusLine(head, { text: NO_SERVER_TEXT, tone: 'amber' });
+      return;
     case 'signed-out': {
       // The one sentence about what this is; the button says how to begin.
       help(head, INTRO);

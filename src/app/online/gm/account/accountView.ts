@@ -10,6 +10,8 @@ import { t } from '../../../i18n';
 export type SignedOutNotice = 'timed-out' | 'declined' | 'server' | 'unreachable' | null;
 
 export type AccountView =
+  /** No server address is set: online play is off, and no account call is made. */
+  | { readonly kind: 'no-server' }
   | { readonly kind: 'signed-out'; readonly notice: SignedOutNotice }
   /** The sign-in waits for approval in the browser; the code is null until the service gave one. */
   | { readonly kind: 'waiting'; readonly userCode: string | null }
@@ -28,12 +30,15 @@ export interface AccountFacts {
   readonly token: boolean;
   /** Whether the server is a self-hosted one, where `token` is the host key. */
   readonly selfHosted: boolean;
+  /** Whether no server address is set at all. */
+  readonly noServer: boolean;
   /** The last answer of `/api/me` for this token; null until one came. */
   readonly me: AccountAnswer | 'unreachable' | null;
   readonly notice: SignedOutNotice;
 }
 
 export function accountView(facts: AccountFacts): AccountView {
+  if (facts.noServer) return { kind: 'no-server' };
   if (facts.selfHosted) return { kind: 'host-key', set: facts.token };
   if (facts.signingIn) return { kind: 'waiting', userCode: facts.userCode };
   if (!facts.token) return { kind: 'signed-out', notice: facts.notice };
@@ -56,6 +61,9 @@ export const NO_HOSTING_TEXT = t('onlineGm.access.noHosting');
 
 /** Why the relay says the account may not host, and where the way on is: the account page. */
 export const accessText = (reason: AccessRefusal | null): string => (reason === null ? t('onlineGm.access.noHostingSee') : ACCESS_TEXT[reason]);
+
+/** What the GM reads where no online server address is set. */
+export const NO_SERVER_TEXT = t('onlineGm.start.noServer');
 
 export const HOST_KEY_SET_TEXT = t('onlineGm.hostKey.set');
 export const NO_HOST_KEY_TEXT = t('onlineGm.hostKey.none');

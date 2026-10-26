@@ -2,6 +2,7 @@ import { showNotice } from '../../ui/notice';
 import type { WorkspaceLeaf } from 'obsidian';
 import { obsidianHttp } from './account/obsidianHttp.ts';
 import { sceneStoreOf } from './atlasView.ts';
+import { NO_SERVER_TEXT } from './account/accountView.ts';
 import { CAMPAIGNS_LOADING_TEXT, campaignLink, linkRefusal, NO_CAMPAIGN_TEXT, type TableSeats } from './campaignSeats.ts';
 import type { CreatedTable } from './createdTable.ts';
 import { createTable } from './createTable.ts';
@@ -28,8 +29,7 @@ export function refused(text: string): null {
   return null;
 }
 
-/** What the GM reads where no online server address is set. */
-export const NO_SERVER_TEXT = t('onlineGm.start.noServer');
+export { NO_SERVER_TEXT };
 
 /** What the GM reads where a self-hosted server is set and no host key is kept. */
 export const NO_HOST_KEY_START_TEXT = t('onlineGm.start.noHostKey');
@@ -66,7 +66,7 @@ export async function createCampaignTable(campaigns: TableCampaigns, campaignId:
   const link = seats === null ? null : campaignLink(seats);
   if (seats === null || link === null) return refused(seats === null ? CAMPAIGNS_LOADING_TEXT : linkRefusal(seats));
   // Whether this account may host is the relay's answer alone: nothing here looks at what the account was last said to hold.
-  const created = await createTable(obsidianHttp, origin, token, link);
+  const created = await createTable(obsidianHttp, origin, token, link, selfHosted);
   if (!('message' in created) && created.code !== link) {
     endStrayTable(origin, created);
     return refused(OTHER_LINK_TEXT);

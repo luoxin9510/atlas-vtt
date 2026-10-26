@@ -1,11 +1,12 @@
 import type { AtlasSettingSection } from '../../../settings/settingSections';
 import type { AccountControl } from './AccountControl.ts';
-import { accessText, accountText, HOST_KEY_SET_TEXT, NO_HOST_KEY_TEXT, planText, UNREACHABLE_TEXT, type AccountView } from './accountView.ts';
+import { accessText, accountText, HOST_KEY_SET_TEXT, NO_SERVER_TEXT, NO_HOST_KEY_TEXT, planText, UNREACHABLE_TEXT, type AccountView } from './accountView.ts';
 import { t } from '../../../i18n';
 
 /** What the account row says. */
 function accountDesc(view: AccountView): string {
   switch (view.kind) {
+    case 'no-server': return NO_SERVER_TEXT;
     case 'host-key': return view.set ? HOST_KEY_SET_TEXT : NO_HOST_KEY_TEXT;
     case 'waiting': return t('onlineGm.account.approve');
     case 'checking': return t('onlineGm.account.checking');
@@ -35,7 +36,7 @@ export function accountSections(account: AccountControl): AtlasSettingSection[] 
           setting.setDesc(accountDesc(view));
           setting.clear();
           // A self-hosted server has no account to sign in to or to open a page for.
-          if (view.kind === 'host-key') return;
+          if (view.kind === 'host-key' || view.kind === 'no-server') return;
           if (signedIn(view)) setting.addButton((button) => button.setButtonText(t('onlineGm.account.signOut')).onClick(() => void account.signOut()));
           else if (view.kind === 'signed-out') setting.addButton((button) => button.setButtonText(t('onlineGm.account.signIn')).setCta().onClick(() => void account.signIn()));
           else if (view.kind === 'waiting') setting.addButton((button) => button.setButtonText(t('common.cancel')).onClick(() => account.cancelSignIn()));

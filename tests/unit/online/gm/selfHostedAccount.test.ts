@@ -95,6 +95,36 @@ describe('the account on a self-hosted server', () => {
   });
 });
 
+describe('the account with no server address set (the default)', () => {
+  beforeEach(() => setServerOrigin(null));
+
+  it('makes no network call and opens no page: no sign-in, no sign-out, no /api/me, no account page', async () => {
+    const { control, requests, opened, account } = setup();
+    await control.refresh(true);
+    await control.refresh(false);
+    await control.signIn();
+    await control.signOut();
+    control.signedOutByServer();
+    control.openAccountPage();
+    control.serverChanged();
+    await Promise.resolve();
+    expect(requests).toEqual([]);
+    expect(opened).toEqual([]);
+    expect(account.value).toBe('account-token');
+  });
+
+  it('shows the no-server state, never Sign in or Checking your account, even with a token held', () => {
+    const { control, account } = setup();
+    expect(control.view()).toEqual({ kind: 'no-server' });
+    account.value = null;
+    expect(control.view()).toEqual({ kind: 'no-server' });
+  });
+
+  it('hands no token to a table start', () => {
+    expect(setup().control.token()).toBeNull();
+  });
+});
+
 describe('a saved table', () => {
   it('records the server it was made on; one saved before counts as upstream\'s', () => {
     expect(readSavedTable({ ...SAVED, origin: SELF_HOSTED })?.origin).toBe(SELF_HOSTED);
