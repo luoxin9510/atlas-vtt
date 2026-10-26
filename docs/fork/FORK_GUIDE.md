@@ -65,6 +65,14 @@ The self-hosted relay is the `apps/relay` npm workspace (Node >= 22.18, runs
 TypeScript natively): `npm run relay` starts it, `npm run check:relay` type
 checks it. ESLint ignores `apps/`.
 
+```sh
+HOST_KEY=... PUBLIC_ORIGIN=https://play.example.com npm run relay   # run the relay
+npm run check:relay                                                # type check it
+npx vitest run --project unit tests/unit/relay                     # its tests
+```
+
+Environment variables and the reverse proxy note are in `apps/relay/README.md`.
+
 - `npm run test:gpu` runs browser tests locally only.
 - A unit test needing a DOM starts with `// @vitest-environment jsdom`.
 

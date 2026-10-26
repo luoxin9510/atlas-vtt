@@ -17,8 +17,11 @@ export function headlessPlayer(origin: string, code: string, hello: { name: stri
   const socket = new WebSocket(`${origin.replace('http', 'ws')}/api/tables/${code}/socket`, { headers: { origin: TEST_PUBLIC_ORIGIN } });
   const messages: GmMessage[] = [];
   let welcomed: (value: { id: string; key: string }) => void = () => undefined;
-  const welcome = new Promise<{ id: string; key: string }>((done) => (welcomed = done));
-  const closed = new Promise<number>((done) => socket.once('close', (closeCode) => done(closeCode)));
+  let refused: (error: Error) => void = () => undefined;
+  const welcome = new Promise<{ id: string; key: string }>((done, fail) => ((welcomed = done), (refused = fail)));
+  // A test that never awaits the welcome is not failed by a refusal it did not ask about.
+  welcome.catch(() => undefined);
+  const closed = new Promise<number>((done) => socket.once('close', (closeCode) => (refused(new Error(`closed ${closeCode} before a welcome`)), done(closeCode))));
   socket.on('error', () => undefined);
   socket.on('message', (data) => {
     const text = String(data);
