@@ -72,6 +72,12 @@ export function stalled(socket: WebSocket, now: number, stallMs: number): boolea
   return now - box.since >= stallMs;
 }
 
+/** Whether the socket still has a backlog and a frame of it left for the socket after `time`: slow, but alive. */
+export function progressedSince(socket: WebSocket, time: number): boolean {
+  const box = outboxes.get(socket);
+  return box !== undefined && box.since > time && box.queued + socket.bufferedAmount > 0;
+}
+
 /** Sends `text` in order, or closes the socket instead when its backlog is over `cap`. */
 export function push(socket: WebSocket, text: string, cap: number = DEFAULT_BACKLOG_CAP): void {
   if (socket.readyState !== WebSocket.OPEN) return;

@@ -8,6 +8,7 @@ const running: Array<{ close(): Promise<void> }> = [];
 const sockets: WebSocket[] = [];
 const raw: Socket[] = [];
 const FAST_PING = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 250, stallMs: 30_000 };
+const CHUNK = 'x'.repeat(300 * 1024);
 
 async function start(...args: Parameters<typeof startTestRelay>): ReturnType<typeof startTestRelay> {
   const relay = await startTestRelay(...args);
@@ -35,25 +36,24 @@ function halfOpenClient(port: number, request: string): Socket {
   return socket;
 }
 
+/** A player whose link delivers `rate` bytes a second: its TCP socket is read in 100 ms slices. */
+function slowReader(client: Client, rate: number): () => void {
+  const tcp = (client.socket as unknown as { _socket: Socket })._socket;
+  let budget = 0;
+  tcp.on('data', (bytes: Buffer) => {
+    budget -= bytes.length;
+    if (budget <= 0) tcp.pause();
+  });
+  const tick = setInterval(() => {
+    budget = rate / 10;
+    tcp.resume();
+  }, 100);
+  tcp.pause();
+  return () => clearInterval(tick);
+}
+
 describe('backpressure (I1, N2)', () => {
   const STALL = { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 5000 };
-  const CHUNK = 'x'.repeat(300 * 1024);
-
-  /** A player whose link delivers `rate` bytes a second: its TCP socket is read in 100 ms slices. */
-  function slowReader(client: Client, rate: number): () => void {
-    const tcp = (client.socket as unknown as { _socket: Socket })._socket;
-    let budget = 0;
-    tcp.on('data', (bytes: Buffer) => {
-      budget -= bytes.length;
-      if (budget <= 0) tcp.pause();
-    });
-    const tick = setInterval(() => {
-      budget = rate / 10;
-      tcp.resume();
-    }, 100);
-    tcp.pause();
-    return () => clearInterval(tick);
-  }
 
   it('lets a slow player that keeps reading receive a 30 MB asset completely', async () => {
     const relay = await start({ timing: STALL });
@@ -116,6 +116,23 @@ describe('liveness (I2)', () => {
     expect(relay.links.peek(CODE)?.players.has(alive.id)).toBe(true);
     expect(gm.frames.some((frame) => frame.t === 'player-left' && frame.id === alive.id)).toBe(false);
   });
+
+  it('keeps a slow reader that sends nothing while its backlog is still draining, though its pong is stuck behind it', async () => {
+    const relay = await start({ timing: { ...FAST_PING, pingIntervalMs: 600 } });
+    const secret = await createTable(relay.origin);
+    const gm = await gmOf(relay.origin, sockets, secret);
+    const slow = await joined(relay.origin, sockets, 'Slow');
+    await gm.frameOf('player-joined');
+    const stop = slowReader(slow.player, 3_000_000);
+    try {
+      for (let i = 0; i < 60; i += 1) await gm.send({ t: 'send', to: slow.id, body: CHUNK });
+      // Four ping intervals: the ping (and so the pong) waits behind 18 MB that take about 6 s to read.
+      await new Promise((done) => setTimeout(done, 2500));
+      expect(relay.links.peek(CODE)?.players.has(slow.id)).toBe(true);
+    } finally {
+      stop();
+    }
+  }, 20_000);
 
   it('terminates a GM that no longer answers pings, so the table is unhosted again', async () => {
     const relay = await start({ timing: FAST_PING });

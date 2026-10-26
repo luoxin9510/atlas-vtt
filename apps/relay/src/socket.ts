@@ -6,7 +6,7 @@ import { CLOSE, isOtherVersion, KEEPALIVE_PING, KEEPALIVE_PONG, MAX_PLAYER_FRAME
 import { normalizeOrigin, type RelayConfig } from './config.ts';
 import type { TableLinks } from './gmLink.ts';
 import { clientAddress, SocketCap } from './limits.ts';
-import { overload, stalled } from './routing.ts';
+import { overload, progressedSince, stalled } from './routing.ts';
 import type { TableRegistry } from './tables.ts';
 
 /** Largest frame of a welcomed GM (a little over the protocol's 320 KiB chunk, with room for the envelope). */
@@ -46,11 +46,16 @@ export interface SocketServer {
 export function createSocketServer(tables: TableRegistry, links: TableLinks, config: RelayConfig, log?: (line: string) => void): SocketServer {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WELCOMED_FRAME });
   const cap = new SocketCap();
-  /** Sockets that were heard from (any frame or a pong) since the last liveness tick. */
+  /** Sockets that were heard from (any frame or a pong) since the last liveness tick; a socket whose outbound backlog moved counts too. */
   const heard = new WeakSet<WebSocket>();
+  let lastTick = Date.now();
   const liveness = setInterval(() => {
+    const since = lastTick;
+    lastTick = Date.now();
     for (const client of wss.clients) {
-      if (!heard.delete(client)) {
+      // A reader still taking its backlog may have its pong stuck behind it: that is slow, not dead.
+      const heardNow = heard.delete(client);
+      if (!heardNow && !progressedSince(client, since)) {
         client.terminate();
         continue;
       }
