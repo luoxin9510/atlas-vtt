@@ -22,13 +22,15 @@ export class Client {
   readonly frames: Seen[] = [];
   readonly closed: Promise<number>;
   readonly opened: Promise<void>;
+  #pongs = 0;
 
   constructor(origin: string, sockets: WebSocket[], headers: Record<string, string> = {}, code: string = CODE) {
     this.socket = new WebSocket(`${origin.replace('http', 'ws')}/api/tables/${code}/socket`, { headers });
     sockets.push(this.socket);
     this.socket.on('message', (data) => {
       const text = String(data);
-      if (text !== 'pong') this.frames.push(JSON.parse(text) as Seen);
+      if (text === 'pong') this.#pongs += 1;
+      else this.frames.push(JSON.parse(text) as Seen);
     });
     this.opened = new Promise((done) => this.socket.once('open', () => done()));
     this.closed = new Promise((done) => this.socket.once('close', (closeCode) => done(closeCode)));
@@ -48,6 +50,23 @@ export class Client {
 
   types(): string[] {
     return this.frames.map((frame) => frame.t);
+  }
+
+  /**
+   * A positive sync point: sends a ping on this socket and waits for its pong. The relay handles one socket's
+   * frames in order, so everything this client sent before has been handled (and everything the relay
+   * sent to it before the pong has arrived) when this returns.
+   */
+  async sync(): Promise<void> {
+    await this.opened;
+    const before = this.#pongs;
+    this.socket.send('ping');
+    await vi.waitFor(() => expect(this.#pongs).toBeGreaterThan(before));
+  }
+
+  /** Reads again after `deaf()`. */
+  hear(): void {
+    (this.socket as unknown as { _socket: Socket })._socket.resume();
   }
 
   /** Stops the client reading, so it never sees a close frame and can go on sending. */

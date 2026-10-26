@@ -154,7 +154,9 @@ describe('GM socket', () => {
     old.socket.send(JSON.stringify({ v: 1, t: 'gate', code: '123456', ask: true }));
     old.socket.send(JSON.stringify({ v: 1, t: 'players', players: [{ id: 'a'.repeat(20), name: 'Ann', code: '654321' }] }));
     old.socket.send(JSON.stringify({ v: 1, t: 'end' }));
-    await new Promise((done) => setTimeout(done, 150));
+    // Reading again, the old GM answers the relay's close; the relay has handled the frames above before that answer arrives.
+    (old.socket as unknown as { _socket: Socket })._socket.resume();
+    await old.closed;
   }
 
   it('ignores gate, players and end from a GM superseded by a re-POST', async () => {

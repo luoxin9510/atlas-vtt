@@ -129,12 +129,14 @@ describe('a table from the GM through the self-hosted relay to a player', () => 
 
     // A newcomer is told the join code apart from the link; with the code and no waiting, they are in.
     table.gate.setAskToJoin(false);
+    // The relay must know the open gate before the newcomers come, or they would knock or hit an unknown gate.
+    await vi.waitFor(() => expect(relay.links.peek(FAKE_LINK)?.gate).toEqual({ code: table.gate.settings.code, ask: false }));
     const { code } = table.gate.settings;
     const wrong = code === '000000' ? '111111' : '000000';
     const turned = await headlessPlayer(relay.origin, FAKE_LINK, { name: 'Bob', code: wrong });
     players.push(turned);
     // A refused join fails fast, with the close code, instead of hanging.
-    await expect(turned.welcome).rejects.toThrow(/closed 4\d{3} before a welcome/);
+    await expect(turned.welcome).rejects.toThrow('closed 4010 before a welcome');
     const player = await headlessPlayer(relay.origin, FAKE_LINK, { name: 'Ana', code });
     players.push(player);
     const welcome = await player.welcome;

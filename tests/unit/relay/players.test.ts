@@ -160,7 +160,9 @@ describe('routing', () => {
     await gm.send({ t: 'kick', id: welcome.id });
     await vi.waitFor(() => expect(gm.types()).toContain('player-left'));
     player.socket.send(JSON.stringify({ v: 1, t: 'send', body: 'late' }));
-    await new Promise((done) => setTimeout(done, 150));
+    // Reading again, the player answers the relay's close; the relay has handled the late frame before that answer.
+    player.hear();
+    await player.closed;
     expect(gm.frames.filter((frame) => frame.t === 'game')).toEqual([]);
     const retry = playerOf(origin, sockets, { key: welcome.key });
     expect(await retry.closed).toBe(CLOSE.wrongCode);

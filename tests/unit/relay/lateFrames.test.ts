@@ -56,7 +56,7 @@ describe('the join gate over sockets', () => {
     await gm.send({ t: 'gate', code: '123456', ask: false });
     for (let attempt = 0; attempt < 8; attempt += 1) await playerOf(relay.origin, sockets, { code: '000000' }).closed;
     await gm.frameOf('gate-paused');
-    await new Promise((done) => setTimeout(done, 100));
+    await gm.sync();
     expect(gm.types().filter((type) => type === 'gate-paused')).toHaveLength(1);
   });
 
