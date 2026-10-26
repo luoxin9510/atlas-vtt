@@ -1,6 +1,7 @@
 # Self-hosted online play for the Atlas VTT fork
 
-Status: draft for review, revision 5 (after four independent reviews and a builder check).
+Status: draft for review, revision 7 (after five independent reviews and a builder check; revision 6 added
+features borrowed from a study of Foundry VTT, `docs/fork/research/`).
 Date: 2026-10-26. Fork: `luoxin9510/atlas-vtt` (public), branch `fork/work`
 (upstream baseline 0.9.1, `5499fd87`).
 
@@ -30,7 +31,9 @@ Goals (MVP), numbered to the milestones that deliver them:
   whose GPU cannot run it gets the same placeholder, never the unlit map.
 - G4 (M4). Players drag their own tokens with touch or mouse; the GM's existing checks accept or
   refuse each move.
-- G5 (M3). Players roll dice, read the table log and chat, and see the initiative order.
+- G5 (M3). Players roll dice in the protocol's four modes (public, GM, blind, self), read the
+  table log and chat, see the initiative order, and get a "your turn" alert when their own
+  combatant gets the turn.
 - G6 (M5). Players read the notes the GM chose to share, formatted like Obsidian (headings,
   lists, callouts, images, links between shared notes), only while the game runs.
 - G7 (M1, M3). The online UI of the GM and the whole player app are Simplified Chinese by
@@ -38,9 +41,14 @@ Goals (MVP), numbered to the milestones that deliver them:
 - G8 (M4). Images reach players quickly from mainland networks: the GM uploads each image once to
   the server, and players download it from there (6.7), instead of every image travelling from the
   GM's home upload to each player; the socket path stays as the fallback when that fails.
+- G9 (M3-M4). Phone-first interaction: one fixed touch gesture set and a low-power mode (6.3).
+- G10 (M4). The GM can pause the game: players' token moves are refused and every player sees
+  that the game is paused.
 
 Non-goals (MVP): upstream's account service and invite keys; Cloudflare Workers or Durable
-Objects; the SSE stream lane; character books/sheets, rests, quests; lasers/measures/cursors;
+Objects; the SSE stream lane; character books/sheets, rests, quests; lasers/measures/cursors (cheap to add right after M4: the
+GM side, the protocol messages (`protocol/marks.ts`) and the remote renderers in `marks/` already
+exist);
 widgets; audio; 3D dice; notes readable while the GM is offline; Obsidian mobile as GM; several
 GMs per server; compatibility with upstream's hosted service.
 
@@ -169,7 +177,26 @@ it). Plugin changes stay in `src/`.
   after a capability probe of the float render targets the lighting engine needs; dragging own
   tokens (M4: `mine`, `move`, `drag`, `drag-cancel`, `move-refused`).
 - Panels, phone-first (bottom sheet on narrow screens): log and chat (shared `tableLog/`), dice
-  roller (`roll`), initiative list, shared notes (M5).
+  roller (`roll`) with a tray of dice chips rather than typed commands, initiative list, players
+  list with online state (from the existing `people` log message), shared notes (M5).
+- Touch gestures (the set community touch modules for Foundry settled on): one finger on an own
+  token drags it; one finger elsewhere and two fingers pan; pinch zooms (never rotates tokens);
+  a tap selects; a long press (about 0.5 s) opens the context menu. Mouse users get the same
+  actions with left drag, wheel zoom and right click.
+- Low-power mode (a player setting, on by default when the device reports reduced motion or a
+  small GPU budget): frame rate capped at 30, no animations, lower render resolution.
+- "Your turn" (fork protocol extension): the shared initiative list deliberately carries no token
+  ids or owners (`SharedCombatant`, `protocol/initiative.ts:14-30`), so the player app cannot tell
+  its own combatant. The GM client, which knows ownership, sends `your-turn {scene}` to the owning
+  player only when that player's combatant's turn changes from false to true; never on resyncs,
+  reconnects or full-list resends. The app shows a banner and vibrates where the browser allows it
+  (`navigator.vibrate`; iOS Safari has none, so the banner alone).
+- Roll modes reuse the existing protocol unchanged: `PlayerRoll.mode` is `RollMode` =
+  `public | gm | blind | self` (`protocol/chat.ts:13`), and the GM client already routes each
+  result only to its audience (`rollAudience` in `gm/PlayerRolls.ts`; `self` goes `to` the roller
+  alone). The dice tray offers all four with Chinese labels (公开 / 仅主持人 / 暗骰 / 仅自己); `blind`
+  means the roller does not see the result. A roll answering a roll button keeps the button's mode
+  (`buttonMode` in `PlayerRolls.ts`) over the player's choice.
 - Right after welcome the app sends a `client {app:'atlas-fork-play', forkLevel}` game message,
   parsed by a new branch of the shared `parsePlayerMessage`. `forkLevel` is a separate counter
   (constant `FORK_PROTOCOL_LEVEL` in `protocol/`), unrelated to upstream's `GM_LEVEL` 7. The GM
@@ -182,6 +209,20 @@ it). Plugin changes stay in `src/`.
 - Chinese by default via the shared i18n, English selectable (localStorage).
 - AGPL-3.0 section 13: the app shows a "源代码 / Source" link to the public fork and the licence.
 - Tested on iOS Safari and Android Chrome, including mobile networks.
+
+### 6.3a Pause, M4 (fork protocol extension)
+- A pause switch in Atlas's online panel. The paused state is kept with the saved table in the
+  plugin (so a GM reload keeps it).
+- While paused, the GM client refuses every player `move` in `moveCheck.ts`, checked with the
+  `turn` rule (line 53) and before the rate limit, answering `move-refused` with a new reason
+  `paused` and the token's current x/y so the player's token snaps back. `drag` and
+  `drag-cancel` received while paused are ignored without answers. Pausing broadcasts
+  `drag-cancel` for every live remote drag so other screens drop them.
+- `pause {paused}` is a fork-only GM message (added to `parseGmMessage`; `paused` added to the
+  `move-refused` reason union and its parser). The GM sends it to every player of a fork level that
+  supports it on each change and when such a player sends its `client` message (the GM's join
+  re-send); players of level 0 are not sent it and just see their moves refused.
+- The player app shows "游戏已暂停 / Game paused" and stops local drag previews.
 
 ### 6.4 Shared notes, M5 (fork protocol extension)
 - A note is shared when its frontmatter has `atlas-share: true`. Only shared notes are ever read
@@ -246,6 +287,10 @@ it). Plugin changes stay in `src/`.
   `CF-Connecting-IP` behind the tunnel.
 - `HOST_KEY`, the public origin and the trusted proxy come from the environment; deployment notes
   and secrets stay in `~/Developer/vps-setup/`.
+- A deployment checklist in the docs (the steps Foundry hosts most often get wrong): WebSocket
+  `Upgrade`/`Connection` headers through the proxy, forwarded-address header, request body size,
+  TLS certificate renewal, restarting proxy and relay together, and testing the join link from a
+  phone on mobile data rather than from the GM's own network.
 
 ### 6.6 Upstream policy, M0
 - `src/app/online/`, `apps/` and the online protocol are fork-owned from M0: no more upstream
@@ -312,7 +357,9 @@ One design, three implementation plans:
 - Relay: conformance tests for every contract rule (handshake, timeouts, ping, close codes, gate,
   routing, size and rate limits, Origin), using the patterns of the local `FakeSocket` classes in
   `tests/unit/online/gm/tableConnection.test.ts` and `fakeTable.ts`, against the relay in-process.
-- Player app: unit tests of reassembly, assets, deltas; fixture tests from GM-message corpora
+- Player app: unit tests of reassembly, assets, deltas, pause handling, the your-turn alert and
+  the gesture recogniser; a GM-side test that `gm`, `blind` and `self` rolls reach no other
+  player's log or `people`, and that `your-turn` goes to the owner only and not on resyncs; fixture tests from GM-message corpora
   captured with `tests/unit/online/gm/shareHarness.ts` (it drives the real `SceneShare`); a check
   that a lit scene never draws the unlit map.
 - Notes: the leak tests of 6.4.
@@ -324,6 +371,8 @@ One design, three implementation plans:
 - Manual: a test game on phones in M6.
 
 ## 9. Left to the builder
+
+(Also: exact low-power thresholds, banner styles, vibration pattern.)
 
 Workspace tooling, file structure inside `apps/`, persistence format, UI layout within the
 phone-first rule, Markdown and sanitiser libraries, systemd vs container.
