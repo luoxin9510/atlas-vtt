@@ -29,7 +29,7 @@ const WRONG_CODES_BEFORE_PAUSE = 5;
 /**
  * Each consecutive pause is twice the one before, up to this many times the first (6 hours with the
  * default 10 minutes): five guesses per pause then cost an attacker next to nothing a day. The
- * escalation starts over after a day without a wrong code.
+ * escalation starts over once a day has passed since the last pause ended.
  */
 const MAX_PAUSE_FACTOR = 36;
 const ESCALATION_RESET_MS = 24 * 3_600_000;
@@ -64,6 +64,15 @@ export class JoinGate {
   /** When the gate is paused: until when; otherwise null. */
   pausedUntil(now: number): number | null {
     return this.#pausedUntil > now ? this.#pausedUntil : null;
+  }
+
+  /**
+   * The GM changed the code: the pause ends at once and the count of wrong codes starts over, but the
+   * escalation level stays, so an attacker's next pause is as long as it would have been.
+   */
+  endPause(): void {
+    this.#pausedUntil = 0;
+    this.#wrong = [];
   }
 
   decide(hello: PlayerHello, table: GateView, now: number): GateDecision {

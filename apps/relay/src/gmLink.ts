@@ -141,6 +141,8 @@ export class TableLinks implements TableListener {
     if (state === undefined) return;
     switch (frame.t) {
       case 'gate':
+        // A new code is the GM's way out of a pause (the GM's panel says so); the same code again (a reconnect) changes nothing.
+        if (state.gateKnown && frame.code !== state.gate.code) state.joinGate.endPause();
         state.gate = { code: frame.code, ask: frame.ask };
         state.gateKnown = true;
         return;

@@ -116,6 +116,20 @@ describe('JoinGate', () => {
     expect(gate.decide(hello({ key: KNOWN_KEY }), full, NOW).kind).toBe('welcome');
   });
 
+  describe('a new gate code ends a pause (the GM\'s way out)', () => {
+    it('ends the pause at once and keeps the escalation level, so the next pause is longer', () => {
+      const gate = new JoinGate(DEFAULT_TIMING);
+      for (let i = 0; i < 5; i += 1) gate.decide(hello({ code: '000000' }), view(), NOW + i);
+      expect(gate.pausedUntil(NOW + 10)).not.toBeNull();
+      gate.endPause();
+      expect(gate.pausedUntil(NOW + 10)).toBeNull();
+      expect(gate.decide(hello({ code: '123456' }), view(), NOW + 11).kind).toBe('welcome');
+      for (let i = 0; i < 4; i += 1) gate.decide(hello({ code: '000000' }), view(), NOW + 20 + i);
+      const next = gate.decide(hello({ code: '000000' }), view(), NOW + 30);
+      expect(next).toEqual({ kind: 'pause', until: NOW + 30 + 1_200_000 });
+    });
+  });
+
   describe('escalating pause (seat codes cannot be ground down over weeks)', () => {
     /** Five wrong codes at `at`; returns the pause that the fifth starts. */
     function trip(gate: JoinGate, at: number): number {

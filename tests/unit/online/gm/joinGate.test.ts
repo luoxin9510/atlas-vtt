@@ -192,7 +192,7 @@ describe('the gates of a running table', () => {
     expect(table.gate.view().waiting).toEqual([]);
   });
 
-  it('show a pause until the relay\'s time, by the time left on the relay\'s clock, and never longer than a pause lasts', () => {
+  it('show a pause until the relay\'s time, by the time left on the relay\'s clock', () => {
     const table = gate();
     table.gate.paused(table.clock.now + 60_000);
     expect(table.gate.view().paused).toBe(true);
@@ -200,8 +200,13 @@ describe('the gates of a running table', () => {
     expect(table.gate.view().paused).toBe(true);
     table.advance(1);
     expect(table.gate.view().paused).toBe(false);
-    table.gate.paused(table.clock.now + 60 * 60_000);
+    // A pause the relay escalated to hours is shown for hours, not cut at 10 minutes.
+    table.gate.paused(table.clock.now + 6 * 3_600_000);
     table.advance(10 * 60_000);
+    expect(table.gate.view().paused).toBe(true);
+    table.advance(6 * 3_600_000 - 10 * 60_000 - 1);
+    expect(table.gate.view().paused).toBe(true);
+    table.advance(1);
     expect(table.gate.view().paused).toBe(false);
     table.gate.paused(table.clock.now - 1);
     expect(table.gate.view().paused).toBe(false);

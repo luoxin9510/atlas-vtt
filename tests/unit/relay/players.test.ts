@@ -113,6 +113,33 @@ describe('join gate over sockets', () => {
   });
 });
 
+describe('a pause and the GM\'s new code', () => {
+  const LONG_PAUSE = { knockWaitMs: 500, wrongCodeWindowMs: 60_000, wrongCodePauseMs: 60_000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000 };
+
+  async function paused(): Promise<Awaited<ReturnType<typeof table>>> {
+    const t = await table({ timing: LONG_PAUSE });
+    await t.gm.send({ t: 'gate', code: '123456', ask: false });
+    for (let attempt = 0; attempt < 5; attempt += 1) await playerOf(t.origin, sockets, { code: '000000' }).closed;
+    await t.gm.frameOf('gate-paused');
+    return t;
+  }
+
+  it('accepts a newcomer with the GM\'s new code right after a pause', async () => {
+    const { origin, gm } = await paused();
+    expect(await playerOf(origin, sockets, { code: '123456' }).closed).toBe(CLOSE.paused);
+    await gm.send({ t: 'gate', code: '654321', ask: false });
+    const player = playerOf(origin, sockets, { code: '654321' });
+    expect((await player.frameOf('welcome')).role).toBe('player');
+  });
+
+  it('keeps the pause when the GM sends the same code again (a reconnect)', async () => {
+    const { origin, gm } = await paused();
+    await gm.send({ t: 'gate', code: '123456', ask: false });
+    await gm.sync();
+    expect(await playerOf(origin, sockets, { code: '123456' }).closed).toBe(CLOSE.paused);
+  });
+});
+
 describe('welcome lists', () => {
   it('lists connected players and waiting knocks in a GM welcome', async () => {
     const { origin, gm, secret } = await table();
