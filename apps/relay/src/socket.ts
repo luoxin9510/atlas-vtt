@@ -105,6 +105,8 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
 
   return {
     upgrade(req, socket, head): void {
+      // Node removes its own 'error' listener before it emits 'upgrade': a peer that resets the connection would crash the process.
+      socket.on('error', () => socket.destroy());
       const path = (req.url ?? '/').split('?')[0] ?? '/';
       const code = SOCKET_PATH.exec(path)?.[1];
       if (code === undefined || !TABLE_CODE_PATTERN.test(code) || !tables.has(code)) return refuse(socket, '404 Not Found');
