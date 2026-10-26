@@ -60,6 +60,8 @@ export async function gmOf(origin: string, sockets: WebSocket[], secret: string)
   const gm = new Client(origin, sockets);
   await gm.send({ t: 'hello', role: 'gm', secret, level: 7 });
   await gm.frameOf('welcome');
+  // As the real GM does on every welcome: an open gate, so the relay knows it.
+  await gm.send({ t: 'gate', code: null, ask: false });
   return gm;
 }
 

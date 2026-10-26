@@ -40,6 +40,7 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
 
   function handle(code: string, socket: WebSocket, req: IncomingMessage): void {
     const state = links.stateOf(code);
+    const address = clientAddress(req, config.trustProxy);
     state.sockets.add(socket);
     /** 'new': no accepted hello yet; 'player': welcomed or waiting. */
     let kind: 'new' | 'gm' | 'player' = 'new';
@@ -89,7 +90,7 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
       }
       // Only the public origin's page may be a player; the GM socket (Obsidian) has no such origin.
       if (normalizeOrigin(req.headers.origin ?? '') !== config.publicOrigin) return socket.close(CLOSE.protocol);
-      if (!links.playerHello(code, socket, frame)) return;
+      if (!links.playerHello(code, socket, frame, address)) return;
       kind = 'player';
       clearTimeout(helloTimer);
     });

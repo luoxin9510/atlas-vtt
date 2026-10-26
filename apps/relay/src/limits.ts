@@ -74,6 +74,26 @@ export class TableRateLimit {
   }
 }
 
+const NEWCOMERS_PER_WINDOW = 10;
+const NEWCOMER_WINDOW_MS = 10 * MINUTE_MS;
+
+/** Per client address: at most 10 new players (admitted or knocking) in 10 minutes. */
+export class NewcomerLimit {
+  readonly #hits = new Map<string, number[]>();
+
+  /** Counts one newcomer; false when this address has had its ten. */
+  allow(address: string, now: number = Date.now()): boolean {
+    const recent = (this.#hits.get(address) ?? []).filter((at) => now - at < NEWCOMER_WINDOW_MS);
+    if (recent.length >= NEWCOMERS_PER_WINDOW) {
+      this.#hits.set(address, recent);
+      return false;
+    }
+    recent.push(now);
+    this.#hits.set(address, recent);
+    return true;
+  }
+}
+
 /** Sockets one client address may hold open at once, GM and players together. */
 export const MAX_SOCKETS_PER_ADDRESS = 20;
 

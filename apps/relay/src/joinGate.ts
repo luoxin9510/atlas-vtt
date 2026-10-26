@@ -13,6 +13,8 @@ export type GateDecision =
 /** What the gate needs to know of a table to decide on one hello. */
 export interface GateView {
   readonly gate: { readonly code: string | null; readonly ask: boolean };
+  /** Whether a GM has told this relay process the gate yet; until then nobody new can be let in. */
+  readonly gateKnown: boolean;
   readonly roster: readonly CampaignSeat[];
   readonly maxPlayers: number;
   /** The players connected now, by id. */
@@ -67,10 +69,12 @@ export class JoinGate {
     const given = hello.code;
     const seat = given === undefined ? undefined : table.roster.find((candidate) => sameText(candidate.code, given));
     if (seat !== undefined) return full(seat.id) ? { kind: 'close', code: CLOSE.full } : { kind: 'welcome', id: seat.id, key: newPlayerKey() };
-    if (table.gate.code !== null) {
-      if (given === undefined) return { kind: 'close', code: CLOSE.wrongCode };
-      if (!sameText(table.gate.code, given)) return this.#wrongCode(now);
-    }
+    // No GM has set the gate since this relay started (the join code is never saved): nobody new waits on a GM who is not there.
+    if (!table.gateKnown) return { kind: 'close', code: CLOSE.noAnswer };
+    const required = table.gate.code;
+    // A code that is neither a seat's nor the gate's is a guess, whether or not the GM asks for a code: it counts, and its answer is the same.
+    if (given !== undefined && (required === null || !sameText(required, given))) return this.#wrongCode(now);
+    if (required !== null && given === undefined) return { kind: 'close', code: CLOSE.wrongCode };
     if (table.connected.size >= table.maxPlayers) return { kind: 'close', code: CLOSE.full };
     if (!table.gate.ask) return { kind: 'welcome', id: newPlayerId(), key: newPlayerKey() };
     if (table.waiting >= MAX_WAITING) return { kind: 'close', code: CLOSE.tooManyKnocks };

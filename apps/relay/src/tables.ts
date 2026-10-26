@@ -2,6 +2,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { loadTables, saveTables, sha256Hex, type StoredPlayer, type StoredTable, type StoredTables } from './persist.ts';
 
 export const MAX_TABLES = 10;
+const SAVE_INTERVAL_MS = 1000;
 const MAX_TIMER_MS = 2 ** 31 - 1;
 /** Most players a table remembers keys for; the oldest who are not connected go first. */
 const MAX_KNOWN_PLAYERS = 128;
@@ -35,6 +36,9 @@ export class TableRegistry {
   readonly #timers = new Map<string, NodeJS.Timeout>();
   #listener: TableListener | null = null;
   #pending: Promise<void> = Promise.resolve();
+  #dirty = false;
+  #lastWrite = 0;
+  #saveTimer: NodeJS.Timeout | null = null;
 
   constructor(options: TableRegistryOptions) {
     this.#options = options;
@@ -86,10 +90,11 @@ export class TableRegistry {
     return found;
   }
 
-  /** Remembers a player's key hash; past the limit the oldest players not in `live` are forgotten. */
+  /** Remembers a player's key hash; past the limit the least recently seen players outside `live` (connected or on the roster) are forgotten. */
   rememberPlayer(code: string, id: string, player: StoredPlayer, live: { has(id: string): boolean }): void {
     const table = this.#tables.get(code);
     if (table === undefined) return;
+    // Re-adding moves the id to the end, so the front is the least recently seen.
     const { [id]: _replaced, ...others } = table.players ?? {};
     const players: Record<string, StoredPlayer> = { ...others, [id]: player };
     for (const old of Object.keys(players)) {
@@ -132,6 +137,9 @@ export class TableRegistry {
 
   /** Resolves once everything changed so far is on disk; rejects if the last write failed. */
   flush(): Promise<void> {
+    if (this.#saveTimer !== null) clearTimeout(this.#saveTimer);
+    this.#saveTimer = null;
+    this.#write();
     return this.#pending;
   }
 
@@ -159,7 +167,21 @@ export class TableRegistry {
     this.#timers.set(code, timer);
   }
 
+  /** Asks for the state file to be written: at most once a second; `flush` and `close` write at once. */
   #save(): void {
+    this.#dirty = true;
+    if (this.#saveTimer !== null) return;
+    this.#saveTimer = setTimeout(() => {
+      this.#saveTimer = null;
+      this.#write();
+    }, Math.max(0, this.#lastWrite + SAVE_INTERVAL_MS - Date.now()));
+    this.#saveTimer.unref();
+  }
+
+  #write(): void {
+    if (!this.#dirty) return;
+    this.#dirty = false;
+    this.#lastWrite = Date.now();
     const snapshot: StoredTables = Object.fromEntries(this.#tables);
     this.#pending = this.#pending.catch(() => undefined).then(() => saveTables(this.#options.statePath, snapshot));
     this.#pending.catch(() => undefined);

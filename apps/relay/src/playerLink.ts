@@ -6,12 +6,14 @@ import type { Knock, TableState } from './gmLink.ts';
 import { type GateView, newPlayerKey } from './joinGate.ts';
 import { sha256Hex } from './persist.ts';
 import { gameFromPlayer, sendFrame, toGm } from './routing.ts';
+import { NewcomerLimit } from './limits.ts';
 import type { TableRegistry } from './tables.ts';
 
 /** The player side of a table: hellos, knocks, and what the GM does with them. Bodies are never looked at. */
 export class PlayerLink {
   readonly #tables: TableRegistry;
   readonly #timing: RelayTiming;
+  readonly #newcomers = new NewcomerLimit();
 
   constructor(tables: TableRegistry, timing: RelayTiming) {
     this.#tables = tables;
@@ -19,7 +21,7 @@ export class PlayerLink {
   }
 
   /** A player's hello. True when it was accepted (welcomed, or waiting for the GM); false when the socket was closed. */
-  hello(code: string, state: TableState, socket: WebSocket, hello: PlayerHello): boolean {
+  hello(code: string, state: TableState, socket: WebSocket, hello: PlayerHello, address: string): boolean {
     const wait = hello.wait;
     const resumed = wait === undefined ? undefined : this.#knockWithWait(state, wait);
     if (resumed !== undefined && wait !== undefined) {
@@ -35,6 +37,10 @@ export class PlayerLink {
       toGm(state, { v: 1, t: 'gate-paused', until: decision.until });
       return this.#turnAway(socket, CLOSE.paused);
     }
+    const seat = state.roster.some((candidate) => candidate.id === decision.id);
+    const isNewcomer = decision.kind === 'knock' || (decision.key !== hello.key && !seat);
+    // Every newcomer costs a record and a write; one address gets ten in ten minutes.
+    if (isNewcomer && !this.#newcomers.allow(address)) return this.#turnAway(socket, CLOSE.rateLimited);
     const name = state.roster.find((seat) => seat.id === decision.id)?.name ?? hello.name;
     if (decision.kind === 'welcome') {
       this.#welcome(code, state, socket, decision.id, decision.key, name);
@@ -95,6 +101,11 @@ export class PlayerLink {
     state.waiting.clear();
   }
 
+  /** Players whose key records must stay: the connected and the GM's campaign roster. */
+  #protected(state: TableState): { has(id: string): boolean } {
+    return { has: (id) => state.players.has(id) || state.roster.some((seat) => seat.id === id) };
+  }
+
   #turnAway(socket: WebSocket, closeCode: number): false {
     socket.close(closeCode);
     return false;
@@ -103,6 +114,7 @@ export class PlayerLink {
   #view(code: string, state: TableState): GateView {
     return {
       gate: state.gate,
+      gateKnown: state.gateKnown,
       roster: state.roster,
       maxPlayers: this.#tables.maxPlayers,
       connected: state.players,
@@ -132,7 +144,7 @@ export class PlayerLink {
       state.players.delete(id);
       existing.socket.close(CLOSE.replaced);
     }
-    this.#tables.rememberPlayer(code, id, { name, keyHash: sha256Hex(key) }, state.players);
+    this.#tables.rememberPlayer(code, id, { name, keyHash: sha256Hex(key) }, this.#protected(state));
     state.players.set(id, { id, name, socket });
     sendFrame(socket, { v: 1, t: 'welcome', role: 'player', id, key, gmOnline: state.gm !== null });
     toGm(state, { v: 1, t: 'player-joined', id, name });

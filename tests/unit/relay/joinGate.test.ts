@@ -15,6 +15,7 @@ function hello(extra: Partial<Omit<PlayerHello, 'v' | 't' | 'role'>> = {}): Play
 function view(overrides: Partial<GateView> = {}): GateView {
   return {
     gate: { code: '123456', ask: false },
+    gateKnown: true,
     roster: [{ id: SEAT_ID, name: 'Seat', code: '654321' }],
     maxPlayers: 8,
     connected: new Map(),
@@ -69,6 +70,28 @@ describe('JoinGate', () => {
     expect(gate.decide(hello({ code: '654321' }), view(), NOW + 5_000).kind).toBe('pause');
     expect(gate.decide(hello({ key: KNOWN_KEY }), view(), NOW + 5_000).kind).toBe('welcome');
     expect(gate.decide(hello({ code: '123456' }), view(), NOW + 4 + 600_000).kind).toBe('welcome');
+  });
+
+  it('counts a code that matches no seat even when the GM set no join code, and answers 4010', () => {
+    const gate = new JoinGate(DEFAULT_TIMING);
+    const open = view({ gate: { code: null, ask: false } });
+    for (let attempt = 0; attempt < 4; attempt += 1) expect(gate.decide(hello({ code: '111111' }), open, NOW)).toEqual({ kind: 'close', code: CLOSE.wrongCode });
+    expect(gate.decide(hello({ code: '222222' }), open, NOW).kind).toBe('pause');
+    expect(gate.decide(hello({ code: '654321' }), open, NOW + 1).kind).toBe('pause');
+  });
+
+  it('answers the same to a wrong code whether or not the GM asks', () => {
+    const gate = new JoinGate(DEFAULT_TIMING);
+    for (const ask of [true, false]) expect(gate.decide(hello({ code: '111111' }), view({ gate: { code: null, ask } }), NOW)).toEqual({ kind: 'close', code: CLOSE.wrongCode });
+  });
+
+  it('closes 4013 for a newcomer while the gate is unknown, but lets a key and a seat code in', () => {
+    const gate = new JoinGate(DEFAULT_TIMING);
+    const unknown = view({ gateKnown: false });
+    expect(gate.decide(hello({ code: '123456' }), unknown, NOW)).toEqual({ kind: 'close', code: CLOSE.noAnswer });
+    expect(gate.decide(hello(), unknown, NOW)).toEqual({ kind: 'close', code: CLOSE.noAnswer });
+    expect(gate.decide(hello({ key: KNOWN_KEY }), unknown, NOW).kind).toBe('welcome');
+    expect(gate.decide(hello({ code: '654321' }), unknown, NOW)).toMatchObject({ kind: 'welcome', id: SEAT_ID });
   });
 
   it('forgets wrong codes older than the window', () => {

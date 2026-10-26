@@ -28,6 +28,8 @@ export interface TableState {
   gm: WebSocket | null;
   /** The GM's last `gate` frame. */
   gate: { code: string | null; ask: boolean };
+  /** True once a GM has sent a `gate` frame to this relay process; the gate is never persisted. */
+  gateKnown: boolean;
   /** The GM's last `players` frame: the campaign's seats. */
   roster: CampaignSeat[];
   /** Connected players by id. */
@@ -57,7 +59,7 @@ export class TableLinks implements TableListener {
   stateOf(code: string): TableState {
     let state = this.#states.get(code);
     if (state === undefined) {
-      state = { gm: null, gate: { code: null, ask: false }, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set() };
+      state = { gm: null, gate: { code: null, ask: false }, gateKnown: false, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set() };
       this.#states.set(code, state);
     }
     return state;
@@ -100,8 +102,8 @@ export class TableLinks implements TableListener {
   }
 
   /** A player's hello on `socket`. True when accepted (welcomed or waiting), false when the socket was closed. */
-  playerHello(code: string, socket: WebSocket, hello: PlayerHello): boolean {
-    return this.#players.hello(code, this.stateOf(code), socket, hello);
+  playerHello(code: string, socket: WebSocket, hello: PlayerHello, address: string): boolean {
+    return this.#players.hello(code, this.stateOf(code), socket, hello, address);
   }
 
   /** A `send` from a welcomed player; it reaches the GM only while the sender is still that table's player. */
@@ -129,6 +131,7 @@ export class TableLinks implements TableListener {
     switch (frame.t) {
       case 'gate':
         state.gate = { code: frame.code, ask: frame.ask };
+        state.gateKnown = true;
         return;
       case 'players':
         state.roster = [...frame.players];
