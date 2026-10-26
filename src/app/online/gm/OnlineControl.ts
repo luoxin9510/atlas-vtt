@@ -13,7 +13,7 @@ import type { KnownPlayer, Ownership } from './ownership.ts';
 import { giveTokens, markTokens, playerTokenRows, type PlayerTokenRow } from './playerTokenRows.ts';
 import { presentOnPlayerView, presentedSceneSource, showPresentedElsewhere, type ShownElsewhere } from './presentedScene.ts';
 import type { SavedTable } from './savedTable.ts';
-import { RELAY_ORIGIN } from './servers.ts';
+import { relayOrigin } from './servers.ts';
 import type { TableCampaigns } from './tableCampaigns.ts';
 import { createCampaignTable, NO_ACCOUNT, refused, startBlock, type HostAccount } from './tableStart.ts';
 import type { TableStatus } from './TableConnection.ts';
@@ -128,6 +128,7 @@ export class OnlineControl {
    */
   async resume(saved: SavedTable): Promise<OnlineTable | null> {
     if (this.current !== null || this.starting) return this.current;
+    if (relayOrigin() === null) return null;
     this.starting = true;
     const closings = this.closings;
     const seats = await this.campaigns.open(saved.campaignId).catch(() => null).finally(() => (this.starting = false));
@@ -283,14 +284,16 @@ export class OnlineControl {
   }
 
   /** Runs the table on its campaign: its players and books are the campaign's from before anyone can join until it ends. */
-  private run(given: SavedTable, seats: TableSeats, savedLog?: unknown): OnlineTable {
+  private run(given: SavedTable, seats: TableSeats, savedLog?: unknown): OnlineTable | null {
+    const origin = relayOrigin();
+    if (origin === null) return null;
     // A join code that is now a player's own (made on another device since) is made anew: the page's one field takes both.
     const saved = { ...given, gate: freeGate(given.gate, seats.codes()) };
     this.ended = null;
     this.keep(saved);
     this.ownership.bind(seats);
     this.campaigns.bound(saved.campaignId);
-    const table = new OnlineTable(this.app, RELAY_ORIGIN, saved, saved.mapPath, this.ownership, seats, saved.gate, {
+    const table = new OnlineTable(this.app, origin, saved, saved.mapPath, this.ownership, seats, saved.gate, {
       status: () => {
         // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
         if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);

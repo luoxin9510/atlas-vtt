@@ -7,6 +7,9 @@ import { boundOwnership, fakeCampaigns } from './fakeSeats.ts';
 import type { SavedTable } from '../../../../src/app/online/gm/savedTable.ts';
 import { app, FakeSocket, png, workspace } from './fakeTable.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({
   Notice: class {},

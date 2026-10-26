@@ -5,7 +5,10 @@ import { DeviceSignIn } from '../../../../src/app/online/gm/account/deviceFlow.t
 import type { HttpRequest, HttpResponse } from '../../../../src/app/online/gm/account/http.ts';
 import { ACCESS_REFUSALS } from '../../../../src/app/online/gm/account/relayAccount.ts';
 import type { Timers } from '../../../../src/app/online/gm/companionTimers.ts';
-import { ACCOUNTS_ORIGIN as ACCOUNTS, RELAY_ORIGIN as RELAY } from '../../../../src/app/online/gm/servers.ts';
+import { UPSTREAM_ACCOUNTS_ORIGIN as ACCOUNTS, UPSTREAM_RELAY_ORIGIN as RELAY } from '../../../../src/app/online/gm/servers.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const MARA = { id: 'acc_mara', handle: 'mara', name: 'Mara' };
 

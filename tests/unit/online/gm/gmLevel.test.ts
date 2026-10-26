@@ -8,6 +8,9 @@ import { boundOwnership, fakeCampaigns } from './fakeSeats.ts';
 import { app, atlasTab, FakeSocket, localStorage, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => ({ notices: [] as string[], created: { status: 201, json: null as unknown } }));
 

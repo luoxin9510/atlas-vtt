@@ -1,5 +1,5 @@
 import type { Timers } from '../companionTimers.ts';
-import { ACCOUNT_PAGE_URL, ACCOUNTS_ORIGIN, RELAY_ORIGIN } from '../servers.ts';
+import { accountPageUrl, accountsOrigin, relayOrigin } from '../servers.ts';
 import { accountView, SERVER_SIGNED_OUT_TEXT, type AccountFacts, type AccountView, type SignedOutNotice } from './accountView.ts';
 import { DeviceSignIn } from './deviceFlow.ts';
 import type { Http } from './http.ts';
@@ -67,7 +67,7 @@ export class AccountControl {
   /** Starts a device sign-in: the approve page opens in the browser, and the dock shows the code. */
   async signIn(): Promise<void> {
     if (this.flow !== null) return;
-    const flow = new DeviceSignIn({ http: this.ports.http, timers: this.ports.timers, origin: ACCOUNTS_ORIGIN, openUrl: this.ports.openUrl });
+    const flow = new DeviceSignIn({ http: this.ports.http, timers: this.ports.timers, origin: accountsOrigin(), openUrl: this.ports.openUrl });
     this.flow = flow;
     this.userCode = null;
     this.notice = null;
@@ -84,7 +84,7 @@ export class AccountControl {
         this.ports.tokens.set(end.token);
       } catch {
         this.ports.notify('Obsidian cannot keep the sign-in on this device: its secure storage is not available.');
-        void signOutToken(this.ports.http, ACCOUNTS_ORIGIN, end.token);
+        void signOutToken(this.ports.http, accountsOrigin(), end.token);
         return this.changed();
       }
       this.me = null;
@@ -108,7 +108,7 @@ export class AccountControl {
   async signOut(): Promise<void> {
     const token = this.token();
     this.forget(null);
-    if (token !== null) await signOutToken(this.ports.http, ACCOUNTS_ORIGIN, token);
+    if (token !== null) await signOutToken(this.ports.http, accountsOrigin(), token);
   }
 
   /** The server refused the token: it is forgotten, and the GM hears that running tables go on. */
@@ -120,11 +120,13 @@ export class AccountControl {
 
   /** Opens the account page in the browser: invite keys are redeemed there, and it shows what the account may host. */
   openAccountPage(): void {
-    this.ports.openUrl(ACCOUNT_PAGE_URL);
+    this.ports.openUrl(accountPageUrl());
   }
 
   private async check(token: string): Promise<void> {
-    const answer = await new RelayAccount(this.ports.http, RELAY_ORIGIN, token).me();
+    const origin = relayOrigin();
+    if (origin === null) return;
+    const answer = await new RelayAccount(this.ports.http, origin, token).me();
     if (this.token() !== token) return;
     if (answer === 'signed-out') return this.signedOutByServer();
     this.me = answer === 'unavailable' ? 'unreachable' : answer;

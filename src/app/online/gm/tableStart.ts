@@ -5,7 +5,7 @@ import { sceneStoreOf } from './atlasView.ts';
 import { CAMPAIGNS_LOADING_TEXT, campaignLink, linkRefusal, NO_CAMPAIGN_TEXT, type TableSeats } from './campaignSeats.ts';
 import type { CreatedTable } from './createdTable.ts';
 import { createTable } from './createTable.ts';
-import { RELAY_ORIGIN } from './servers.ts';
+import { relayOrigin } from './servers.ts';
 import { endStrayTable } from './strayTable.ts';
 import type { TableCampaigns } from './tableCampaigns.ts';
 
@@ -27,8 +27,12 @@ export function refused(text: string): null {
   return null;
 }
 
+/** What the GM reads where no online server address is set. */
+export const NO_SERVER_TEXT = 'Set the online server address in Atlas settings first.';
+
 /** Why no table can start from the Atlas tab `leaf` for the campaign `campaignId` (null: none is played), or null where one can. */
 export function startBlock(leaf: WorkspaceLeaf | null, campaignId: string | null, account: HostAccount): string | null {
+  if (relayOrigin() === null) return NO_SERVER_TEXT;
   if (leaf === null || sceneStoreOf(leaf) === null) return 'Open an Atlas map tab first.';
   if (campaignId === null) return NO_CAMPAIGN_TEXT;
   return account.token() === null ? 'Sign in to host first.' : null;
@@ -55,9 +59,11 @@ export async function createCampaignTable(campaigns: TableCampaigns, campaignId:
   const link = seats === null ? null : campaignLink(seats);
   if (seats === null || link === null) return refused(seats === null ? CAMPAIGNS_LOADING_TEXT : linkRefusal(seats));
   // Whether this account may host is the relay's answer alone: nothing here looks at what the account was last said to hold.
-  const created = await createTable(obsidianHttp, RELAY_ORIGIN, token, link);
+  const origin = relayOrigin();
+  if (origin === null) return refused(NO_SERVER_TEXT);
+  const created = await createTable(obsidianHttp, origin, token, link);
   if (!('message' in created) && created.code !== link) {
-    endStrayTable(RELAY_ORIGIN, created);
+    endStrayTable(origin, created);
     return refused(OTHER_LINK_TEXT);
   }
   if (!('message' in created)) return { created, seats };

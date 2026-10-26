@@ -4,6 +4,9 @@ import { boundOwnership, FAKE_LINK, fakeCampaigns } from './fakeSeats.ts';
 import { app, atlasTab, FakeSocket, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => ({ notices: [] as string[], asked: [] as string[] }));
 

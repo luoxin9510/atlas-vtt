@@ -8,6 +8,9 @@ import { app, FakeSocket, workspace } from './fakeTable.ts';
 import { ANA, BEN, BRANNOCH, cave, delivered, MIRA, ofType, openTable, type OpenTable } from './bookTableHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
 import { StatblockNotes, templateOf } from './statblockNotes.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({ Notice: class {}, normalizePath: (path: string) => path, requestUrl: () => Promise.resolve({ status: 201, json: null }), PluginSettingTab: class {}, Setting: class {} }));
 vi.mock('../../../../src/app/online/gm/gmMarks.ts', () => ({

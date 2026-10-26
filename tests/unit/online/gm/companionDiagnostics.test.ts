@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompanionFacts } from '../../../../src/app/online/gm/companionDiagnostics.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 interface Sent {
   readonly url: string;

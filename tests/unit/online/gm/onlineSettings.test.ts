@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { AccountControl } from '../../../../src/app/online/gm/account/AccountControl.ts';
 import type { HttpRequest, HttpResponse } from '../../../../src/app/online/gm/account/http.ts';
 import { DEFAULT_SETTINGS, onlineSettingsSections, readSettings, type OnlineSettings } from '../../../../src/app/online/gm/settings.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const MARA = { id: 'acc_mara', handle: 'mara', name: 'Mara' };
 

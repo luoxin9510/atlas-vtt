@@ -4,7 +4,7 @@ import {
 } from '../protocol/index.ts';
 import { apiVersion, Platform, requestUrl } from 'obsidian';
 import type { CompanionFeedback } from './companionReports.ts';
-import { RELAY_ORIGIN } from './servers.ts';
+import { relayOrigin } from './servers.ts';
 
 /** Where the companion's own code runs in a stack: Obsidian names a plugin's script by its id. */
 const OWN_FRAMES = 'plugin:atlas-online';
@@ -53,7 +53,8 @@ export class CompanionDiagnostics implements CompanionFeedback {
         return [table?.code ?? '', table?.secret ?? '', ...this.joinCodes(), ...facts.playerNames()].filter((text) => text !== '');
       },
       post: async (report) => {
-        await postJson(`${RELAY_ORIGIN}${REPORTS_PATH}`, report);
+        const origin = relayOrigin();
+        if (origin !== null) await postJson(`${origin}${REPORTS_PATH}`, report);
       },
       now: () => Date.now(),
       enabled: () => facts.reportErrors(),
@@ -86,8 +87,10 @@ export class CompanionDiagnostics implements CompanionFeedback {
       v: 1, source: 'companion', text: withoutKnown(text, this.joinCodes()),
       diagnostics: withDiagnostics ? { ...this.environment(), table: await this.tag(), errors: this.reporter.recentIds(), connection: this.facts.connection() } : null,
     };
+    const origin = relayOrigin();
+    if (origin === null) return 'failed';
     try {
-      return feedbackResultOf(await postJson(`${RELAY_ORIGIN}${FEEDBACK_PATH}`, post));
+      return feedbackResultOf(await postJson(`${origin}${FEEDBACK_PATH}`, post));
     } catch {
       return 'failed';
     }
@@ -97,7 +100,8 @@ export class CompanionDiagnostics implements CompanionFeedback {
     if (!(thrown instanceof Error) || thrown.stack?.includes(OWN_FRAMES) !== true) return;
     void this.reporter.capture(kind, thrown).then((id) => {
       if (id === null) return;
-      const where = this.facts.reportErrors() ? ` reported to ${new URL(RELAY_ORIGIN).host}` : ' (error reports are off, nothing was sent)';
+      const origin = relayOrigin();
+      const where = this.facts.reportErrors() && origin !== null ? ` reported to ${new URL(origin).host}` : ' (error reports are off, nothing was sent)';
       console.warn(`Atlas Online: error ${id}${where}`);
     });
   }

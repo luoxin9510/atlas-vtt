@@ -13,6 +13,9 @@ import { createInMemoryApp } from '../../../mocks/inMemoryVault';
 import { app as fakeApp, atlasTab, FakeSocket, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => ({
   notices: [] as string[],

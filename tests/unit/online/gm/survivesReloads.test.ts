@@ -11,6 +11,9 @@ import { app, atlasTab, FakeSocket, png, present, switchScene, workspace } from 
 import { fakeTokenSource } from './fakeTokenSource.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => {
   /** The relay's answer to a table request. */

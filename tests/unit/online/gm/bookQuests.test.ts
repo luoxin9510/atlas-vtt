@@ -8,6 +8,9 @@ import { FakeSocket, png, workspace } from './fakeTable.ts';
 import { ANA, BEN, BRANNOCH_BOOK, CAL, delivered, keptBooks, MIRA_BOOK, nameWorldMap, nameWorldMapTree, ofType, openTable, WORLD_MAP, type OpenTable } from './bookTableHarness.ts';
 import { NO_STRETCH } from '../../../../src/app/grid/mapStretch';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({ Notice: class {}, normalizePath: (path: string) => path, requestUrl: () => Promise.resolve({ status: 201, json: null }), PluginSettingTab: class {}, Setting: class {} }));
 vi.mock('../../../../src/app/online/gm/gmMarks.ts', () => ({
