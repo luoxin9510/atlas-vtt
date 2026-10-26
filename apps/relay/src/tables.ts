@@ -10,6 +10,12 @@ export interface TableRegistryOptions {
   readonly unhostedTableMs: number;
 }
 
+/** What the socket side hears about a table: its secret was replaced (a re-POST), or it is gone (ended, or unhosted too long). */
+export interface TableListener {
+  replaced(code: string): void;
+  ended(code: string): void;
+}
+
 export interface CreatedTable {
   readonly code: string;
   readonly secret: string;
@@ -25,6 +31,7 @@ export class TableRegistry {
   readonly #tables = new Map<string, StoredTable>();
   readonly #hosted = new Set<string>();
   readonly #timers = new Map<string, NodeJS.Timeout>();
+  #listener: TableListener | null = null;
   #pending: Promise<void> = Promise.resolve();
 
   constructor(options: TableRegistryOptions) {
@@ -37,13 +44,24 @@ export class TableRegistry {
     return this.#tables.size;
   }
 
+  has(code: string): boolean {
+    return this.#tables.has(code);
+  }
+
+  /** The one listener (the socket side) that hears of replaced secrets and ended tables. */
+  subscribe(listener: TableListener): void {
+    this.#listener = listener;
+  }
+
   /** Makes a table, or gives an existing code a new secret (the old one stops working). 'full' at the table limit. */
   create(code: string): CreatedTable | 'full' {
     if (!this.#tables.has(code) && this.#tables.size >= MAX_TABLES) return 'full';
+    const existed = this.#tables.has(code);
     const secret = randomBytes(32).toString('base64url');
     this.#tables.set(code, { secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
     this.#schedule(code);
     this.#save();
+    if (existed) this.#listener?.replaced(code);
     return { code, secret, maxPlayers: this.#options.maxPlayers };
   }
 
@@ -71,6 +89,7 @@ export class TableRegistry {
     this.#hosted.delete(code);
     this.#clearTimer(code);
     this.#save();
+    this.#listener?.ended(code);
   }
 
   /** Resolves once everything changed so far is on disk; rejects if the last write failed. */
