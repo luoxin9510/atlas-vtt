@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { rename, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { open, rename } from 'node:fs/promises';
 
 /** What survives a restart of one table: the hash of its secret and when a GM last had it. */
 export interface StoredTable {
@@ -46,7 +47,12 @@ export function loadTables(statePath: string): StoredTables {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
     throw error;
   }
-  const parsed: unknown = JSON.parse(text);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`state file ${statePath} is not valid JSON (${error instanceof Error ? error.message : 'unreadable'}); fix or remove it`);
+  }
   const tables = typeof parsed === 'object' && parsed !== null ? (parsed as { tables?: unknown }).tables : undefined;
   const result: StoredTables = {};
   if (typeof tables !== 'object' || tables === null) return result;
@@ -57,9 +63,29 @@ export function loadTables(statePath: string): StoredTables {
   return result;
 }
 
-/** Writes `<path>.tmp` and renames it over the state file, so a crash never leaves half a file. */
+/**
+ * Writes `<path>.tmp`, forces it to disk, and renames it over the state file: a crash never leaves half
+ * a file, and a power loss never leaves an empty one (the rename could otherwise reach the disk first).
+ */
 export async function saveTables(statePath: string, tables: StoredTables): Promise<void> {
   const temporary = `${statePath}.tmp`;
-  await writeFile(temporary, JSON.stringify({ version: 1, tables }), { mode: 0o600 });
+  const file = await open(temporary, 'w', 0o600);
+  try {
+    await file.writeFile(JSON.stringify({ version: 1, tables }));
+    await file.datasync();
+  } finally {
+    await file.close();
+  }
   await rename(temporary, statePath);
+  // Best effort: also make the rename itself durable. Not every platform can open a directory.
+  try {
+    const folder = await open(dirname(statePath), 'r');
+    try {
+      await folder.datasync();
+    } finally {
+      await folder.close();
+    }
+  } catch {
+    // The file is in place; only its durability against power loss is weaker.
+  }
 }

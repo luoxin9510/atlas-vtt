@@ -19,7 +19,7 @@ export interface RunningRelay {
 
 /** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). */
 export async function startRelay(config: RelayConfig, log?: (line: string) => void): Promise<RunningRelay> {
-  const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs });
+  const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
   const staticDir = config.staticDir === null ? null : resolve(config.staticDir);
   const handler = createHandler({ config: { ...config, staticDir }, tables, log });
   const links = new TableLinks(tables, config.timing);

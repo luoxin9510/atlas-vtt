@@ -4,6 +4,8 @@ import { loadTables, saveTables, sha256Hex, type StoredPlayer, type StoredTable,
 export const MAX_TABLES = 10;
 const SAVE_INTERVAL_MS = 1000;
 const MAX_TIMER_MS = 2 ** 31 - 1;
+/** While a GM hosts a table its `lastHostedAt` is refreshed this often at most (a quarter of the unhosted limit otherwise). */
+const HOSTED_REFRESH_MAX_MS = 3_600_000;
 /** Most players a table remembers keys for; the oldest who are not connected go first. */
 const MAX_KNOWN_PLAYERS = 128;
 
@@ -11,6 +13,8 @@ export interface TableRegistryOptions {
   readonly statePath: string;
   readonly maxPlayers: number;
   readonly unhostedTableMs: number;
+  /** One line per streak of failed state writes (the error code only, never table data). */
+  readonly log?: (line: string) => void;
 }
 
 /** What the socket side hears about a table: its secret was replaced (a re-POST), or it is gone (ended, or unhosted too long). */
@@ -39,6 +43,7 @@ export class TableRegistry {
   #dirty = false;
   #lastWrite = 0;
   #saveTimer: NodeJS.Timeout | null = null;
+  #failing = false;
 
   constructor(options: TableRegistryOptions) {
     this.#options = options;
@@ -118,8 +123,11 @@ export class TableRegistry {
   setHosted(code: string, hosted: boolean): void {
     const table = this.#tables.get(code);
     if (table === undefined) return;
-    if (hosted) this.#hosted.add(code);
-    else {
+    if (hosted) {
+      this.#hosted.add(code);
+      this.#tables.set(code, { ...table, lastHostedAt: Date.now() });
+      this.#save();
+    } else {
       this.#hosted.delete(code);
       this.#tables.set(code, { ...table, lastHostedAt: Date.now() });
       this.#save();
@@ -157,7 +165,21 @@ export class TableRegistry {
   #schedule(code: string): void {
     this.#clearTimer(code);
     const table = this.#tables.get(code);
-    if (table === undefined || this.#hosted.has(code)) return;
+    if (table === undefined) return;
+    if (this.#hosted.has(code)) {
+      // A crash while hosted must not look like 14 days of nobody hosting it: keep the stored time recent.
+      const every = Math.min(HOSTED_REFRESH_MAX_MS, Math.max(50, this.#options.unhostedTableMs / 4));
+      const refresh = setTimeout(() => {
+        const current = this.#tables.get(code);
+        if (current === undefined || !this.#hosted.has(code)) return;
+        this.#tables.set(code, { ...current, lastHostedAt: Date.now() });
+        this.#save();
+        this.#schedule(code);
+      }, every);
+      refresh.unref();
+      this.#timers.set(code, refresh);
+      return;
+    }
     const delay = Math.max(0, table.lastHostedAt + this.#options.unhostedTableMs - Date.now());
     const timer = setTimeout(() => {
       if (Date.now() >= table.lastHostedAt + this.#options.unhostedTableMs) this.end(code);
@@ -183,7 +205,21 @@ export class TableRegistry {
     this.#dirty = false;
     this.#lastWrite = Date.now();
     const snapshot: StoredTables = Object.fromEntries(this.#tables);
-    this.#pending = this.#pending.catch(() => undefined).then(() => saveTables(this.#options.statePath, snapshot));
+    this.#pending = this.#pending
+      .catch(() => undefined)
+      .then(() => saveTables(this.#options.statePath, snapshot))
+      .then(
+        () => {
+          this.#failing = false;
+        },
+        (error: unknown) => {
+          // The change is still not on disk: try again with the next save, but say so only once per streak.
+          this.#dirty = true;
+          if (!this.#failing) this.#options.log?.(`state file could not be written (${(error as NodeJS.ErrnoException).code ?? 'error'}); tables and keys are not saved until it can`);
+          this.#failing = true;
+          throw error;
+        },
+      );
     this.#pending.catch(() => undefined);
   }
 }

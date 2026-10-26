@@ -45,10 +45,15 @@ describe('backpressure (I1)', () => {
     await gm.frameOf('player-joined', 1);
     stuck.player.deaf();
     const body = 'x'.repeat(300 * 1024);
-    for (let i = 0; i < 80; i += 1) await gm.send({ t: 'send', to: '*', body });
+    const received = (): number => fine.player.frames.filter((frame) => frame.t === 'game').length;
+    for (let i = 0; i < 80; i += 1) {
+      await gm.send({ t: 'send', to: '*', body });
+      // Paced, so the player who reads is never the one that falls behind.
+      if (i % 4 === 3) await vi.waitFor(() => expect(received()).toBe(i + 1), { timeout: 12_000 });
+    }
     await vi.waitFor(() => expect(gm.frames.filter((frame) => frame.t === 'player-left' && frame.id === stuck.id)).toHaveLength(1), { timeout: 12_000 });
     expect(relay.links.peek(CODE)?.players.has(stuck.id)).toBe(false);
-    await vi.waitFor(() => expect(fine.player.frames.filter((frame) => frame.t === 'game').length).toBe(80), { timeout: 12_000 });
+    await vi.waitFor(() => expect(received()).toBe(80), { timeout: 12_000 });
     expect(relay.links.peek(CODE)?.players.has(fine.id)).toBe(true);
     expect(relay.links.peek(CODE)?.gm).not.toBeNull();
   }, 30_000);

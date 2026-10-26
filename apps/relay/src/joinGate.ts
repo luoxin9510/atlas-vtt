@@ -26,6 +26,13 @@ export interface GateView {
 }
 
 const WRONG_CODES_BEFORE_PAUSE = 5;
+/**
+ * Each consecutive pause is twice the one before, up to this many times the first (6 hours with the
+ * default 10 minutes): five guesses per pause then cost an attacker next to nothing a day. The
+ * escalation starts over after a day without a wrong code.
+ */
+const MAX_PAUSE_FACTOR = 36;
+const ESCALATION_RESET_MS = 24 * 3_600_000;
 const BASE32 = 'abcdefghijklmnopqrstuvwxyz234567';
 
 /** A player id: 20 lowercase base32 characters. */
@@ -46,6 +53,9 @@ export class JoinGate {
   readonly #timing: Pick<RelayTiming, 'wrongCodeWindowMs' | 'wrongCodePauseMs'>;
   #wrong: number[] = [];
   #pausedUntil = 0;
+  /** How many pauses came in a row, and when the last one ran out. */
+  #level = 0;
+  #lastPauseEnd = 0;
 
   constructor(timing: Pick<RelayTiming, 'wrongCodeWindowMs' | 'wrongCodePauseMs'>) {
     this.#timing = timing;
@@ -85,7 +95,11 @@ export class JoinGate {
     this.#wrong = this.#wrong.filter((at) => now - at < this.#timing.wrongCodeWindowMs);
     this.#wrong.push(now);
     if (this.#wrong.length < WRONG_CODES_BEFORE_PAUSE) return { kind: 'close', code: CLOSE.wrongCode };
-    this.#pausedUntil = now + this.#timing.wrongCodePauseMs;
+    if (now - this.#lastPauseEnd >= ESCALATION_RESET_MS) this.#level = 0;
+    const pause = Math.min(this.#timing.wrongCodePauseMs * 2 ** this.#level, this.#timing.wrongCodePauseMs * MAX_PAUSE_FACTOR);
+    this.#level = Math.min(this.#level + 1, 6);
+    this.#pausedUntil = now + pause;
+    this.#lastPauseEnd = this.#pausedUntil;
     this.#wrong = [];
     return { kind: 'pause', until: this.#pausedUntil };
   }

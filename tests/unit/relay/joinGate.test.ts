@@ -115,4 +115,35 @@ describe('JoinGate', () => {
     expect(gate.decide(hello({ code: '654321' }), full, NOW)).toEqual({ kind: 'close', code: CLOSE.full });
     expect(gate.decide(hello({ key: KNOWN_KEY }), full, NOW).kind).toBe('welcome');
   });
+
+  describe('escalating pause (seat codes cannot be ground down over weeks)', () => {
+    /** Five wrong codes at `at`; returns the pause that the fifth starts. */
+    function trip(gate: JoinGate, at: number): number {
+      for (let i = 0; i < 4; i += 1) expect(gate.decide(hello({ code: '000000' }), view(), at + i).kind).toBe('close');
+      const decision = gate.decide(hello({ code: '000000' }), view(), at + 4);
+      if (decision.kind !== 'pause') throw new Error('expected a pause');
+      return decision.until - (at + 4);
+    }
+
+    it('doubles each consecutive pause, up to 36 times the first (6 hours at the default)', () => {
+      const gate = new JoinGate(DEFAULT_TIMING);
+      let now = NOW;
+      const lengths: number[] = [];
+      for (let i = 0; i < 8; i += 1) {
+        const length = trip(gate, now);
+        lengths.push(length);
+        now += length + 10;
+      }
+      expect(lengths).toEqual([600_000, 1_200_000, 2_400_000, 4_800_000, 9_600_000, 19_200_000, 21_600_000, 21_600_000]);
+    });
+
+    it('starts over after a day without a wrong code', () => {
+      const gate = new JoinGate(DEFAULT_TIMING);
+      let now = NOW;
+      now += trip(gate, now) + 10;
+      expect(trip(gate, now)).toBe(1_200_000);
+      now += 1_200_000 + 24 * 3_600_000 + 10;
+      expect(trip(gate, now)).toBe(600_000);
+    });
+  });
 });
