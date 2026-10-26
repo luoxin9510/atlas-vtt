@@ -4,7 +4,10 @@ import type { GateActions, WaitingPlayer } from '../joinGate.ts';
 import { knockKey } from '../waitingKnocks.ts';
 import { textButton } from './controls.ts';
 import { DockTooltip } from './dockTooltip.ts';
-import { BAR_GAP, roomAbove, rowOf } from './dockDom.ts';
+import { aroundToken, BAR_GAP, roomAbove, rowOf } from './dockDom.ts';
+
+/** Where a card's sentence puts the name, which stands in an element of its own. */
+const NAME = '{name}';
 import type { RestActions } from './panelModel.ts';
 import { t } from '../../../i18n';
 
@@ -31,6 +34,7 @@ export interface StackCard {
   /** What the card says, for screen readers. */
   readonly label: string;
   readonly name: string;
+  /** The whole sentence, with `{name}` where `name` stands. */
   readonly text: string;
   readonly about?: string;
   readonly armed: boolean;
@@ -66,7 +70,7 @@ export function restCards(rests: readonly RestCard[], actions: RestActions): Sta
     key: rest.key,
     label: t('onlineDock.rest.label', { character: rest.character, button: rest.button }),
     name: rest.character,
-    text: t('onlineDock.rest.asks', { button: rest.button }),
+    text: t('onlineDock.rest.label', { character: NAME, button: rest.button }),
     about: restAbout(rest),
     armed: rest.armed,
     answered: rest.answered,
@@ -109,8 +113,10 @@ export function renderCards(parent: HTMLElement, cards: readonly StackCard[], to
   for (const card of cards) {
     const row = parent.createDiv({ cls: 'atlas-online-knock', attr: { role: 'group', 'aria-label': card.label } });
     const text = row.createSpan({ cls: 'atlas-online-knock__text' });
+    const [before, after] = aroundToken(card.text, NAME);
+    if (before !== '') text.createSpan({ cls: 'atlas-online-knock__rest', text: before });
     text.createEl('bdi', { cls: 'atlas-online-knock__name', text: card.name });
-    text.createSpan({ cls: 'atlas-online-knock__rest', text: card.text });
+    if (after !== '') text.createSpan({ cls: 'atlas-online-knock__rest', text: after });
     if (card.about !== undefined) {
       text.addClass('atlas-online-knock__text--about');
       text.tabIndex = 0;

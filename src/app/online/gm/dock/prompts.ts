@@ -1,6 +1,6 @@
 import { playerName, shownJoinCode } from '../../protocol/index.ts';
 import { copyRow, textButton } from './controls.ts';
-import { copyText } from './dockDom.ts';
+import { aroundToken, copyText } from './dockDom.ts';
 import type { MenuEntry } from './dockMenu.ts';
 import type { AddedPlayer } from './panelModel.ts';
 import { t } from '../../../i18n';
@@ -175,8 +175,10 @@ function nameRow(parent: HTMLElement, prompt: NamePrompt, close: () => void, inR
 function codeRows(layer: HTMLElement, player: AddedPlayer, close: () => void): void {
   const block = layer.createDiv({ cls: 'atlas-online-prompt atlas-online-prompt--code', attr: { role: 'group', 'aria-label': t('onlineDock.newPlayerCode') } });
   const label = block.createDiv({ cls: 'atlas-online-group-label' });
+  const [before, after] = aroundToken(t('onlineDock.joinsWith'), '{name}');
+  label.appendText(before);
   label.createEl('bdi', { text: player.name });
-  label.appendText(t('onlineDock.joinsWith'));
+  label.appendText(after);
   const shown = shownJoinCode(player.code);
   copyRow(block, { icon: 'key-round', text: t('onlineDock.code', { code: shown }), copied: t('onlineDock.codeCopied'), focusKey: 'prompt-copy' }, () => copyText(layer, shown)).addClass('atlas-online-code-row');
   const done = textButton(block, t('common.done'), close, 'cta');

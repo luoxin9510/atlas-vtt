@@ -185,7 +185,6 @@ Columns: key, first use (file:line, relative to `src/app/`), English text (plura
 | `onlineDock.qr.codeOfLink` | online/gm/dock/inviteQr.ts:36 | QR code of the invite link |
 | `onlineDock.qr.invite` | online/gm/dock/inviteQr.ts:155 | Invite |
 | `onlineDock.qr.copyImage` | online/gm/dock/inviteQr.ts:159 | Copy image |
-| `onlineDock.qr.codeLabel` | online/gm/dock/inviteQr.ts:179 | Code  |
 | `onlineDock.qr.copyFailed` | online/gm/dock/inviteQr.ts:195 | The image could not be copied. |
 | `onlineDock.qr.copied` | online/gm/dock/inviteQr.ts:205 | Image copied |
 | `onlineDock.knock.label` | online/gm/dock/knockStack.ts:45 | {name} wants to join |
@@ -196,7 +195,6 @@ Columns: key, first use (file:line, relative to `src/app/`), English text (plura
 | `onlineDock.knock.region` | online/gm/dock/knockStack.ts:159 | Players asking the GM |
 | `onlineDock.rest.nothing` | online/gm/dock/knockStack.ts:60 | Nothing to restore |
 | `onlineDock.rest.label` | online/gm/dock/knockStack.ts:67 | {character} asks for a {button} |
-| `onlineDock.rest.asks` | online/gm/dock/knockStack.ts:69 |  asks for a {button} |
 | `onlineDock.rest.approve` | online/gm/dock/knockStack.ts:75 | Approve |
 | `onlineDock.seatsNote` | online/gm/dock/panelModel.ts:230 | Table full · {seats} |
 | `onlineDock.seats` | online/gm/dock/panelModel.ts:230 | {count} seats |
@@ -414,4 +412,4 @@ What stays English, and why (the categories of `i18n-zh-gap.md` "Deliberately le
 - **Product and key names.** Atlas, Atlas Online, Obsidian, Enter, Esc, `https://play.example.com`.
 - **The issue report and game content.** Not touched here (none in scope).
 
-Total wired keys: 352.
+Total wired keys: 350.

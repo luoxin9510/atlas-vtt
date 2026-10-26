@@ -4,7 +4,7 @@ import { animatePanelIn, animatePanelOutAndRemove } from '../../../ui/panelMotio
 import { prefersReducedMotion } from '../../../utils/motion';
 import atlasIcon from '../assets/atlas-icon.png?inline';
 import { COPIED_MS } from './controls.ts';
-import { BAR_GAP, copyImage, detachedEl, roomAbove, rowOf, surfaceRise } from './dockDom.ts';
+import { aroundToken, BAR_GAP, copyImage, detachedEl, roomAbove, rowOf, surfaceRise } from './dockDom.ts';
 import { qrDrawing, qrMatrix, type QrDrawing } from './qrDrawing.ts';
 import { qrImageBlob } from './qrImage.ts';
 import { showNotice } from '../../../ui/notice';
@@ -15,6 +15,8 @@ const SVG = 'http://www.w3.org/2000/svg';
 const CODE_SIDE = 260;
 /** The fewest pixels a module is drawn with where the view leaves less room: with fewer, a screen of one device pixel a pixel no longer shows the rounded modules well enough to read. */
 const MIN_MODULE = 4;
+/** Where the code's sentence puts the join code itself. */
+const CODE = '{code}';
 
 /** What the card shows of the running table. */
 export interface QrTable {
@@ -176,8 +178,10 @@ export class InviteQr {
     const foot = card.querySelector('.atlas-online-qr__foot');
     if (code === null || foot === null) return;
     const line = foot.createDiv({ cls: 'atlas-online-qr__join' });
-    line.createSpan({ cls: 'atlas-online-qr__join-label', text: t('onlineDock.qr.codeLabel') });
+    const [before, after] = aroundToken(t('onlineDock.code', { code: CODE }), CODE);
+    if (before !== '') line.createSpan({ cls: 'atlas-online-qr__join-label', text: before });
     line.createSpan({ text: shownJoinCode(code) });
+    if (after !== '') line.createSpan({ cls: 'atlas-online-qr__join-label', text: after });
   }
 
   /**
