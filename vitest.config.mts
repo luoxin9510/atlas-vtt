@@ -30,7 +30,18 @@ export default defineConfig({
           globals: true,
           setupFiles: ['./tests/setup/obsidianDom.ts', './tests/setup/domHost.ts'],
           // Agents' worktrees in `.claude/` hold whole copies of the repository.
-          exclude: ['**/node_modules/**', '**/.claude/**', '**/*.gpu.test.ts'],
+          exclude: ['**/node_modules/**', '**/.claude/**', '**/*.gpu.test.ts', 'tests/e2e/**'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'play-e2e',
+          // The player app in a real Chromium under the relay's CSP; `npm run test:play-e2e` builds apps/play first.
+          environment: 'node',
+          include: ['tests/e2e/**/*.e2e.test.ts'],
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
         },
       },
       {

@@ -11,6 +11,7 @@
     "dev:play": "vite --config apps/play/vite.config.mts",
     "build:play": "vite build --config apps/play/vite.config.mts",
     "check:play": "tsc -p apps/play",
+    "test:play-e2e": "npm run build:play && vitest run --project play-e2e",
     "dev": "cross-env COPY_ON_CHANGE=true vite build --watch",
     "obsidian": "node scripts/obsidian-cli.js",
     "obsidian:help": "node scripts/obsidian-cli.js help",

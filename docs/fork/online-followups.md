@@ -32,3 +32,10 @@ Plan 2; pick them up when touching the code nearby.
 - End-to-end test: count calls on the `http` stub and assert 0; no test of an `Origin` with an explicit `:443`.
 - No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.
 - Guard-only tests (pass with or without the fix): the 429-cap upgrade reset, the `done` flag.
+
+## Player app (`apps/play`)
+- A stretched map (`GridState.mapStretch`) is not shared, so players see it unstretched (upstream protocol limit).
+- Lit scenes show a placeholder until Plan 2b; `drag-token` is recognised but does nothing yet.
+- The end-to-end node test drives the asset request itself (`mapRequest` + `assets.load`, as `SceneView` does) because Pixi does not run in Node; the browser test joins with a scene without a map picture. A browser test with a real map and token art would cover `SceneView` drawing.
+- The end-to-end test fakes Atlas's player settings (`getLocalPlayerViewSettings`) and wires Atlas's real `DiceTool` into the fake tab; if Atlas's plugin surface changes, `tests/unit/play/endToEnd.test.ts` is the place that breaks first.
+- The Chromium launch args (`--use-angle=swiftshader`, `--enable-unsafe-swiftshader`) are kept so Pixi gets WebGL on machines without a GPU; the test also passed without them on the development Mac.
