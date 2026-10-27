@@ -97,6 +97,16 @@ describe('Session', () => {
     expect(sockets).toHaveLength(1);
   });
 
+  it('forgets the seat of a player who joined by code when they are later kicked', () => {
+    const { session, sockets, storage } = setup();
+    session.join({ name: 'Ann', code: '123456' });
+    sockets[0]!.onopen?.();
+    sockets[0]!.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: true });
+    sockets[0]!.onclose?.({ code: CLOSE.kicked });
+    expect(seatStore(storage).read(CODE)).toBeNull();
+    expect(session.view.getState()).toEqual({ screen: 'form', reason: 'onlinePlay.close.kicked', name: 'Ann' });
+  });
+
   it('keeps the refusal on the table screen when no key was sent', () => {
     const { session, sockets } = setup();
     session.join({ name: 'Ann', code: '123456' });

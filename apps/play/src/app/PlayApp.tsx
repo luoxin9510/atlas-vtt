@@ -6,6 +6,7 @@ import { closeReasonKey } from '../net/closeReasons.ts';
 import { saveLowPower } from '../scene/lowPower.ts';
 import { AppShell } from '../ui/AppShell.tsx';
 import { JoinScreen } from '../ui/JoinScreen.tsx';
+import { LegalLinks } from '../ui/LegalLinks.tsx';
 import { SceneCanvas } from '../ui/SceneCanvas.tsx';
 import { SettingsSheet } from '../ui/SettingsSheet.tsx';
 import { StatusBar } from '../ui/StatusBar.tsx';
@@ -35,11 +36,12 @@ function Table({ session, language, lowPower: initialLowPower, storage, reload }
       <div className="atlas-play-join">
         <p className="atlas-play-reason" role="alert">{t(closeReasonKey(status.code))}</p>
         <button type="button" onClick={() => session.backToForm()}>{t('onlinePlay.join.retry')}</button>
+        <LegalLinks />
       </div>
     );
   }
   if (status.kind === 'waiting') {
-    return <div className="atlas-play-join"><p role="status">{t('onlinePlay.join.waiting')}</p></div>;
+    return <div className="atlas-play-join"><p role="status">{t('onlinePlay.join.waiting')}</p><LegalLinks /></div>;
   }
   return (
     <div className="atlas-play-table">
@@ -68,5 +70,5 @@ function Screens(props: PlayAppProps & { session: Session }): ReactElement {
 /** Picks the screen: no table link, the join form, or the table. */
 export function PlayApp(props: PlayAppProps): ReactElement {
   const { session } = props;
-  return <AppShell>{session === null ? <p>{t('onlinePlay.app.noTable')}</p> : <Screens {...props} session={session} />}</AppShell>;
+  return <AppShell>{session === null ? <><p>{t('onlinePlay.app.noTable')}</p><LegalLinks /></> : <Screens {...props} session={session} />}</AppShell>;
 }

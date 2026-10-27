@@ -83,7 +83,10 @@ export class Session {
       open: (url) => this.env.open(url),
       onStatus: (status) => this.onStatus(status),
       onGame: (body) => this.feed.receive(body),
-      onSeat: (seat) => this.seats.write(this.env.code, { id: seat.id, key: seat.key, name: this.name }),
+      onSeat: (seat) => {
+        this.hadKey = true;
+        this.seats.write(this.env.code, { id: seat.id, key: seat.key, name: this.name });
+      },
       onPeople: (change) => this.onPeople(change),
     });
     this.socket.start();
