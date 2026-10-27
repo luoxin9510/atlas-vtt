@@ -12,8 +12,11 @@ export const FORK_PROTOCOL_LEVEL = 2;
 /** The level from which a player is sent `your-turn`. */
 export const YOUR_TURN_LEVEL = 1;
 
-/** The level from which a player is sent `pause` and `asset-ticket` (an explicit 2, never `FORK_PROTOCOL_LEVEL`). */
+/** The level from which a player is sent `pause` (an explicit 2, never `FORK_PROTOCOL_LEVEL`). */
 export const PAUSE_LEVEL = 2;
+
+/** The level from which a player is sent `asset-ticket` (an explicit 2, never `FORK_PROTOCOL_LEVEL`). */
+export const ASSET_TICKET_LEVEL = 2;
 
 /** The name the fork's player app gives itself in `client`. */
 export const FORK_APP = 'atlas-fork-play';

@@ -1,6 +1,7 @@
 import type { App } from 'obsidian';
 import { isRecord, parsePlayerMessage, type GmMessage, type PlayerPinFound } from '../../protocol/index.ts';
 import { AssetAnswers } from '../assetAnswers.ts';
+import type { AssetTickets } from '../assetUpload/AssetTickets.ts';
 import type { ScaleImage } from '../assetVariants.ts';
 import { bookPicture } from '../book/bookAssets.ts';
 import { viewOf } from '../log/logEntries.ts';
@@ -22,6 +23,9 @@ export interface FoundSharePorts {
   nameOf(player: string): string | null;
   readImage(path: string): Promise<VaultImage | null>;
   scaleImage?: ScaleImage;
+  /** The table's download tickets for images, and the fork level a player's app declared. */
+  tickets?: Pick<AssetTickets, 'ticket'>;
+  forkLevelOf?(player: string): number;
   /** The shared scene's map layers, while one is shared; null otherwise. */
   layers(): MapLayerShare | null;
 }
@@ -44,7 +48,7 @@ export class FoundShare {
   constructor(private readonly log: TableLog, private readonly ports: FoundSharePorts) {
     this.texts = new FoundTexts(ports.app, log);
     this.answers = new AssetAnswers(
-      { send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage },
+      { send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 },
       bookPicture((hash, player) => this.assetOf(hash, player)),
     );
   }

@@ -1,3 +1,4 @@
+import type { AssetTickets } from './assetUpload/AssetTickets.ts';
 import { scaleInWindow } from './assetVariants.ts';
 import type { MeasureRules } from '../marks/index.ts';
 import { type App } from 'obsidian';
@@ -38,6 +39,8 @@ export interface SceneBindingPorts {
   readonly seats: SeatSource;
   /** The fork level a player's app declared; 0 when none. */
   forkLevelOf(player: string): number;
+  /** The table's download tickets for images. */
+  tickets: Pick<AssetTickets, 'ticket'>;
   /** Whether the GM has paused the game. */
   paused(): boolean;
   send(body: GmMessage, to?: string): void;
@@ -115,6 +118,7 @@ export function bindScene(ports: SceneBindingPorts, tab: AtlasTab, presented: Pr
     notice: (text) => live() && showNotice(text),
     seats: ports.seats,
     forkLevelOf: (player) => ports.forkLevelOf(player),
+    tickets: ports.tickets,
     paused: () => ports.paused(),
     randomId: () => ports.randomId(),
     logRoll: (roll) => live() && ports.logRoll(roll),

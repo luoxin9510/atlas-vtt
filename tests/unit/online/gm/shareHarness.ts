@@ -5,7 +5,7 @@ import type { TokenEntity } from '../../../../src/app/types';
 import type { TokenPerception } from '../../../../src/app/vision/tokenPerception';
 import type { SceneState, SceneStore } from '../../../../src/app/online/gm/atlasView.ts';
 import type { SeatSource } from '../../../../src/app/online/gm/seatSource.ts';
-import { imageMimeType, SceneShare } from '../../../../src/app/online/gm/SceneShare.ts';
+import { imageMimeType, SceneShare, type SceneSharePorts } from '../../../../src/app/online/gm/SceneShare.ts';
 import type { DiceSource } from '../../../../src/app/online/gm/atlasDice.ts';
 import type { AtlasPlayerSettings, LightingSource } from '../../../../src/app/online/gm/atlasLighting.ts';
 import type { MapLayerSource } from '../../../../src/app/online/gm/atlasMapLayers.ts';
@@ -82,7 +82,7 @@ const counterId = (count: number): string => count.toString(16).padStart(24, '0'
  * vault's image files by path; `seats` tells who plays, owns which token and may claim which; `real`
  * (Atlas's own view store) replaces the fake store, and is written through its own actions, not `set`.
  */
-export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Uint8Array<ArrayBuffer>>, seats?: SeatSource, real?: SceneStore): ShareHarness {
+export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Uint8Array<ArrayBuffer>>, seats?: SeatSource, real?: SceneStore, extra: Pick<SceneSharePorts, 'tickets' | 'scaleImage'> = {}): ShareHarness {
   let current = initial;
   const listeners: ((next: SceneState) => void)[] = [];
   const store: SceneStore = real ?? {
@@ -145,6 +145,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
       seats,
       forkLevelOf: (player) => harness.forkLevels.get(player) ?? 0,
       paused: () => harness.paused,
+      ...extra,
     }),
     set: async (next) => {
       current = next;

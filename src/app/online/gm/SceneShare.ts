@@ -8,6 +8,7 @@ import type { RemoteDrag } from '../marks/index.ts';
 import { dragRulerPaths, PlayerDragRulers, type GmRuler, type RulerPaths } from './dragRulers.ts';
 import { AssetAnswers } from './assetAnswers.ts';
 import { imageMimeType, REPEAT_REQUEST_MS, sha256Hex } from './assetServe.ts';
+import type { AssetTickets } from './assetUpload/AssetTickets.ts';
 import type { ScaleImage } from './assetVariants.ts';
 import { YourTurnShare } from './YourTurnShare.ts';
 import { MineShare } from './mineShare.ts';
@@ -55,6 +56,8 @@ export interface SceneSharePorts extends TokenSharePorts, RulesSharePorts, Pick<
   mapLayers?(): MapLayerSource | null;
   /** Scales an image for a player who asks for a longest side; without it players get originals only. */
   scaleImage?: ScaleImage;
+  /** The server image cache's download tickets; without them players get images as chunks. */
+  tickets?: Pick<AssetTickets, 'ticket'>;
   /** Takes a roll of the shared tab into the table's log. */
   logRoll?(roll: LoggedRoll): void;
   /** The vault path of a speaker's artwork the log shows, by hash. */
@@ -144,7 +147,7 @@ export class SceneShare {
     });
     this.marks = new MarkShare({ ...ports, cursorsShown }, () => this.mapSize);
     this.dragRulers = new PlayerDragRulers((drags) => ports.showPlayerDrags?.(drags));
-    this.assets = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage }, {
+    this.assets = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 }, {
       map: () => {
         const map = this.scene?.map ?? null;
         return map !== null && this.mapBytes !== null ? { hash: map.hash, bytes: this.mapBytes, mime: map.mime } : null;

@@ -2,6 +2,7 @@ import { IMAGE_MIME_TYPES, isSide, MAX_ASSET_BYTES, parsePlayerMessage, type GmM
 import { imageDimensions } from '../../../imageProcessing/imageDimensions';
 import { AssetAnswers } from '../assetAnswers.ts';
 import { sha256Hex } from '../assetServe.ts';
+import type { AssetTickets } from '../assetUpload/AssetTickets.ts';
 import type { ScaleImage } from '../assetVariants.ts';
 import type { VaultImage } from '../TokenShare.ts';
 
@@ -19,6 +20,9 @@ export interface ImageSharePorts {
   /** The vault path of a shown image the table's log holds, by hash: players may be sent it while it does. */
   loggedFile?(hash: string): string | undefined;
   readImage?(path: string): Promise<VaultImage | null>;
+  /** The table's download tickets for images, and the fork level a player's app declared. */
+  tickets?: Pick<AssetTickets, 'ticket'>;
+  forkLevelOf?(player: string): number;
 }
 
 /** The most recent showings whose bytes are kept, so the log serves them as they were sent (an SVG drawn to a PNG may not draw alike again). */
@@ -49,6 +53,8 @@ export class ImageShare {
     this.answers = new AssetAnswers({
       send: (body, to) => ports.send(body, to),
       now: () => ports.now(),
+      tickets: ports.tickets,
+      levelOf: (player) => ports.forkLevelOf?.(player) ?? 0,
       readImage: (path) => ports.readImage?.(path) ?? Promise.resolve(null),
       scaleImage: scale === undefined ? undefined : (bytes, mime, maxSide) => (mime === 'image/gif' ? Promise.resolve(null) : scale(bytes, mime, maxSide)),
     }, {
