@@ -4,7 +4,7 @@ import { isHash } from '../../../../src/app/online/protocol/asset.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { RelayConfig } from '../config.ts';
 import { bearerOf, readBody, send } from '../httpUtil.ts';
-import { clientAddress, UploadRateLimit } from '../limits.ts';
+import { clientAddress, MintRateLimit, UploadRateLimit } from '../limits.ts';
 import type { TableRegistry } from '../tables.ts';
 import type { AssetStore, PartResult } from './assetStore.ts';
 import { mintTicket, TICKET_TTL_MS } from './tickets.ts';
@@ -31,6 +31,7 @@ interface UploadContext {
  */
 export function createUploadRoutes({ config, tables, store }: UploadContext): UploadRoutes {
   const rate = new UploadRateLimit();
+  const mintRate = new MintRateLimit();
 
   function parse(method: string, path: string): { code: string; hash: string; part: number | null; complete: boolean; mint: boolean } | null {
     const match = ROUTE.exec(path);
@@ -71,7 +72,7 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     async handle(req, res, method, path): Promise<void> {
       const route = parse(method, path);
       if (route === null) return refuse(res, 404);
-      if (!rate.allow(clientAddress(req, config.trustProxy))) return refuse(res, 429);
+      if (!(route.mint ? mintRate : rate).allow(clientAddress(req, config.trustProxy))) return refuse(res, 429);
       if (!tables.checkSecret(route.code, bearerOf(req))) {
         res.setHeader('connection', 'close');
         return send(res, 401, { error: 'unauthorized' });

@@ -116,6 +116,17 @@ describe('ticketed downloads', () => {
     await notFound(second.relay, url);
   });
 
+  it('answers the same 404 for a validly signed ticket whose image the table does not hold', async () => {
+    const { relay } = await start();
+    const url = await ticketUrl(relay, await upload(relay, CODE));
+    const expected = await notFound(relay, `/api/assets/${'9'.repeat(64)}?t=garbage`);
+    const missing = '9'.repeat(64);
+    const signed = mintTicket(relay.tables.ensureTicketKey(), CODE, PLAYER, missing, Date.now() + 60_000);
+    expect(readTicket(relay.tables.ensureTicketKey(), signed, missing, Date.now())).not.toBeNull();
+    expect(await notFound(relay, `/api/assets/${missing}?t=${signed}`)).toBe(expected);
+    expect((await fetch(`${relay.origin}${url}`)).status).toBe(200);
+  });
+
   it('refuses after the table ends', async () => {
     const { relay } = await start();
     const url = await ticketUrl(relay, await upload(relay, CODE));
@@ -156,6 +167,20 @@ describe('minting', () => {
     expect((await mint(relay, secret, 'NOT A PLAYER')).status).toBe(400);
     expect((await mint(relay, 'x'.repeat(43))).status).toBe(401);
   });
+});
+
+describe('minting limits', () => {
+  it('allows 600 mints a minute from one address, while part uploads stay at 60', async () => {
+    const { relay } = await start();
+    const secret = await upload(relay, CODE); // 2 upload requests so far
+    for (let i = 0; i < 61; i += 1) expect((await mint(relay, secret)).status).toBe(200);
+    for (let i = 61; i < 600; i += 1) expect((await mint(relay, secret)).status).toBe(200);
+    expect((await mint(relay, secret)).status).toBe(429);
+    const status = await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } });
+    expect(status.status).toBe(200);
+    for (let i = 0; i < 57; i += 1) expect((await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } })).status).toBe(200);
+    expect((await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } })).status).toBe(429);
+  }, 60_000);
 });
 
 describe('readTicket', () => {

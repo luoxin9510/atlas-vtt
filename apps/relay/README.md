@@ -33,7 +33,7 @@ plugin asks for a ticket with `POST /api/tables/{code}/assets/{sha256}/tickets`
 (table secret as Bearer, body `{"player": "<player id>"}`); it is valid for 120 seconds and
 is signed (HMAC-SHA-256) with a 32 byte key kept in the state file, so a relay with a new
 state file refuses old tickets. Every failure (bad, expired or forged ticket, unknown
-image, ended table) gets the same `404`. The relay logs the path only, never the query.
+image, ended table) gets the same `404`. Minting has its own limit of 600 requests per minute per client address (part uploads: 60). The relay logs the path only, never the query.
 
 In the Atlas plugin's online settings, set the server address to the relay's
 public origin and keep the host key.

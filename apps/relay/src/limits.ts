@@ -7,6 +7,7 @@ const WRONG_KEYS_BEFORE_LOCK = 5;
 const LOCK_MS = 10 * 60_000;
 const TABLES_PER_MINUTE = 10;
 const UPLOADS_PER_MINUTE = 60;
+const MINTS_PER_MINUTE = 600;
 const MINUTE_MS = 60_000;
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
@@ -129,6 +130,13 @@ export class TableRateLimit extends MinuteRateLimit {
 export class UploadRateLimit extends MinuteRateLimit {
   constructor() {
     super(UPLOADS_PER_MINUTE);
+  }
+}
+
+/** Per client address: at most 600 ticket mints in any minute (one per hash and player, so a join of eight players needs dozens). */
+export class MintRateLimit extends MinuteRateLimit {
+  constructor() {
+    super(MINTS_PER_MINUTE);
   }
 }
 
