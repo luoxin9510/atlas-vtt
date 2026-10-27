@@ -58,6 +58,9 @@ export function checkBoundaries(root, manifest) {
   const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile);
   if (config.error) return { violations: ['tsconfig.json:1  project cannot be read'], counts };
   const options = ts.parseJsonConfigFileContent(config.config, ts.sys, root).options;
+  // The player app is bundled by Vite and resolves packages through their `exports` (`pixi.js/unsafe-eval`).
+  const playConfig = ts.readConfigFile(path.join(root, 'apps/play/tsconfig.json'), ts.sys.readFile);
+  const playOptions = playConfig.error ? options : ts.parseJsonConfigFileContent(playConfig.config, ts.sys, path.join(root, 'apps/play')).options;
   for (const file of code) {
     const owner = memberships.get(file) ?? 'plugin';
     counts[owner]++;
@@ -84,7 +87,7 @@ export function checkBoundaries(root, manifest) {
         else if (!fs.existsSync(assetPath)) fail(`unresolved asset: ${relative}`);
         continue;
       }
-      const resolved = ts.resolveModuleName(clean, absolute, options, ts.sys).resolvedModule;
+      const resolved = ts.resolveModuleName(clean, absolute, owner === 'play' ? playOptions : options, ts.sys).resolvedModule;
       if (!resolved) { fail('unresolved module'); continue; }
       if (!local && resolved.isExternalLibraryImport) continue;
       const target = normalized(path.relative(root, resolved.resolvedFileName));

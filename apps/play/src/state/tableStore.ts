@@ -39,6 +39,7 @@ export interface TableActions {
 }
 
 export type TableStore = StoreApi<TableState> & TableActions;
+export type TableStoreApi = TableStore;
 
 const NO_ANNOTATIONS: SharedAnnotations = { drawings: [], texts: [] };
 
