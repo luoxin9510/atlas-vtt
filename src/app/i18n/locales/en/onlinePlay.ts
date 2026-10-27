@@ -36,6 +36,7 @@ export const onlinePlay = {
   'onlinePlay.join.code': 'Join code or your own code',
   'onlinePlay.join.submit': 'Join',
   'onlinePlay.join.back': 'Welcome back, {name}',
+  'onlinePlay.assets.socketFallback': 'Image sent by the GM directly',
   'onlinePlay.send.failed': 'Could not send, try again',
   'onlinePlay.join.waiting': 'Waiting for the GM…',
   'onlinePlay.join.retry': 'Try again',

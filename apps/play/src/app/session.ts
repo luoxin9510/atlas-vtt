@@ -55,6 +55,7 @@ export class Session {
       send: (body) => void this.send(body),
       cache: env.indexedDB === null ? memoryCache() : indexedDbCache(env.indexedDB),
       now: () => Date.now(),
+      onFallback: () => this.store.noteAssetFallback(),
     });
     this.feed = new GameFeed({
       send: (body) => void this.send(body),

@@ -36,6 +36,7 @@ export const onlinePlay: Translation = {
   'onlinePlay.join.code': '加入码或你的个人代码',
   'onlinePlay.join.submit': '加入',
   'onlinePlay.join.back': '欢迎回来，{name}',
+  'onlinePlay.assets.socketFallback': '图片改由主持人直接发送',
   'onlinePlay.send.failed': '未能发送，请重试',
   'onlinePlay.join.waiting': '等待主持人同意…',
   'onlinePlay.join.retry': '重试',

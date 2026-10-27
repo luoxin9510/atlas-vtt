@@ -27,6 +27,8 @@ export interface TableState {
   mine: ReadonlySet<string>;
   yourTurnAt: number | null;
   rollRefusal: RollRefusal | null;
+  /** How many images fell back from a ticket to the GM's socket: the page shows a line for each rise. */
+  assetFallbacks: number;
   selected: string | null;
 }
 
@@ -37,6 +39,7 @@ export interface TableActions {
   select(id: string | null): void;
   dismissYourTurn(): void;
   clearRollRefusal(): void;
+  noteAssetFallback(): void;
 }
 
 export type TableStore = StoreApi<TableState> & TableActions;
@@ -60,7 +63,7 @@ const EMPTY_SCENE_LAYER = {
 } satisfies Partial<TableState>;
 
 export function initialTableState(): TableState {
-  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', rollRefusal: null, ...EMPTY_SCENE_LAYER };
+  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', rollRefusal: null, assetFallbacks: 0, ...EMPTY_SCENE_LAYER };
 }
 
 /** The change one message makes (pure: no store, no clock); an empty object when it changes nothing. */
@@ -122,6 +125,9 @@ export function createTableStore(): TableStore {
     },
     dismissYourTurn(): void {
       store.setState({ yourTurnAt: null });
+    },
+    noteAssetFallback(): void {
+      store.setState({ assetFallbacks: store.getState().assetFallbacks + 1 });
     },
     clearRollRefusal(): void {
       if (store.getState().rollRefusal !== null) store.setState({ rollRefusal: null });
