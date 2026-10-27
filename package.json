@@ -2,7 +2,9 @@
   "name": "atlas-vtt",
   "version": "0.9.1",
   "main": "dist/main.js",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "relay": "node apps/relay/src/main.ts",
     "check:relay": "tsc -p apps/relay",
@@ -86,6 +88,7 @@
     "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.4.2",
+    "fake-indexeddb": "6.2.6",
     "fast-check": "4.10.2",
     "jsdom": "^26.1.0",
     "obsidian": "^1.14.4",
