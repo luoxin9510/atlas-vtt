@@ -39,7 +39,7 @@ async function open(store: TableStoreApi): Promise<SceneView> {
   cleanup.push(() => element.remove());
   const asset = await mapAsset();
   const art = await redArt();
-  const view = new SceneView(element, store, { load: vi.fn(async (ref: { hash: string }): Promise<LoadedAsset | null> => (ref.hash === 'e'.repeat(64) ? art : asset)) } as Pick<AssetLoader, 'load'>, true);
+  const view = new SceneView(element, store, { load: vi.fn(async (ref: { hash: string }): Promise<LoadedAsset | null> => (ref.hash === 'e'.repeat(64) ? art : asset)), cancel: vi.fn() } as Pick<AssetLoader, 'load' | 'cancel'>, true);
   cleanup.push(() => view.destroy());
   await view.whenReady();
   return view;

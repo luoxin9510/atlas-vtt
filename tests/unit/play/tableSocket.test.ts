@@ -188,6 +188,9 @@ describe('helpers', () => {
     expect(refusedKey(4010, true)).toBe(true);
     expect(refusedKey(4009, true)).toBe(true);
     expect(refusedKey(4008, true)).toBe(true);
+    expect(refusedKey(4015, true)).toBe(true);
+    expect(refusedKey(4016, true)).toBe(true);
+    expect(refusedKey(4015, false)).toBe(false);
     expect(refusedKey(4010, false)).toBe(false);
     expect(refusedKey(4012, true)).toBe(false);
   });

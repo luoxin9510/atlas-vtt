@@ -61,9 +61,10 @@ export class GameFeed {
 
   private resync(scene: string, of: 'tokens' | 'fog' | 'sight'): void {
     const now = this.ports.now();
-    const last = this.asked.get(of);
+    const key = `${scene}:${of}`;
+    const last = this.asked.get(key);
     if (last !== undefined && now - last < RESYNC_INTERVAL_MS) return;
-    this.asked.set(of, now);
+    this.asked.set(key, now);
     this.ports.send({ t: 'resync', scene, of });
   }
 }

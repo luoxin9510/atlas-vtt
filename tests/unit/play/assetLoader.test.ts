@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AssetLoader, STALL_MS } from '../../../apps/play/src/assets/AssetLoader.ts';
 import { memoryCache, type BlobCache } from '../../../apps/play/src/assets/blobCache.ts';
 import { sha256Hex } from '../../../apps/play/src/assets/sha256.ts';
@@ -196,5 +196,45 @@ describe('AssetLoader', () => {
     await result;
     await flush();
     expect(puts).toEqual([hash]);
+  });
+
+  it('cancel resolves that download null and stops asking for it', async () => {
+    const { loader, sent, clock } = setup();
+    const result = loader.load(ref, null);
+    await flush();
+    loader.cancel(hash);
+    expect(await result).toBeNull();
+    clock.now = 60_000;
+    loader.tick();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('asks nothing while the table is not connected: pending downloads end, new ones answer null, re-asks wait', async () => {
+    const { loader, sent, clock } = setup();
+    const first = loader.load(ref, null);
+    await flush();
+    loader.setConnected(false);
+    expect(await first).toBeNull();
+    expect(await loader.load(ref, null)).toBeNull();
+    clock.now = 60_000;
+    loader.tick();
+    expect(sent).toHaveLength(1);
+    loader.setConnected(true);
+    void loader.load(ref, null);
+    await flush();
+    expect(sent).toHaveLength(2);
+  });
+
+  it('treats a missing crypto.subtle (an http page) as a failed download, not an unhandled error', async () => {
+    const { loader } = setup();
+    const result = loader.load(ref, null);
+    await flush();
+    vi.stubGlobal('crypto', {});
+    try {
+      feed(loader, assetChunks(hash, png));
+      expect(await result).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

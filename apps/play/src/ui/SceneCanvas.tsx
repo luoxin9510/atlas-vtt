@@ -9,7 +9,7 @@ import { TokenCard } from './TokenCard.tsx';
 
 export interface SceneCanvasProps {
   store: TableStoreApi;
-  assets: Pick<AssetLoader, 'load'>;
+  assets: Pick<AssetLoader, 'load' | 'cancel'>;
   lowPower: boolean;
 }
 

@@ -15,6 +15,8 @@ import { sharedFogOperations } from './fogAdapter.ts';
 import { AnnotationLayer } from './annotationLayer.ts';
 import { FogLayer } from './fogLayer.ts';
 import type { Gesture } from './gestures.ts';
+import { coarsePointer } from './lowPower.ts';
+import { MapDownload } from './MapDownload.ts';
 import { mapRequest } from './mapRequest.ts';
 import { MapSprite } from './mapSprite.ts';
 import { PinLayer } from './PinLayer.ts';
@@ -67,16 +69,23 @@ export class SceneView {
   private coverageOf: { fog: SharedFog; value: ReturnType<typeof fogCoverage> } | null = null;
   private maxTexture = 4096;
   private destroyed = false;
+  private readonly download: MapDownload;
   private readonly ready: Promise<void>;
 
   constructor(
     private readonly canvasHost: HTMLElement,
     private readonly store: TableStoreApi,
-    private readonly assets: Pick<AssetLoader, 'load'>,
+    private readonly assets: Pick<AssetLoader, 'load' | 'cancel'>,
     private readonly lowPower: boolean,
     private readonly onGesture: (g: Gesture) => void = () => undefined,
   ) {
     this.tokenLayer = new TokenLayer(assets, lowPower);
+    this.download = new MapDownload({
+      assets,
+      arrived: (key, asset) => void this.loadedMap(key, asset),
+      setTimer: (run, ms) => setTimeout(run, ms),
+      clearTimer: (timer) => clearTimeout(timer),
+    });
     this.annotationLayer = new AnnotationLayer(this.layers.annotations);
     this.layers.pins.addChild(this.pinLayer.container);
     this.layers.tokens.addChild(this.tokenLayer.container);
@@ -155,9 +164,9 @@ export class SceneView {
     if (key !== this.sceneKey) {
       this.teardown();
       this.sceneKey = key;
-      const request = mapRequest(state, this.lowPower, this.maxTexture);
-      if (request) void this.assets.load(request.ref, request.maxSide).then((asset) => this.loadedMap(key, asset));
     }
+    const connected = state.status.kind === 'joined' && state.status.gmOnline;
+    this.download.sync(key, mapRequest(state, this.lowPower, this.maxTexture, coarsePointer()), connected);
     this.drawLayers(state);
   }
 
@@ -254,6 +263,7 @@ export class SceneView {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.download.stop();
     this.unsubscribe?.();
     this.input?.destroy();
     this.dropFogAndGrid();

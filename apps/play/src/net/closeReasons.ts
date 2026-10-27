@@ -26,7 +26,7 @@ export function closeReasonKey(code: number): MessageKey {
   return KEYS[code] ?? 'onlinePlay.close.other';
 }
 
-/** Whether a refused hello that carried a saved key means the key is dead (wrong code, kicked, table ended): forget it. */
+/** Whether a refused hello that carried a saved key means the key is dead (wrong code, kicked, table ended, no access, superseded): forget it. */
 export function refusedKey(code: number, hadKey: boolean): boolean {
-  return hadKey && (code === CLOSE.wrongCode || code === CLOSE.kicked || code === CLOSE.ended);
+  return hadKey && (code === CLOSE.wrongCode || code === CLOSE.kicked || code === CLOSE.ended || code === CLOSE.noAccess || code === CLOSE.superseded);
 }

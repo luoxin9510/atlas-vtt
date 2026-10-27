@@ -40,6 +40,14 @@ describe('JoinScreen', () => {
     expect(onJoin).toHaveBeenCalledWith({ name: 'Ann', code: '123456' });
   });
 
+  it('joins as a newcomer, without a code, when the code field is empty', () => {
+    const { onJoin, button, fill } = setup();
+    fill('Ann', '');
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    expect(onJoin).toHaveBeenCalledWith({ name: 'Ann' });
+  });
+
   it('shows why the player is back, and the legal links', () => {
     render(<JoinScreen reason="The GM removed you from this table" onJoin={vi.fn()} />);
     expect(screen.getByRole('alert').textContent).toBe('The GM removed you from this table');

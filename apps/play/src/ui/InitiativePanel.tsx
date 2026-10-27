@@ -21,7 +21,7 @@ function useArt(assets: Loader, ref: SharedCombatant['art']): string | null {
       if (cancelled || loaded === null) return;
       url = URL.createObjectURL(new Blob([loaded.bytes as BlobPart], { type: loaded.mime }));
       setSrc(url);
-    });
+    }).catch(() => undefined); // No art: the portrait stays pending.
     return () => {
       cancelled = true;
       if (url !== null) URL.revokeObjectURL(url);

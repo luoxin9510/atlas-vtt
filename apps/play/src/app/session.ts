@@ -98,8 +98,10 @@ export class Session {
     this.socket = null;
     if (this.ticker !== null) clearInterval(this.ticker);
     this.ticker = null;
-    this.assets.cancelAll();
+    this.assets.setConnected(false);
     this.feed.reset();
+    // A kick and a rejoin must not show the old table's log or people.
+    this.log.clear();
     const { ownCode } = this.store.getState();
     this.store.setState({ ...initialTableState(), ownCode }, true);
   }
@@ -115,6 +117,7 @@ export class Session {
   }
 
   private onStatus(status: SocketStatus): void {
+    this.assets.setConnected(status.kind === 'joined' && status.gmOnline);
     if (status.kind === 'retrying') this.feed.reset();
     if (status.kind === 'refused' && refusedKey(status.code, this.hadKey)) {
       this.seats.forget(this.env.code);

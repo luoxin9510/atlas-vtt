@@ -57,6 +57,8 @@ export class AssetLoader {
   private readonly pending = new Map<string, Promise<LoadedAsset | null>>();
   /** Which variant a requested hash and longest side were answered with: in memory only. */
   private readonly variants = new Map<string, Variant>();
+  /** Whether the GM can be asked now (joined, GM online); asks and re-asks wait for it. */
+  private connected = true;
 
   constructor(private readonly ports: LoaderPorts) {}
 
@@ -76,6 +78,8 @@ export class AssetLoader {
     }
     const own = await this.ports.cache.get(ref.hash);
     if (own !== null) return { bytes: own, mime: ref.mime, width: null, height: null };
+    // Without a connection nothing can be asked: the caller hears null and tries again when it is back.
+    if (!this.connected) return null;
     return new Promise((resolve) => {
       this.downloads.set(ref.hash, {
         ref, maxSide, expected: ref, variant: null, chunks: new Map(), count: null,
@@ -145,9 +149,17 @@ export class AssetLoader {
       bytes.set(part, offset);
       offset += part.length;
     }
-    if (offset !== expected.size || (await sha256Hex(bytes)) !== expected.hash) return this.fail(download);
+    if (offset !== expected.size) return this.fail(download);
+    let digest: string;
+    try {
+      digest = await sha256Hex(bytes);
+    } catch {
+      // No crypto.subtle (an insecure page) or a platform error: the bytes cannot be verified, so they are not used.
+      return this.finish(download.ref.hash, null);
+    }
+    if (digest !== expected.hash) return this.fail(download);
     if (this.downloads.get(download.ref.hash) !== download) return;
-    await this.ports.cache.put(expected.hash, bytes);
+    await this.ports.cache.put(expected.hash, bytes).catch(() => undefined);
     const { variant } = download;
     if (variant !== null) this.variants.set(`${download.ref.hash}@${download.maxSide ?? ''}`, variant);
     this.finish(download.ref.hash, { bytes, mime: expected.mime, width: variant?.width ?? null, height: variant?.height ?? null });
@@ -173,6 +185,7 @@ export class AssetLoader {
 
   /** Asks again, from the first missing chunk, for each download that has been still for `STALL_MS`. */
   tick(): void {
+    if (!this.connected) return;
     const now = this.ports.now();
     for (const download of [...this.downloads.values()]) {
       if (now - download.lastProgress < STALL_MS) continue;
@@ -186,6 +199,17 @@ export class AssetLoader {
       while (download.chunks.has(first)) first += 1;
       this.request(download.ref.hash, download.maxSide, first);
     }
+  }
+
+  /** Gives up one download and stops asking for it; its `load` resolves null. */
+  cancel(hash: string): void {
+    this.finish(hash, null);
+  }
+
+  /** Tells the loader whether the GM can be asked; losing the connection gives up every download. */
+  setConnected(on: boolean): void {
+    this.connected = on;
+    if (!on) this.cancelAll();
   }
 
   /** Gives up every download (the connection is gone). */

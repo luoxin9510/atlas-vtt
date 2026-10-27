@@ -17,10 +17,10 @@ export function JoinScreen({ name: initialName = '', reason = null, onJoin }: Jo
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState('');
   const shown = playerName(name);
-  const valid = shown !== null && JOIN_CODE_PATTERN.test(code);
+  const valid = shown !== null && (code === '' || JOIN_CODE_PATTERN.test(code));
   const submit = (event: FormEvent): void => {
     event.preventDefault();
-    if (valid) onJoin({ name: shown, code });
+    if (valid) onJoin(code === '' ? { name: shown } : { name: shown, code });
   };
   return (
     <form className="atlas-play-join" onSubmit={submit}>

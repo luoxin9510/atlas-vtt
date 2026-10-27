@@ -72,6 +72,16 @@ describe('GameFeed with the GM\'s own messages', () => {
     expect(sent).toHaveLength(2);
   });
 
+  it('asks again for each scene on its own: gaps of two scenes within a second each send a resync', async () => {
+    const { forP1 } = await sceneCorpus();
+    const delta = forP1.find(({ body }) => body.t === 'delta')?.body as { scene: string };
+    const { feed, sent } = feedWith();
+    feed.receive(wire(delta));
+    feed.receive(wire({ ...delta, scene: 'other-scene' }));
+    feed.receive(wire({ ...delta, scene: 'other-scene' }));
+    expect(sent.map((body) => (body as { scene: string }).scene)).toEqual([delta.scene, 'other-scene']);
+  });
+
   it('forwards your-code, and nothing else of it', () => {
     const { feed, applied, codes } = feedWith();
     feed.receive({ t: 'your-code', code: '123456', first: true });

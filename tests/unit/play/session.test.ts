@@ -9,6 +9,7 @@ const KEY = 'k'.repeat(24);
 
 class FakeSocket {
   sent: string[] = [];
+  closed = false;
   readyState = 1;
   bufferedAmount = 0;
   onopen: (() => void) | null = null;
@@ -16,7 +17,7 @@ class FakeSocket {
   onclose: ((event: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
   send(data: string): void { this.sent.push(data); }
-  close(): void { /* nothing to release */ }
+  close(): void { this.closed = true; }
   receive(frame: unknown): void { this.onmessage?.({ data: JSON.stringify(frame) }); }
   hello(): Record<string, unknown> { return JSON.parse(this.sent[0]!) as Record<string, unknown>; }
 }
@@ -121,5 +122,70 @@ describe('Session', () => {
   it('sends nothing before the player has joined', () => {
     const { session } = setup();
     expect(session.send({ t: 'resync', scene: 's', of: 'tokens' })).toBe(false);
+  });
+
+  const asset = { hash: 'a'.repeat(64), size: 10, mime: 'image/png' };
+  const requests = (socket: FakeSocket): number => socket.sent.filter((s) => s.includes('asset-request')).length;
+
+  it('stops asking for assets while retrying, and asks again for the same asset when the table is back', async () => {
+    const { session, sockets } = setup();
+    session.join({ name: 'Ann', code: '123456' });
+    sockets[0]!.onopen?.();
+    sockets[0]!.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: true });
+    const first = session.assets.load(asset, null);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requests(sockets[0]!)).toBe(1);
+    sockets[0]!.onclose?.({ code: 1006 });
+    expect(await first).toBeNull();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(requests(sockets[0]!)).toBe(1);
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[1]!.onopen?.();
+    sockets[1]!.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: true });
+    void session.assets.load(asset, null);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requests(sockets[1]!)).toBe(1);
+  });
+
+  it('does not ask for assets while the GM is away', async () => {
+    const { session, sockets } = setup();
+    session.join({ name: 'Ann', code: '123456' });
+    sockets[0]!.onopen?.();
+    sockets[0]!.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: false });
+    expect(await session.assets.load(asset, null)).toBeNull();
+    expect(requests(sockets[0]!)).toBe(0);
+  });
+
+  it('leaving for another join leaves one live socket, one ticker, no downloads and an empty log', async () => {
+    const { session, sockets } = setup();
+    session.join({ name: 'Ann', code: '123456' });
+    sockets[0]!.onopen?.();
+    sockets[0]!.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: true });
+    sockets[0]!.receive({ v: 1, t: 'game', body: { t: 'people', people: [{ id: 'b'.repeat(20), name: 'Bo' }] } });
+    expect(session.log.snapshot().people).toHaveLength(1);
+    const pending = session.assets.load(asset, null);
+    await vi.advanceTimersByTimeAsync(0);
+    session.join({ name: 'Ann', key: KEY });
+    expect(sockets[0]!.closed).toBe(true);
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1]!.closed).toBe(false);
+    expect(await pending).toBeNull();
+    expect(session.log.snapshot()).toEqual({ entries: [], unread: 0, refusal: null, people: [] });
+    expect(vi.getTimerCount()).toBe(1);
+    session.backToForm();
+    expect(sockets[1]!.closed).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('forgets the seat when the relay says no access or superseded after a key was sent', () => {
+    for (const code of [CLOSE.noAccess, CLOSE.superseded]) {
+      const storage = memoryStorage();
+      seatStore(storage).write(CODE, { id: 'p1', key: KEY, name: 'Ann' });
+      const { session, sockets } = setup(storage);
+      sockets[0]!.onopen?.();
+      sockets[0]!.onclose?.({ code });
+      expect(seatStore(storage).read(CODE)).toBeNull();
+      expect(session.view.getState().screen).toBe('form');
+    }
   });
 });

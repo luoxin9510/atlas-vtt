@@ -32,3 +32,8 @@ export function deviceEnv(): { reducedMotion: boolean; cores: number } {
     cores: typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency,
   };
 }
+
+/** Whether the main pointer is a finger (a phone or tablet), read when a map is requested. */
+export function coarsePointer(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+}

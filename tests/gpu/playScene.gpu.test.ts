@@ -36,13 +36,14 @@ function host(): HTMLDivElement {
   return element;
 }
 
-async function openView(store: TableStoreApi, loader?: () => Promise<LoadedAsset | null>): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn> }> {
+async function openView(store: TableStoreApi, loader?: () => Promise<LoadedAsset | null>): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }> {
   const asset = await mapAsset();
   const load = vi.fn(loader ?? (async (): Promise<LoadedAsset | null> => asset));
-  const view = new SceneView(host(), store, { load } as Pick<AssetLoader, 'load'>, true);
+  const cancel = vi.fn();
+  const view = new SceneView(host(), store, { load, cancel } as Pick<AssetLoader, 'load' | 'cancel'>, true);
   cleanup.push(() => view.destroy());
   await view.whenReady();
-  return { view, load };
+  return { view, load, cancel };
 }
 
 function pixelAt(view: SceneView, x: number, y: number): number[] {
@@ -85,11 +86,13 @@ describe('player scene view', () => {
     const store = createTableStore();
     const asset = await mapAsset();
     let release: (a: LoadedAsset) => void = () => undefined;
-    const { view, load } = await openView(store, () => new Promise((resolve) => { release = resolve; }));
+    const { view, load, cancel } = await openView(store, () => new Promise((resolve) => { release = resolve; }));
     unlit(store);
     store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
     await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
     store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
+    // The download is given up: nothing keeps asking the GM for a lit scene's map.
+    expect(cancel).toHaveBeenCalledWith(MAP_REF!.hash);
     release(asset);
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(near(pixelAt(view, 100, 100), CLEAR)).toBe(true);
@@ -150,7 +153,7 @@ describe('player scene view', () => {
     const element = host();
     const root: Root = createRoot(element);
     cleanup.push(() => act(() => root.unmount()));
-    await act(async () => { root.render(createElement(SceneCanvas, { store, assets: { load: vi.fn() }, lowPower: true })); });
+    await act(async () => { root.render(createElement(SceneCanvas, { store, assets: { load: vi.fn(), cancel: vi.fn() }, lowPower: true })); });
     expect(element.textContent ?? '').toMatch(/dynamic lighting|动态光照/);
     expect(element.querySelector('canvas')).toBeNull();
   });

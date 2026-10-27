@@ -27,6 +27,14 @@ describe('mapRequest', () => {
     expect(mapRequest(store.getState(), false, 2048)?.maxSide).toBe(2048);
   });
 
+  it('asks for 4096 at most on a touch device (coarse pointer) even with low-power mode off', () => {
+    const store = createTableStore();
+    store.applyMessage(scene('s1', false), 0);
+    expect(mapRequest(store.getState(), false, 16384, true)?.maxSide).toBe(4096);
+    expect(mapRequest(store.getState(), false, 2048, true)?.maxSide).toBe(4096);
+    expect(mapRequest(store.getState(), false, 16384, false)?.maxSide).toBe(8192);
+  });
+
   it('asks for nothing without a scene or a map', () => {
     const store = createTableStore();
     expect(mapRequest(store.getState(), false, 8192)).toBeNull();
