@@ -14,7 +14,7 @@ import { CanvasInput } from './canvasInput.ts';
 import { CoverageMemo } from './coverageMemo.ts';
 import { AnnotationLayer } from './annotationLayer.ts';
 import { FogLayer } from './fogLayer.ts';
-import { orderLayers } from './layerOrder.ts';
+import { orderLayers, type SceneLayers } from './layerOrder.ts';
 import { LitHost } from './LitHost.ts';
 import type { Gesture } from './gestures.ts';
 import { coarsePointer } from './lowPower.ts';
@@ -48,6 +48,7 @@ export class SceneView {
   private readonly tokenLayer: TokenLayer;
   private readonly pinLayer = new PinLayer();
   private readonly annotationLayer: AnnotationLayer;
+  private readonly selectionSlot = new Container({ label: 'selection', eventMode: 'none' });
   private readonly fogSlot = new Container({ label: 'fog-slot', eventMode: 'none' });
   private viewport: Viewport | null = null;
   private input: CanvasInput | null = null;
@@ -86,10 +87,14 @@ export class SceneView {
       clearTimer: (timer) => clearTimeout(timer),
     });
     this.annotationLayer = new AnnotationLayer(this.layers.annotations);
-    this.lit = new LitHost({ app: this.app, store, assets, lowPower, layers: { map: this.map.layer, ...this.layers, fog: this.fogSlot }, bounds: () => this.bounds });
+    this.lit = new LitHost({ app: this.app, store, assets, lowPower, layers: this.sceneLayers(), liftSelections: (host) => this.tokenLayer.liftSelections(host), bounds: () => this.bounds });
     this.layers.pins.addChild(this.pinLayer.container);
     this.layers.tokens.addChild(this.tokenLayer.container);
     this.ready = this.start();
+  }
+
+  private sceneLayers(): SceneLayers {
+    return { map: this.map.layer, ...this.layers, fog: this.fogSlot, selection: this.selectionSlot };
   }
 
   /** Resolves once the renderer is up (or the view was destroyed meanwhile). */
@@ -116,7 +121,7 @@ export class SceneView {
     if (!lowPower) viewport.decelerate();
     viewport.sortableChildren = true;
     viewport.addChild(this.map.layer, this.layers.annotations, this.layers.pins, this.layers.tokens, this.fogSlot);
-    orderLayers(false, { map: this.map.layer, ...this.layers, fog: this.fogSlot });
+    orderLayers(false, this.sceneLayers());
     app.stage.addChild(viewport);
     app.renderer.on('resize', (width: number, height: number) => {
       viewport.resize(width, height, viewport.worldWidth, viewport.worldHeight);

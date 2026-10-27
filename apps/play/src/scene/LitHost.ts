@@ -1,4 +1,4 @@
-import type { Application } from 'pixi.js';
+import type { Application, Container } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import type { MapBounds } from '../../../../src/app/vision/visibility.ts';
 import type { AssetLoader } from '../assets/AssetLoader.ts';
@@ -14,6 +14,8 @@ export interface LitHostDeps {
   assets: Pick<AssetLoader, 'load'>;
   lowPower: boolean;
   layers: SceneLayers;
+  /** Draws selection outlines in the given container (or in each token's own with null). */
+  liftSelections: (host: Container | null) => void;
   /** The map's size in world px while it is shown: one object, since the lighting compares it by reference. */
   bounds: () => MapBounds | null;
 }
@@ -38,9 +40,15 @@ export class LitHost {
       this.drop();
       return;
     }
-    if (this.scene !== null) return;
+    // Takes in the store's newest messages now, so the view's decision to draw (which runs next) sees them.
+    if (this.scene !== null) {
+      this.scene.refresh();
+      return;
+    }
     const { app, store, assets, lowPower, layers, bounds } = this.deps;
     orderLayers(true, layers);
+    viewport.addChild(layers.selection);
+    this.deps.liftSelections(layers.selection);
     this.scene = new LitScene({
       viewport, app, store, assets,
       map: () => ({ bounds: bounds() }),
@@ -62,6 +70,8 @@ export class LitHost {
     const scene = this.scene;
     this.scene = null;
     scene.destroy();
+    this.deps.liftSelections(null);
+    this.deps.layers.selection.parent?.removeChild(this.deps.layers.selection);
     orderLayers(false, this.deps.layers);
   }
 }

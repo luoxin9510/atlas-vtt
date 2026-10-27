@@ -7,6 +7,8 @@ export interface SceneLayers {
   readonly fog: Container;
   readonly pins: Container;
   readonly annotations: Container;
+  /** Selection outlines, lifted out of the token containers in a lit scene only. */
+  readonly selection: Container;
 }
 
 /**
@@ -15,7 +17,7 @@ export interface SceneLayers {
  *
  * Unlit: map, grid, annotations, pins, tokens, fog (fog covers tokens).
  * Lit: map, grid, tokens (whole, under the lighting), lighting, fog, sensed outlines, door
- * badges, annotations, pins.
+ * badges, annotations, pins, selection outlines (z 99).
  */
 export function orderLayers(lit: boolean, layers: SceneLayers): void {
   layers.map.zIndex = -1;
@@ -24,6 +26,7 @@ export function orderLayers(lit: boolean, layers: SceneLayers): void {
     layers.fog.zIndex = 92;
     layers.annotations.zIndex = 97;
     layers.pins.zIndex = 98;
+    layers.selection.zIndex = 99;
   } else {
     layers.annotations.zIndex = 10;
     layers.pins.zIndex = 20;

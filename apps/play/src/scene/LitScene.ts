@@ -55,6 +55,7 @@ export class LitScene {
   private applied: Pick<LitInputs, 'lighting' | 'sight'> | null = null;
   private exploredRef: AssetRef | null = null;
   private exploredUrl: string | null = null;
+  private sensedShown: LitInputs['sensed'] | null = null;
   private failed = false;
   private destroyed = false;
   private readonly unsubscribe: () => void;
@@ -79,6 +80,11 @@ export class LitScene {
     const { lit } = this.deps.store.getState();
     if (lit.lighting === null || lit.sight === null || this.applied?.lighting !== lit.lighting || this.applied.sight !== lit.sight) return false;
     return renderer.isEnabled() && renderer.sightIsCurrent() && renderer.hasWorld();
+  }
+
+  /** Takes in the store's current messages at once (the owner asks before it decides what to draw). */
+  refresh(): void {
+    this.follow();
   }
 
   /** The map image arrived or went: the engine reads its size again. */
@@ -156,7 +162,10 @@ export class LitScene {
     this.outlines.view.visible = ready;
     this.doors.container.visible = ready;
     if (!ready) return;
-    this.outlines.sync(lit.sensed.map((mark, index) => ({ id: `sensed-${index}`, x: mark.x, y: mark.y, size: mark.size })));
+    if (this.sensedShown !== lit.sensed) {
+      this.sensedShown = lit.sensed;
+      this.outlines.sync(lit.sensed.map((mark, index) => ({ id: `sensed-${index}`, x: mark.x, y: mark.y, size: mark.size })));
+    }
     this.doors.sync(lit.doors, lit.lighting?.cellSize ?? cell);
   }
 

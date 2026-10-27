@@ -27,14 +27,14 @@ async function whiteMap(): Promise<LoadedAsset> {
   return { bytes, mime: 'image/png', width: null, height: null };
 }
 
-async function open(store: TableStoreApi): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn> }> {
+async function open(store: TableStoreApi, onDrawn: (drawn: boolean) => void = () => undefined): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn> }> {
   const element = document.createElement('div');
   element.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px';
   document.body.appendChild(element);
   cleanup.push(() => element.remove());
   const asset = await whiteMap();
   const load = vi.fn(async (): Promise<LoadedAsset | null> => asset);
-  const view = new SceneView(element, store, { load, cancel: vi.fn() } as Pick<AssetLoader, 'load' | 'cancel'>, true);
+  const view = new SceneView(element, store, { load, cancel: vi.fn() } as Pick<AssetLoader, 'load' | 'cancel'>, true, () => undefined, onDrawn);
   cleanup.push(() => view.destroy());
   await view.whenReady();
   return { view, load };
@@ -176,6 +176,61 @@ describe('player lit scenes', () => {
     // Fog over the lit room covers it.
     store.applyMessage({ t: 'fog', scene: 's1', fog: [{ type: 'rectangle', erase: false, x: 0, y: 0, width: 512, height: 512 }] }, 0);
     await vi.waitFor(() => expect(isBlack(pixelAt(view, 150 * SCALE, 150 * SCALE))).toBe(true));
+  });
+});
+
+const HERO = { id: 'a'.repeat(24), x: 400, y: 150, size: 100, cells: 1, rotation: 0, art: null, name: null, ring: null, claim: null, badge: null, ui: null };
+const eye = (x: number): object => ({ id: 'eye', x, y: 150, size: 1, vision: { senses: [] } });
+const tokenView = (view: SceneView, id: string): unknown => (view as unknown as { tokenLayer: { containerOf(id: string): unknown } }).tokenLayer.containerOf(id);
+const parts = (view: SceneView): { fog: unknown; grid: unknown } => view as unknown as { fog: unknown; grid: unknown };
+
+describe('player lit scenes across updates', () => {
+  it('keeps the lit picture across a sight update', async () => {
+    const store = createTableStore();
+    const drawn = vi.fn();
+    const { view } = await open(store, drawn);
+    lit(store);
+    store.applyMessage({ t: 'grid', scene: 's1', grid: { type: 'square', size: 64, offsetX: 0, offsetY: 0, colour: '#ff0000', alpha: 1, lineWidth: 3, lineType: 'solid', numbers: null } }, 0);
+    store.applyMessage({ t: 'tokens', scene: 's1', tokens: [HERO], cell: 70, snap: null }, 0);
+    await vi.waitFor(() => expect(mapVisible(view)).toBe(true), { timeout: 10_000 });
+    await vi.waitFor(() => expect(tokenView(view, HERO.id)).toBeDefined());
+    const before = { fog: parts(view).fog, grid: parts(view).grid, token: tokenView(view, HERO.id) };
+    expect(before.fog).not.toBeNull();
+    expect(before.grid).not.toBeNull();
+    drawn.mockClear();
+    const unlitMap = (): void => {
+      // Behind the wall and outside the room it is dark; the white map must never show.
+      for (const [x, y] of [[400, 150], [150, 400], [20, 20], [480, 480]] as const) expect(isBlack(pixelAt(view, x * SCALE, y * SCALE))).toBe(true);
+    };
+    for (let step = 1; step <= 6; step++) {
+      store.applyMessage({
+        t: 'sight', scene: 's1', seq: 1 + step, lighting: { enabled: true, ambient: 0 },
+        lights: [{ id: 'lamp', x: 150, y: 150, emission: { bright: 20, dim: 40, color: '#ffffff', intensity: 1, animation: 'none' } }],
+        tokens: [eye(100 + step * 8)], held: [],
+      }, 0);
+      // No frame between the message and the next render may show an unlit map or tear the scene down.
+      expect(mapVisible(view)).toBe(true);
+      unlitMap();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      unlitMap();
+    }
+    expect(drawn).not.toHaveBeenCalledWith(false);
+    expect(parts(view).fog).toBe(before.fog);
+    expect(parts(view).grid).toBe(before.grid);
+    expect(tokenView(view, HERO.id)).toBe(before.token);
+  });
+
+  it('draws the selection outline over the lighting', async () => {
+    const store = createTableStore();
+    const { view } = await open(store);
+    lit(store);
+    store.applyMessage({ t: 'tokens', scene: 's1', tokens: [HERO], cell: 70, snap: null }, 0);
+    await vi.waitFor(() => expect(mapVisible(view)).toBe(true), { timeout: 10_000 });
+    store.select(HERO.id);
+    // The token stands in the dark behind a wall (ambient 0): its white ring (radius 53) is not darkened.
+    const ring = (): boolean => [175, 176, 177, 178, 179].some((x) => pixelAt(view, x, 150 * SCALE).every((v) => v > 200));
+    await vi.waitFor(() => expect(ring()).toBe(true), { timeout: 10_000 });
+    expect(isBlack(pixelAt(view, 400 * SCALE, 150 * SCALE))).toBe(true);
   });
 });
 
