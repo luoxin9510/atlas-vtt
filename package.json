@@ -2,9 +2,7 @@
   "name": "atlas-vtt",
   "version": "0.9.1",
   "main": "dist/main.js",
-  "workspaces": [
-    "apps/*"
-  ],
+  "workspaces": ["apps/*"],
   "scripts": {
     "relay": "node apps/relay/src/main.ts",
     "check:relay": "tsc -p apps/relay",

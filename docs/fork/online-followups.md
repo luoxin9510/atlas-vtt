@@ -39,3 +39,11 @@ Plan 2; pick them up when touching the code nearby.
 - The node end-to-end test has no Pixi view, so it drives the map request through `mapRequest` + `assets.load` and checks the GM serves nothing for a lit scene; the drawing itself is covered by the browser test (red map pixel, token art requested, under the CSP). Not covered: fog operations, pins and annotations drawn in a real browser.
 - The end-to-end test fakes Atlas's player settings (`getLocalPlayerViewSettings`) and wires Atlas's real `DiceTool` into the fake tab; if Atlas's plugin surface changes, `tests/unit/play/endToEnd.test.ts` is the place that breaks first.
 - The Chromium launch args (`--use-angle=swiftshader`, `--enable-unsafe-swiftshader`) are kept so Pixi gets WebGL on machines without a GPU; the test also passed without them on the development Mac.
+- Render on change via the shared `RenderScheduler` instead of a continuous ticker (battery); a 100 ms idle input interval.
+- The main chunk is about 542 kB (all locales): split it for mainland mobile networks.
+- No open timeout (10 s) and no dead-socket check while waiting for the first frame; no `visibilitychange` / `online` hook to reconnect promptly after a phone wakes.
+- Tokens outside the map rect are not covered by the fog sprite (including the whole-map cover for invalid fog).
+- CSP `connect-src 'self'` against older iOS Safari (CSP3 `ws:` matching): check on the M6 phone test.
+- Other players see a content-free "secret roll" line for gm/blind/self rolls (upstream behaviour; it reveals that a hidden roll happened).
+- Deferred minors from the per-task reviews: close-reason test weakness, unused `now` option, unguarded second welcome, part-to-yourCode routing, hash-only download keys, `blobCache` `forget()` not closing, no GPU destroy test, card stays open over a fogged own token, `JSON.stringify(ui)` per sync, condition icon letters, badges / pin-found not drawn, row `key=index`, `rollRefusal` only in the dice tab, tab `aria-controls`, `BlobPart` cast, composer draft lost on tab switch, e2e `serve()` port race, roll count by JSON substring and a fixed sleep, swiftshader args, `endToEnd.test.ts` size.
+- Token and initiative art that fails while the table is unreachable is not asked for again until the token list changes (only the map download retries).
