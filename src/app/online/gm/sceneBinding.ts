@@ -36,6 +36,8 @@ export interface SceneBinding extends TabBinding {
 export interface SceneBindingPorts {
   readonly app: App;
   readonly seats: SeatSource;
+  /** The fork level a player's app declared; 0 when none. */
+  forkLevelOf(player: string): number;
   send(body: GmMessage, to?: string): void;
   /** Sends a live message to all ahead of other frames; a newer one of the same key replaces it while it waits. */
   sendLive(body: GmMessage, key: string, to?: string): void;
@@ -110,6 +112,7 @@ export function bindScene(ports: SceneBindingPorts, tab: AtlasTab, presented: Pr
     drawnPlaces: (tokenIds) => drawnTokenPlaces(shownRenderer(), tokenIds),
     notice: (text) => live() && showNotice(text),
     seats: ports.seats,
+    forkLevelOf: (player) => ports.forkLevelOf(player),
     randomId: () => ports.randomId(),
     logRoll: (roll) => live() && ports.logRoll(roll),
     logArt: (hash) => ports.logArt(hash),

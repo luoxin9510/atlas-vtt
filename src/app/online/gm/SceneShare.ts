@@ -9,6 +9,7 @@ import { dragRulerPaths, PlayerDragRulers, type GmRuler, type RulerPaths } from 
 import { AssetAnswers } from './assetAnswers.ts';
 import { imageMimeType, REPEAT_REQUEST_MS, sha256Hex } from './assetServe.ts';
 import type { ScaleImage } from './assetVariants.ts';
+import { YourTurnShare } from './YourTurnShare.ts';
 import { MineShare } from './mineShare.ts';
 import { mapRollDice, tokenRollDice } from './rollAdvantage.ts';
 import { InputShare } from './InputShare.ts';
@@ -40,6 +41,8 @@ export interface SceneSharePorts extends TokenSharePorts, RulesSharePorts, Pick<
   drawnPlaces?(tokenIds: readonly string[]): ReadonlyMap<string, { readonly x: number; readonly y: number }>;
   /** Who plays and owns which token; without it no player is told which tokens are theirs. */
   seats?: SeatSource | undefined;
+  /** The fork level a player's app declared (`ForkClients.levelOf`); without it every player has level 0. */
+  forkLevelOf?(player: string): number;
   /** Where the GM's lighting reads its rules and measurement, or null while it cannot be read. */
   lightingSource(): LightingSource | null;
   /** The Atlas settings that decide what players get. */
@@ -99,7 +102,16 @@ export class SceneShare {
     const mine = seats === undefined ? null : new MineShare({ onlinePlayers: () => seats.onlinePlayers(), ownerOf, diceOf }, (body, to) => ports.send(body, to));
     this.mine = mine;
     // The initiative list shows the players' look-alike numbers too: it follows them as they change
-    this.tokens = new TokenShare(store, { ...ports, numbersChanged: () => this.layers.update(), liveCarriedUntil: (alias) => this.live?.carriedUntil(alias) }, (listed) => mine?.setList(listed));
+    const yourTurn = new YourTurnShare({ ownerOf, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0, send: (body, to) => ports.send(body, to) });
+    this.tokens = new TokenShare(store, {
+      ...ports,
+      numbersChanged: () => this.layers.update(),
+      liveCarriedUntil: (alias) => this.live?.carriedUntil(alias),
+      turnChanged: (scene, turn) => yourTurn.update(scene, turn),
+    }, (listed) => {
+      mine?.setList(listed);
+      if (listed === null) yourTurn.reset();
+    });
     const rulers = (): RulerPaths => dragRulerPaths(store.getState(), ports.gmDragRuler?.() ?? null, this.moves.dragStarts());
     this.live = ports.sendLive === undefined ? null : new LiveShare(store, { ...ports, sendLive: (body, key) => ports.sendLive?.(body, key), rulers }, () => ({
       scene: this.tokens.listedScene,
