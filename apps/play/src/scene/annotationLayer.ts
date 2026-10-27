@@ -25,7 +25,8 @@ export class AnnotationLayer {
     if (annotations === this.shown) return;
     this.shown = annotations;
     const strokes: Record<string, DrawingStroke> = {};
-    annotations.drawings.forEach((drawing, i) => { strokes[`d${i}`] = sharedDrawingToStroke(drawing, `d${i}`); });
+    annotations.drawings.forEach((drawing, i) => { const id = `d${i}-${drawing.type}-${drawing.icon ?? ''}`;
+      strokes[id] = sharedDrawingToStroke(drawing, id); });
     this.drawingLayer.sync(strokes);
     annotations.texts.forEach((text, i) => {
       const element = sharedTextToElement(text, `t${i}`);

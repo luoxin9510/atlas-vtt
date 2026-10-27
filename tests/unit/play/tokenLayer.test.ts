@@ -60,3 +60,34 @@ describe('TokenLayer', () => {
     layer.destroy();
   });
 });
+
+describe('TokenLayer art cache', () => {
+  const art = (hash: string): SharedToken['art'] => ({ hash, size: 1, mime: 'image/png' });
+
+  it('drops a hash from the cache when its last token leaves', () => {
+    const layer = new TokenLayer({ load: vi.fn(() => new Promise<null>(() => undefined)) }, true);
+    layer.sync([token('a', 0, 0, 60, { art: art('1'.repeat(64)) }), token('b', 0, 0, 60, { art: art('2'.repeat(64)) })], new Set(), null);
+    expect(layer.cachedArt().sort()).toEqual(['1'.repeat(64), '2'.repeat(64)]);
+    layer.sync([token('b', 0, 0, 60, { art: art('2'.repeat(64)) })], new Set(), null);
+    expect(layer.cachedArt()).toEqual(['2'.repeat(64)]);
+    layer.destroy();
+    expect(layer.cachedArt()).toEqual([]);
+  });
+
+  it('retries a failed load once the retry time has passed', async () => {
+    let time = 0;
+    const load = vi.fn(async () => null);
+    const layer = new TokenLayer({ load }, true, () => time);
+    const list = [token('a', 0, 0, 60, { art: art('1'.repeat(64)) })];
+    layer.sync(list, new Set(), null);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    time = 5_000;
+    layer.sync(list, new Set(), null);
+    expect(load).toHaveBeenCalledTimes(1);
+    time = 10_000;
+    layer.sync(list, new Set(), null);
+    expect(load).toHaveBeenCalledTimes(2);
+    layer.destroy();
+  });
+});
