@@ -17,18 +17,6 @@ const TABS: readonly { tab: Tab; label: MessageKey }[] = [
   { tab: 'players', label: 'onlinePlay.tab.players' },
 ];
 
-/** Whether the image-fallback line shows: for a few seconds after each new fallback. */
-function useFallbackNotice(count: number): boolean {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    if (count === 0) return undefined;
-    setShown(true);
-    const timer = window.setTimeout(() => setShown(false), 4000);
-    return () => window.clearTimeout(timer);
-  }, [count]);
-  return shown;
-}
-
 export interface PanelDockProps {
   session: Session;
 }
@@ -43,8 +31,6 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
   const refusal = useStore(store, (state) => state.rollRefusal);
   const self = useStore(store, (state) => state.self);
   const [sendFailed, setSendFailed] = useState(false);
-  const fallbacks = useStore(store, (state) => state.assetFallbacks);
-  const fallbackNotice = useFallbackNotice(fallbacks);
   const actions = useMemo(() => sessionActions(session, (ok) => setSendFailed(!ok)), [session]);
   const unread = useSyncExternalStore(log.subscribe, () => log.snapshot().unread);
   useEffect(() => {
@@ -62,7 +48,6 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
           </button>
         ))}
       </div>
-      {fallbackNotice ? <p className="atlas-play-reason" role="status">{t('onlinePlay.assets.socketFallback')}</p> : null}
       {sendFailed ? <p className="atlas-play-reason" role="alert">{t('onlinePlay.send.failed')}</p> : null}
       {open !== null ? (
         <div className="atlas-play-panel" role="tabpanel">

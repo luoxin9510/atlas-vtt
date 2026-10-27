@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import type { MessageKey } from '../../../../src/app/i18n/index.ts';
+import { t, type MessageKey } from '../../../../src/app/i18n/index.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { GmMessage, LogMessage, PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import { LogState } from '../../../../src/app/online/tableLog/index.ts';
@@ -55,7 +55,7 @@ export class Session {
       send: (body) => void this.send(body),
       cache: env.indexedDB === null ? memoryCache() : indexedDbCache(env.indexedDB),
       now: () => Date.now(),
-      onFallback: () => this.store.noteAssetFallback(),
+      onFallback: () => this.log.addLocal(t('onlinePlay.assets.socketFallback'), Date.now()),
     });
     this.feed = new GameFeed({
       send: (body) => void this.send(body),

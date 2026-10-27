@@ -1,4 +1,5 @@
 import { GM_AUTHOR, type LogEntry, type TablePerson } from '../protocol/index.ts';
+import type { LocalEntry } from './LogState.ts';
 import { t } from '../../i18n';
 
 /** Someone a whisper is for, as the viewer reads it: "you", "GM", a name, or "someone" for a person who left. */
@@ -21,13 +22,13 @@ export function audienceNames(to: readonly string[], people: readonly TablePerso
 }
 
 /** Everyone a whispered entry or a private roll is for besides the viewer: its author and its audience; null for an entry everyone sees. */
-export function audienceOf(entry: LogEntry, self: string | null): readonly string[] | null {
+export function audienceOf(entry: LogEntry | LocalEntry, self: string | null): readonly string[] | null {
   if ((entry.kind !== 'chat' && entry.kind !== 'roll') || entry.to === undefined) return null;
   return [...new Set([entry.who, ...entry.to])].filter((id) => id !== self);
 }
 
 /** Who `/reply` whispers to: the author and the other people of the newest whisper the viewer was sent; null where none was. */
-export function lastWhisperAudience(entries: readonly LogEntry[], self: string | null): readonly string[] | null {
+export function lastWhisperAudience(entries: readonly (LogEntry | LocalEntry)[], self: string | null): readonly string[] | null {
   if (self === null) return null;
   const whisper = entries.findLast((entry) => entry.kind === 'chat' && entry.who !== self && entry.to?.includes(self) === true);
   const audience = whisper === undefined ? null : audienceOf(whisper, self);

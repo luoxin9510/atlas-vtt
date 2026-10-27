@@ -66,6 +66,8 @@ export class AssetLoader {
   private readonly pending = new Map<string, Promise<LoadedAsset | null>>();
   /** Which variant a requested hash and longest side were answered with: in memory only. */
   private readonly variants = new Map<string, Variant>();
+  /** Hashes (requested and expected) that already fell back to the socket: later loads ask by socket at once and the notice is not repeated. */
+  private readonly fallenBack = new Set<string>();
   /** Whether the GM can be asked now (joined, GM online); asks and re-asks wait for it. */
   private connected = true;
 
@@ -92,7 +94,7 @@ export class AssetLoader {
     return new Promise((resolve) => {
       const download: Download = {
         ref, maxSide, expected: ref, variant: null, chunks: new Map(), count: null,
-        lastProgress: this.ports.now(), reasks: 0, retried: false, ticketing: false, viaSocket: false, settle: resolve,
+        lastProgress: this.ports.now(), reasks: 0, retried: false, ticketing: false, viaSocket: this.fallenBack.has(ref.hash), settle: resolve,
       };
       this.downloads.set(ref.hash, download);
       this.request(download, 0);
@@ -120,7 +122,8 @@ export class AssetLoader {
       const good = bytes !== null && bytes.length === expected.size && (await sha256Hex(bytes).catch(() => null)) === expected.hash;
       if (this.downloads.get(download.ref.hash) !== download || !download.ticketing) return;
       if (!good) return this.fallBack(download);
-      download.ticketing = false;
+      // Stays guarded (ticketing) until settled: a tick in the cache write must not re-ask without via.
+      download.lastProgress = this.ports.now();
       await this.ports.cache.put(expected.hash, bytes).catch(() => undefined);
       if (this.downloads.get(download.ref.hash) !== download) return;
       this.settleWith(download, bytes);
@@ -136,7 +139,10 @@ export class AssetLoader {
     download.count = null;
     download.lastProgress = this.ports.now();
     this.request(download, 0);
-    this.ports.onFallback?.(download.ref.hash);
+    const fresh = !this.fallenBack.has(download.ref.hash);
+    this.fallenBack.add(download.ref.hash);
+    this.fallenBack.add(download.expected.hash);
+    if (fresh) this.ports.onFallback?.(download.ref.hash);
   }
 
   /** Handles a GM message if it is about an asset. */

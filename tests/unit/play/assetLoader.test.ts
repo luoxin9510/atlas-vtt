@@ -307,6 +307,45 @@ describe('AssetLoader', () => {
       expect((await result)?.bytes).toEqual(png);
     });
 
+    it('remembers a fallback across a reconnect and a new load, with one notice', async () => {
+      const fetcher = vi.fn<typeof fetch>(async () => new Response('no', { status: 404 }));
+      const { loader, sent, fallbacks } = setup(memoryCache(), fetcher);
+      const first = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      loader.setConnected(false);
+      expect(await first).toBeNull();
+      loader.setConnected(true);
+      const again = loader.load(ref, null);
+      await flush();
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      feed(loader, assetChunks(hash, png));
+      expect((await again)?.bytes).toEqual(png);
+      expect(fallbacks).toEqual([hash]);
+    });
+
+    it('never re-asks without via while a good ticket is being cached', async () => {
+      let release: () => void = () => undefined;
+      const slow: BlobCache = {
+        get: async () => null,
+        put: () => new Promise<void>((resolve) => { release = resolve; }),
+      };
+      const { loader, sent, clock } = setup(slow, okFetch(png));
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      clock.now += STALL_MS;
+      loader.tick();
+      expect(sent.slice(1).every((m) => m.t === 'asset-request' && m.via === 'socket')).toBe(true);
+      release();
+      expect((await result)?.bytes).toEqual(png);
+    });
+
     it('keeps via socket on the retry after a corrupted chunk download', async () => {
       const { loader, sent } = setup(memoryCache(), vi.fn<typeof fetch>(async () => new Response('', { status: 500 })));
       const result = loader.load(ref, null);

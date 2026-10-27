@@ -1,4 +1,5 @@
 import { GM_AUTHOR, PLAYER_COLOURS, playerColourVariable, playerTone, type LogEntry, type LogReactionEmoji, type LogSpeaker } from '../protocol/index.ts';
+import type { LocalEntry } from './LogState.ts';
 import { sameAudience } from './audience.ts';
 import { t } from '../../i18n';
 
@@ -12,7 +13,7 @@ const sameSpeaker = (a: LogSpeaker | undefined, b: LogSpeaker | undefined): bool
  * said the same way (style and speaker) to the same people, and no reply. Such a row drops its
  * avatar and byline.
  */
-export function continuesPrevious(prev: LogEntry | undefined, cur: LogEntry): boolean {
+export function continuesPrevious(prev: LogEntry | LocalEntry | undefined, cur: LogEntry): boolean {
   if (prev === undefined || prev.kind !== 'chat' || cur.kind !== 'chat') return false;
   if (prev.who !== cur.who || cur.reply !== undefined) return false;
   if (prev.style !== cur.style || !sameSpeaker(prev.speaker, cur.speaker) || !sameAudience(prev.to, cur.to)) return false;
