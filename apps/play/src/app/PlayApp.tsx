@@ -8,8 +8,10 @@ import { AppShell } from '../ui/AppShell.tsx';
 import { JoinScreen } from '../ui/JoinScreen.tsx';
 import { LegalLinks } from '../ui/LegalLinks.tsx';
 import { SceneCanvas } from '../ui/SceneCanvas.tsx';
+import { PanelDock } from '../ui/PanelDock.tsx';
 import { SettingsSheet } from '../ui/SettingsSheet.tsx';
 import { StatusBar } from '../ui/StatusBar.tsx';
+import { YourTurnBanner } from '../ui/YourTurnBanner.tsx';
 import type { Session } from './session.ts';
 
 export interface PlayAppProps {
@@ -48,6 +50,8 @@ function Table({ session, language, lowPower: initialLowPower, storage, reload }
       <StatusBar status={status} ownCode={ownCode} onSettings={() => setSettings(true)} />
       {status.kind === 'connecting' && name !== '' ? <p className="atlas-play-welcome">{t('onlinePlay.join.back', { name })}</p> : null}
       <SceneCanvas store={session.store} assets={session.assets} lowPower={lowPower} />
+      <YourTurnBanner store={session.store} lowPower={lowPower} />
+      <PanelDock session={session} />
       {settings ? (
         <SettingsSheet
           language={language} lowPower={lowPower} ownCode={ownCode} onLanguage={onLanguage}

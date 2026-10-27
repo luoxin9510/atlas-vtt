@@ -36,6 +36,7 @@ export interface TableActions {
   setOwnCode(code: string): void;
   select(id: string | null): void;
   dismissYourTurn(): void;
+  clearRollRefusal(): void;
 }
 
 export type TableStore = StoreApi<TableState> & TableActions;
@@ -121,6 +122,9 @@ export function createTableStore(): TableStore {
     },
     dismissYourTurn(): void {
       store.setState({ yourTurnAt: null });
+    },
+    clearRollRefusal(): void {
+      if (store.getState().rollRefusal !== null) store.setState({ rollRefusal: null });
     },
   });
 }
