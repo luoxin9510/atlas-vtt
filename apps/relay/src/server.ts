@@ -24,7 +24,9 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
   tables.ensureTicketKey();
   const assets = await AssetStore.open(config.assetDir ?? join(dirname(config.statePath), 'assets'), assetLimitsOf(config), Date.now);
+  // No await between open and subscribe, and the purge runs after: a table that ended during the open (or before this start) is not missed.
   tables.subscribe({ replaced: () => undefined, ended: (code) => void assets.deleteTable(code).catch(() => undefined) });
+  await assets.purgeUnknown((code) => tables.has(code)).catch(() => undefined);
   const sweeper = setInterval(() => void assets.sweep().catch(() => undefined), SWEEP_INTERVAL_MS);
   sweeper.unref();
   const staticDir = config.staticDir === null ? null : resolve(config.staticDir);

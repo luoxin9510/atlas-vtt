@@ -176,6 +176,11 @@ export class AssetStore {
     }
   }
 
+  /** Deletes the images of every table the registry no longer knows (it ended while the relay was down or starting). */
+  async purgeUnknown(has: (code: string) => boolean): Promise<void> {
+    for (const code of await readdir(this.dir)) if (TABLE_CODE_PATTERN.test(code) && !has(code)) await this.deleteTable(code);
+  }
+
   /** The table ended: its images go. */
   async deleteTable(code: string): Promise<void> {
     const table = this.#tables.get(code);

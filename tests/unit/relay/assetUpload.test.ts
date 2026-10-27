@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -252,5 +252,29 @@ describe('keeping and cleaning', () => {
     await reopened.sweep();
     expect(reopened.status(CODE, hash)).toEqual({ parts: [] });
     expect(existsSync(join(dir, CODE, '.parts', hash))).toBe(false);
+  });
+
+  it('purges the folder of a table the state file no longer lists', async () => {
+    const assetDir = mkdtempSync(join(tmpdir(), 'atlas-assets-'));
+    const statePath = join(assetDir, 'state.json');
+    folders.push(assetDir);
+    writeFileSync(statePath, JSON.stringify({ version: 1, tables: {}, ticketKey: null }));
+    mkdirSync(join(assetDir, CODE, '.parts'), { recursive: true });
+    writeFileSync(join(assetDir, CODE, 'f'.repeat(64)), PNG_HEAD);
+    running.push(await startTestRelay({ assetDir, statePath }));
+    expect(existsSync(join(assetDir, CODE))).toBe(false);
+  });
+
+  it('purges the images of a table that is already expired at start', async () => {
+    const assetDir = mkdtempSync(join(tmpdir(), 'atlas-assets-'));
+    const statePath = join(assetDir, 'state.json');
+    folders.push(assetDir);
+    writeFileSync(statePath, JSON.stringify({ version: 1, tables: { [CODE]: { secretHash: 'a'.repeat(64), lastHostedAt: 1 } }, ticketKey: null }));
+    mkdirSync(join(assetDir, CODE), { recursive: true });
+    writeFileSync(join(assetDir, CODE, 'f'.repeat(64)), PNG_HEAD);
+    const relay = await startTestRelay({ assetDir, statePath });
+    running.push(relay);
+    expect(relay.tables.has(CODE)).toBe(false);
+    expect(existsSync(join(assetDir, CODE))).toBe(false);
   });
 });
