@@ -2,7 +2,7 @@ import { ASSET_CHUNK_BYTES, isCount, isHash, isMaxSide, MAX_ASSET_BYTES, parseAs
 import { isBookType, isPlayerBookType, parseBookCover, parseBookMessage, parseBookTokenMessage, parsePlayerBookMessage, type BookMessage, type BookTokenMessage, type PlayerBookCover, type PlayerBookMessage, type PlayerBookParts } from './book.ts';
 import { parseBookRestMessage, type BookRestMessage } from './bookRest.ts';
 import { isDeltaOf, parseDelta, parseSeq, type DeltaMessage, type DeltaOf } from './delta.ts';
-import { parsePlayerClient, parseYourTurn, type PlayerClient, type YourTurnMessage } from './fork.ts';
+import { parseAssetTicket, parsePause, parsePlayerClient, parseYourTurn, type AssetTicketMessage, type PauseMessage, type PlayerClient, type YourTurnMessage } from './fork.ts';
 import { parseFog, type SharedFog } from './fog.ts';
 import { parseImageMessage, type ImageMessage } from './image.ts';
 import { parseInitiative, type SharedInitiative } from './initiative.ts';
@@ -54,6 +54,8 @@ export type GmMessage =
   | AssetVariant
   /** Sent to one player (fork protocol): a token of theirs has just been given the turn. */
   | YourTurnMessage
+  | PauseMessage
+  | AssetTicketMessage
   /** The committed fog of the scene `scene`; `seq` numbers it for the deltas that follow. */
   | { readonly t: 'fog'; readonly scene: string; readonly seq?: number; readonly fog: SharedFog }
   | ({ readonly t: 'lighting'; readonly scene: string } & SharedLightingScene)
@@ -105,12 +107,14 @@ export interface PlayerResync {
 /**
  * A player asks for an asset by hash, from chunk `from` on (a download cut short continues where it
  * stopped; 0 when absent). With `maxSide` an image larger than that comes as a scaled copy (`AssetVariant`).
+ * With `via: 'socket'` (fork level 2) the player wants chunks and no ticket.
  */
 export interface PlayerAssetRequest {
   readonly t: 'asset-request';
   readonly hash: string;
   readonly from?: number;
   readonly maxSide?: number;
+  readonly via?: 'socket';
 }
 
 export type PlayerMessage = PlayerAssetRequest | PlayerResync | PlayerMove | PlayerDrag | PlayerDragCancel | PlayerRoll | PlayerLaser | PlayerMeasure | PlayerCursor | PlayerLogMessage | PlayerBookMessage | PlayerBookParts | PlayerBookCover | BookTokenMessage | BookRestMessage | PlayerPinFound | PlayerClient;
@@ -232,6 +236,10 @@ export function parseGmMessage(value: unknown): GmMessage | null {
       return { t: 'part', id: value.id, index: value.index, count: value.count, data: value.data };
     case 'your-turn':
       return parseYourTurn(value);
+    case 'pause':
+      return parsePause(value);
+    case 'asset-ticket':
+      return parseAssetTicket(value);
     case 'move-refused':
       return parseMoveRefused(value);
     case 'rules':
@@ -280,7 +288,8 @@ export function parsePlayerMessage(value: unknown): PlayerMessage | null {
 function parseAssetRequest(value: Record<string, unknown>): PlayerAssetRequest | null {
   if (!isHash(value.hash)) return null;
   if (value.maxSide !== undefined && !isMaxSide(value.maxSide)) return null;
-  const maxSide = value.maxSide === undefined ? {} : { maxSide: value.maxSide };
-  if (value.from === undefined || value.from === 0) return { t: 'asset-request', hash: value.hash, ...maxSide };
-  return isCount(value.from, MAX_CHUNKS - 1) ? { t: 'asset-request', hash: value.hash, from: value.from, ...maxSide } : null;
+  if (value.via !== undefined && value.via !== 'socket') return null;
+  const extra = { ...(value.maxSide === undefined ? {} : { maxSide: value.maxSide }), ...(value.via === undefined ? {} : { via: 'socket' as const }) };
+  if (value.from === undefined || value.from === 0) return { t: 'asset-request', hash: value.hash, ...extra };
+  return isCount(value.from, MAX_CHUNKS - 1) ? { t: 'asset-request', hash: value.hash, from: value.from, ...extra } : null;
 }

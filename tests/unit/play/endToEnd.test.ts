@@ -231,7 +231,7 @@ describe('a table from the GM through the relay to the player app', () => {
     await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
     await vi.waitFor(() => expect(ana.store.getState().mine.size).toBe(1), { timeout: 10_000 });
     expect(ben.store.getState().mine.size).toBe(0);
-    expect(frames.ana?.some((frame) => frame.includes('"forkLevel":1'))).toBe(true);
+    expect(frames.ana?.some((frame) => frame.includes('"forkLevel":2'))).toBe(true);
 
     // The map loads and verifies against its hash, as the scene view asks for it.
     const wanted = mapRequest(ana.store.getState(), false, 8192);
