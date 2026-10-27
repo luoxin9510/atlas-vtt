@@ -12,10 +12,13 @@ import type { AssetLoader, LoadedAsset } from '../assets/AssetLoader.ts';
 import type { TableState, TableStoreApi } from '../state/tableStore.ts';
 import { CanvasInput } from './canvasInput.ts';
 import { sharedFogOperations } from './fogAdapter.ts';
+import { AnnotationLayer } from './annotationLayer.ts';
 import { FogLayer } from './fogLayer.ts';
 import type { Gesture } from './gestures.ts';
 import { mapRequest } from './mapRequest.ts';
 import { MapSprite } from './mapSprite.ts';
+import { PinLayer } from './PinLayer.ts';
+import { TokenLayer } from './TokenLayer.ts';
 
 export { mapRequest } from './mapRequest.ts';
 
@@ -44,9 +47,12 @@ function maxTextureSize(app: Application): number {
  */
 export class SceneView {
   readonly app = new Application();
-  /** Containers Task 8 fills; they sit between the grid and the fog. */
+  /** Containers of the annotations, pins and tokens; they sit between the grid and the fog. */
   readonly layers = { annotations: new Container({ label: 'annotations' }), pins: new Container({ label: 'pins' }), tokens: new Container({ label: 'tokens' }) };
   private readonly map = new MapSprite();
+  private readonly tokenLayer: TokenLayer;
+  private readonly pinLayer = new PinLayer();
+  private readonly annotationLayer: AnnotationLayer;
   private readonly fogSlot = new Container({ label: 'fog-slot', eventMode: 'none' });
   private viewport: Viewport | null = null;
   private input: CanvasInput | null = null;
@@ -70,6 +76,10 @@ export class SceneView {
     private readonly lowPower: boolean,
     private readonly onGesture: (g: Gesture) => void = () => undefined,
   ) {
+    this.tokenLayer = new TokenLayer(assets, lowPower);
+    this.annotationLayer = new AnnotationLayer(this.layers.annotations);
+    this.layers.pins.addChild(this.pinLayer.container);
+    this.layers.tokens.addChild(this.tokenLayer.container);
     this.ready = this.start();
   }
 
@@ -112,25 +122,19 @@ export class SceneView {
   }
 
   private gesture(g: Gesture): void {
-    if (g.kind === 'tap') this.store.select(this.tokenAt(g.x, g.y));
+    if (g.kind === 'tap' || g.kind === 'long-press') this.store.select(this.tokenAt(g.x, g.y));
     this.onGesture(g);
   }
 
   /** The topmost token at a screen point; none under fog or before the fog is known. */
   private tokenAt(x: number, y: number): string | null {
     const { viewport } = this;
-    const { mode, tokens, fog } = this.store.getState();
+    const { mode, fog } = this.store.getState();
     if (!viewport || mode !== 'map' || fog === undefined) return null;
     const point = viewport.toWorld(x, y);
     const covered = this.coverage(fog);
     if (covered === null) return null;
-    for (let i = tokens.length - 1; i >= 0; i--) {
-      const token = tokens[i]!;
-      if (Math.hypot(point.x - token.x, point.y - token.y) > token.size / 2) continue;
-      if (covered.covers({ x: token.x, y: token.y })) continue;
-      return token.id;
-    }
-    return null;
+    return this.tokenLayer.tokenAt(point.x, point.y, (token) => !covered.covers({ x: token.x, y: token.y }));
   }
 
   /** The fog's coverage, kept while the fog is the same; null when it cannot be worked out (nothing is hit). */
@@ -194,6 +198,7 @@ export class SceneView {
     this.map.layer.visible = known;
     if (!known) {
       this.dropFogAndGrid();
+      this.clearLayers();
       return;
     }
     const rect = this.map.worldRect!;
@@ -211,6 +216,16 @@ export class SceneView {
       else if (this.viewport) this.grid = new GridSystem(this.app, this.viewport, this.map, gridOptions(state.grid));
       this.shownGrid = state.grid;
     }
+    this.annotationLayer.sync(state.annotations);
+    this.pinLayer.sync(state.pins, state.cell);
+    this.tokenLayer.sync(state.tokens, state.mine, state.selected, state.cell);
+  }
+
+  /** Nothing of the scene's annotations, pins or tokens stays drawn while its picture is not shown. */
+  private clearLayers(): void {
+    this.annotationLayer.sync({ drawings: [], texts: [] });
+    this.pinLayer.sync([]);
+    this.tokenLayer.sync([], new Set(), null);
   }
 
   private makeFog(rect: { x: number; y: number; width: number; height: number }): FogLayer {
@@ -242,6 +257,9 @@ export class SceneView {
     this.unsubscribe?.();
     this.input?.destroy();
     this.dropFogAndGrid();
+    this.tokenLayer.destroy();
+    this.pinLayer.destroy();
+    this.annotationLayer.destroy();
     if (this.viewport) {
       this.map.destroy();
       this.viewport.destroy({ children: true });

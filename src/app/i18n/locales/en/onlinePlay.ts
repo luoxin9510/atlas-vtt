@@ -23,4 +23,10 @@ export const onlinePlay = {
   'onlinePlay.close.superseded': 'This table was replaced by a newer one',
   'onlinePlay.close.badOrigin': 'This page is not served from the table address',
   'onlinePlay.close.other': 'The connection was closed',
+  'onlinePlay.token.unnamed': 'Token',
+  'onlinePlay.token.close': 'Close',
+  'onlinePlay.token.bars': 'Resources',
+  'onlinePlay.token.conditions': 'Status',
+  'onlinePlay.token.noConditions': 'No status',
+  'onlinePlay.token.downed': 'Defeated',
 } as const satisfies Record<string, Message>;

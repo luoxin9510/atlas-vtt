@@ -23,4 +23,10 @@ export const onlinePlay: Translation = {
   'onlinePlay.close.superseded': '此桌已被更新的一桌取代',
   'onlinePlay.close.badOrigin': '此页面不是从此桌自己的地址提供的',
   'onlinePlay.close.other': '连接已关闭',
+  'onlinePlay.token.unnamed': '棋子',
+  'onlinePlay.token.close': '关闭',
+  'onlinePlay.token.bars': '资源',
+  'onlinePlay.token.conditions': '状态',
+  'onlinePlay.token.noConditions': '无状态',
+  'onlinePlay.token.downed': '已倒下',
 };
