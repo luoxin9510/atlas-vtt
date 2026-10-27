@@ -35,3 +35,19 @@ describe('memoryCache', () => {
     expect(await cache.get('a')).toEqual(bytes);
   });
 });
+
+describe('indexedDbCache recovery', () => {
+  it('opens again after the first open failed', async () => {
+    const real = new IDBFactory();
+    let calls = 0;
+    const flaky = { open: (...args: Parameters<IDBFactory['open']>): IDBOpenDBRequest => {
+      calls += 1;
+      if (calls === 1) throw new Error('denied');
+      return real.open(...args);
+    } } as unknown as IDBFactory;
+    const cache = indexedDbCache(flaky);
+    expect(await cache.get('a')).toBeNull();
+    await cache.put('a', bytes);
+    expect(await cache.get('a')).toEqual(bytes);
+  });
+});

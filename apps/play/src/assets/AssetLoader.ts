@@ -127,6 +127,8 @@ export class AssetLoader {
       this.fail(download);
       return;
     }
+    // A chunk already held (a GM re-send) changes nothing: the download completes once.
+    if (download.chunks.has(index)) return;
     download.count = count;
     download.lastProgress = this.ports.now();
     download.chunks.set(index, bytes);

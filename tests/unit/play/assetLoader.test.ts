@@ -170,4 +170,31 @@ describe('AssetLoader', () => {
     expect(await result).toBeNull();
     expect(loader.receive({ t: 'resync', scene: 's', of: 'tokens' } as unknown as GmMessage)).toBe(false);
   });
+
+  it('retries a corrupt download once even when its last chunk arrives twice', async () => {
+    const { loader, sent } = setup();
+    const result = loader.load(ref, null);
+    await flush();
+    const copy = png.slice();
+    copy[5000] ^= 1;
+    const chunks = assetChunks(hash, copy);
+    feed(loader, [...chunks, chunks[chunks.length - 1] as GmMessage]);
+    await flush();
+    expect(sent).toHaveLength(2);
+    feed(loader, assetChunks(hash, png));
+    expect((await result)?.bytes).toEqual(png);
+  });
+
+  it('caches a good download once when its last chunk arrives twice', async () => {
+    const puts: string[] = [];
+    const inner = memoryCache();
+    const { loader } = setup({ get: (h) => inner.get(h), put: (h, b) => (puts.push(h), inner.put(h, b)) });
+    const result = loader.load(ref, null);
+    await flush();
+    const chunks = assetChunks(hash, png);
+    feed(loader, [...chunks, chunks[chunks.length - 1] as GmMessage]);
+    await result;
+    await flush();
+    expect(puts).toEqual([hash]);
+  });
 });

@@ -44,6 +44,10 @@ export function indexedDbCache(factory: IDBFactory, name = 'atlas-play-assets'):
     db ??= open(factory, name);
     return db;
   };
+  // A failed or closed connection is forgotten so the next call opens again.
+  const forget = (): void => {
+    db = null;
+  };
   return {
     async get(hash: string): Promise<Uint8Array | null> {
       try {
@@ -51,6 +55,7 @@ export function indexedDbCache(factory: IDBFactory, name = 'atlas-play-assets'):
         const value: unknown = await done(store.get(hash));
         return value instanceof Uint8Array ? value : null;
       } catch {
+        forget();
         return null;
       }
     },
@@ -66,6 +71,7 @@ export function indexedDbCache(factory: IDBFactory, name = 'atlas-play-assets'):
         await finished;
       } catch {
         // A cache that cannot be written is only slower.
+        forget();
       }
     },
   };
