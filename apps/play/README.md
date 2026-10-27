@@ -8,7 +8,7 @@ npm run dev:play        # dev server; /api is proxied to PLAY_RELAY (default htt
 npm run build:play      # apps/play/dist, served by the relay as STATIC_DIR
 npm run check:play      # type check
 npx vitest run --project unit tests/unit/play   # unit tests, incl. the GM-relay-player end-to-end test
-npm run test:play-e2e   # builds the app, then drives it in Chromium under the relay's CSP
+npm run test:play-e2e   # builds the app, then drives it in Chromium under the relay's CSP (needs `npx playwright install chromium` once)
 ```
 
 ## Development

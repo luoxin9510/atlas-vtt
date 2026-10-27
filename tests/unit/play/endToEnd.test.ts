@@ -71,6 +71,23 @@ class ObsidianWebSocket extends WebSocket {
   constructor(url: string) {
     super(url, { headers: { origin: 'app://obsidian.md' } });
   }
+
+  // What the GM puts on the wire, so a test can tell what it served to whom.
+  override send(data: Parameters<WebSocket['send']>[0], ...rest: unknown[]): void {
+    gmSent.push(String(data));
+    (super.send as (...args: unknown[]) => void)(data, ...rest);
+  }
+}
+
+/** Every frame the GM's socket sent, in order. */
+const gmSent: string[] = [];
+/** The asset messages (`asset-chunk`, `asset-variant`) among them as `[hash, player]`. */
+function assetsServed(from: number): [string, string | undefined][] {
+  return gmSent.slice(from).flatMap((text) => {
+    const frame = JSON.parse(text.startsWith('{') ? text : '{}') as { t?: string; to?: string; body?: { t?: string; hash?: string } };
+    const body = frame.body;
+    return frame.t === 'send' && body !== undefined && (body.t === 'asset-chunk' || body.t === 'asset-variant') && body.hash !== undefined ? [[body.hash, frame.to] as [string, string | undefined]] : [];
+  });
 }
 
 /** A player's page socket in Node: the browser's origin header, seen as the app's `SocketLike`. */
@@ -101,9 +118,8 @@ workspace.files = new Map<string, Uint8Array>([['maps/cave.png', png(700, 700)]]
 const entry = (tokenId: string, order: number, active: boolean): InitiativeEntry => ({
   id: `e-${tokenId}`, tokenId, name: tokenId, initiative: 10, initiativeModifier: 0, imagePath: '', isActive: active, isNPC: true, order,
 });
-const tokens = { hero: token('hero', { x: 105 }), ogre: token('ogre', { x: 315 }) };
-const scene = (active: string, lit = false): SceneState => ({
-  ...sceneState({ mapPath: MAP, background: 'maps/cave.png', lighting: { enabled: lit, ambient: 1 }, objects: { ...sceneState().objects, tokens } }),
+const scene = (active: string, lit = false, heroX = 105): SceneState => ({
+  ...sceneState({ mapPath: MAP, background: 'maps/cave.png', lighting: { enabled: lit, ambient: 1 }, objects: { ...sceneState().objects, tokens: { hero: token('hero', { x: heroX }), ogre: token('ogre', { x: 315 }) } } }),
   initiative: { ...createDefaultInitiativeState(), isActive: true, round: 1, entries: [entry('hero', 0, active === 'hero'), entry('ogre', 1, active === 'ogre')] },
   initiativeTrackerOpen: true,
 } as SceneState);
@@ -117,6 +133,7 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', ObsidianWebSocket);
   workspace.leaves = [];
   workspace.presented = null;
+  gmSent.length = 0;
 });
 
 afterEach(async () => {
@@ -239,32 +256,46 @@ describe('a table from the GM through the relay to the player app', () => {
     await vi.waitFor(() => expect(ana.store.getState().yourTurnAt).not.toBeNull(), { timeout: 10_000 });
     expect(ben.store.getState().yourTurnAt).toBeNull();
 
-    // The GM lights the scene: the player fails closed and asks for no picture.
-    const askedBefore = frames.ana?.filter((frame) => frame.includes('asset-request')).length ?? 0;
+    // The GM lights the scene: the player fails closed.
+    // Covered: (a) the GM served this player the map's bytes before (so the check below can fail), (b) after the
+    // switch the GM serves no chunk or variant of that hash to anyone and (c) the request path the scene view uses
+    // (`mapRequest`) is null for a lit scene. Not covered here: the Pixi view itself (see the browser test).
+    const mapHash = ana.store.getState().scene?.map?.hash ?? '';
+    expect(assetsServed(0).some(([hash, to]) => hash === mapHash && to === anaId)).toBe(true);
+    const servedBefore = gmSent.length;
     tab.store.set(scene('hero', true));
     await vi.waitFor(() => expect(ana.store.getState().mode).toBe('lit-placeholder'), { timeout: 10_000 });
     expect(ana.store.getState().tokens).toHaveLength(0);
     expect(mapRequest(ana.store.getState(), false, 8192)).toBeNull();
-    expect(frames.ana?.filter((frame) => frame.includes('asset-request')).length).toBe(askedBefore);
+    await new Promise((done) => setTimeout(done, 1_000));
+    expect(gmSent.length).toBeGreaterThan(servedBefore);
+    expect(assetsServed(servedBefore)).toEqual([]);
 
     // The relay restarts on the same port and state: the player comes back with her key and the table resyncs.
     tab.store.set(scene('hero'));
     await vi.waitFor(() => expect(ana.store.getState().mode).toBe('map'), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
+    ana.store.dismissYourTurn();
     const key = JSON.parse(frames.ana?.[0] ?? '{}') as { key?: string };
     expect(key.key).toBeUndefined();
     const { port } = new URL(relay.origin);
     const { statePath } = relay.config;
     await relay.close();
     running.length = 0;
+    // While the relay is down the GM moves the hero: the player can only learn of it by resyncing.
+    tab.store.set(scene('hero', false, 205));
+    expect(ana.store.getState().tokens.some((entry) => entry.x === 205)).toBe(false);
     const again = await startTestRelay({ port: Number(port), statePath });
     running.push(again);
     const hellos = (): string[] => frames.ana?.filter((f) => f.includes('"t":"hello"')) ?? [];
     await vi.waitFor(() => expect(hellos()).toHaveLength(2), { timeout: 30_000 });
     await vi.waitFor(() => expect(ana.store.getState().status.kind).toBe('joined'), { timeout: 30_000 });
     expect(ana.store.getState().self).toBe(anaId);
-    tab.store.set(scene('ogre'));
-    await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 15_000 });
+    await vi.waitFor(() => expect(ana.store.getState().tokens.some((entry) => entry.x === 205)).toBe(true), { timeout: 30_000 });
     expect(ana.store.getState().mode).toBe('map');
+    expect(ana.store.getState().mine.size).toBe(1);
+    // A resync is no new turn.
+    expect(ana.store.getState().yourTurnAt).toBeNull();
     expect(JSON.parse(hellos()[1] ?? '{}')).toMatchObject({ role: 'player', name: 'Ana', key: expect.any(String) });
   }, 90_000);
 });
