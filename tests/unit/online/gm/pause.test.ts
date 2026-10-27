@@ -11,6 +11,9 @@ import type { SceneState } from '../../../../src/app/online/gm/atlasView.ts';
 import { boundOwnership, fakeCampaigns } from './fakeSeats.ts';
 import { app, atlasTab, FakeSocket, png, present, workspace } from './fakeTable.ts';
 import { sceneState, shareHarness, token, tokenLists, type ShareHarness } from './shareHarness.ts';
+import { holdTokens } from '../../../../src/app/lighting/sightOnDrop';
+import { beginHistoryTransaction, endHistoryTransaction } from '../../../../src/app/stores/history';
+import { ALIAS, ANA as REAL_ANA, SCENE, STORE_FACTORY, table as realTable, type StoreFactory } from './realStore.ts';
 import { advanceSettled as advance } from './settled.ts';
 import { useUpstreamServer } from './upstreamServer.ts';
 
@@ -218,5 +221,28 @@ describe('the pause entry of the dock menu', () => {
   it('is a checked entry that switches the game pause', () => {
     expect(run(false)).toMatchObject({ checked: false, calls: [true] });
     expect(run(true)).toMatchObject({ checked: true, calls: [false] });
+  });
+});
+
+describe('a move queued behind the GM\'s drag when pause turns on', () => {
+  it('is refused with paused when the GM lets go, and the token stays', async () => {
+    const { createViewAtlasStore } = (await import(/* @vite-ignore */ STORE_FACTORY)) as { createViewAtlasStore: StoreFactory };
+    let paused = false;
+    const { store, moves, sent } = realTable(createViewAtlasStore, () => null, () => false, () => paused);
+    holdTokens(store, ['bear']);
+    beginHistoryTransaction(store);
+    store.getState().setIsDragging(true);
+    store.getState().moveToken('bear', 400, 200);
+    moves.receive(REAL_ANA, { t: 'move', scene: SCENE, id: ALIAS.ogre, x: 735, y: 315 });
+    expect(sent).toEqual([]);
+    paused = true;
+    moves.cancelDrags();
+    store.getState().setIsDragging(false);
+    store.getState().dropTokens([{ id: 'bear', x: 420, y: 210 }]);
+    endHistoryTransaction(store);
+    holdTokens(store, []);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(sent).toEqual([{ body: { t: 'move-refused', scene: SCENE, id: ALIAS.ogre, x: 105, y: 105, reason: 'paused' }, to: REAL_ANA }]);
+    expect(store.getState().objects.tokens.ogre?.x).toBe(105);
   });
 });

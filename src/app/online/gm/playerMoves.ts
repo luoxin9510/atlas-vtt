@@ -138,6 +138,11 @@ export class PlayerMoves {
     const waiting = [...this.waiting.values()];
     this.waiting.clear();
     for (const { from, move, x, y } of waiting) {
+      // Pause may have turned on since the move was queued behind the GM's drag.
+      if (this.ports.paused?.() === true) {
+        this.refuse(from, move, 'paused');
+        continue;
+      }
       const now = this.store.getState();
       const verdict = now.mapLoaded && !now.isMapLoading ? checkMove(from, move, this.context(now)) : null;
       const token = verdict?.ok === true ? mapTokens(now.objects)[verdict.tokenId] : undefined;
