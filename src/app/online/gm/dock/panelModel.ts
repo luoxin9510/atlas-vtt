@@ -49,6 +49,8 @@ export interface OnlineSnapshot {
   readonly seats: number | null;
   /** The running table's gates: the join code, the two switches, who waits for an answer; null while none runs. */
   readonly gate: GateView | null;
+  /** The game is paused: players cannot move tokens; absent while it is not. */
+  readonly playPaused?: boolean;
   /** Players' rest requests waiting for the GM, in the order they came; none while no table runs. */
   readonly rests: readonly RestCard[];
   /** The keys of every card over the control (`knockKey`, `restKey`), in the order they came. */
@@ -106,6 +108,8 @@ export interface OnlineApi {
   hideImage(): void;
   /** The running table's gates; nothing happens while none runs. */
   readonly gate: GateActions;
+  /** Pauses or resumes the game for players; nothing happens while no table runs. */
+  setPlayPaused(on: boolean): void;
   /** The GM's answers to players' rest requests, by card key; nothing happens while no table runs. */
   readonly rests: RestActions;
   onChange(listener: () => void): () => void;
@@ -118,6 +122,7 @@ export type ControlSource = Pick<OnlineControl, 'onChange' | 'status' | 'link' |
     readonly sharedStore: { getState(): { readonly objects: { readonly tokens: Readonly<Record<string, SceneToken>> } } } | null;
     readonly presentedName: string | null;
     readonly gate: GateActions & { view(): GateView };
+    readonly pause: { readonly paused: boolean; set(on: boolean): void };
     readonly rests: RestActions & { cards(): readonly RestCard[] };
     cardOrder(): readonly string[];
     readonly image: { readonly isShown: boolean };
@@ -152,6 +157,7 @@ export function onlineApi(control: ControlSource, hideImage: () => void): Online
       playerTokens: control.playerTokens().map(({ tokenId, label, owner }) => ({ tokenId, label, ownerId: owner?.id ?? null })),
       seats: control.seats(),
       gate: control.table?.gate.view() ?? null,
+      ...(control.table?.pause.paused === true && { playPaused: true }),
       rests: control.table?.rests.cards() ?? [],
       cardOrder: control.table?.cardOrder() ?? [],
       ...(control.table?.image.isShown === true && { imageShown: true }),
@@ -177,6 +183,7 @@ export function onlineApi(control: ControlSource, hideImage: () => void): Online
     removeFromCampaign: (playerId) => control.removeFromCampaign(playerId),
     newLink: () => control.newLink(),
     hideImage,
+    setPlayPaused: (on) => control.table?.pause.set(on),
     gate: {
       newCode: () => control.table?.gate.newCode(),
       setRequireCode: (on) => control.table?.gate.setRequireCode(on),
@@ -294,7 +301,7 @@ export function menuModel(snapshot: OnlineSnapshot, scene: SceneFacts, account: 
   if (!isRunning(snapshot.status) || snapshot.status === 'starting') {
     return { kind: 'start', account, starting: snapshot.status === 'starting', lost: snapshot.status === 'refused' ? snapshot.lost ?? 'refused' : null, outdated: snapshot.outdated === true, campaigns };
   }
-  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate), qr, imageShown: snapshot.imageShown === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
+  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), qr, imageShown: snapshot.imageShown === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
 }
 
 export interface GroupPlayer extends OnlinePlayer {

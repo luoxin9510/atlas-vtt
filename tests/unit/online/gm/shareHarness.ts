@@ -45,6 +45,8 @@ export interface ShareHarness {
   perception: TokenPerception | undefined;
   /** The fork level each player's app declared, by player; absent means 0. */
   forkLevels: ReadonlyMap<string, number>;
+  /** Whether the GM has paused the game. */
+  paused: boolean;
   /** Whether the tab has a renderer. */
   rendered: boolean;
   /** Where the GM's lighting reads its rules, or null while it cannot be read. */
@@ -99,6 +101,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
     notices: [],
     perception: undefined,
     forkLevels: new Map(),
+    paused: false,
     rendered: true,
     lighting: GENERIC_SOURCE,
     settings: PLAYER_SETTINGS,
@@ -141,6 +144,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
       clearTimer: (timer) => void timers.delete(timer),
       seats,
       forkLevelOf: (player) => harness.forkLevels.get(player) ?? 0,
+      paused: () => harness.paused,
     }),
     set: async (next) => {
       current = next;

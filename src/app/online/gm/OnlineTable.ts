@@ -20,6 +20,7 @@ import { TableLog } from './log/TableLog.ts';
 import type { Ownership } from './ownership.ts';
 import { presentedScene, presentedSceneSource } from './presentedScene.ts';
 import { ForkClients } from './forkClients.ts';
+import { PauseShare } from './PauseShare.ts';
 import { bindScene, type SceneBinding } from './sceneBinding.ts';
 import { TabWatch } from './sharedTab.ts';
 import { CoveredPages } from './coveredPages.ts';
@@ -59,6 +60,8 @@ export class OnlineTable {
   private readonly cards: ArmedCards;
   /** The table's gates: the join code, the two switches, and who waits for an answer. */
   readonly gate: TableGate;
+  /** The game pause: while on, players' moves are refused; kept with the table. */
+  readonly pause: { readonly paused: boolean; set(on: boolean): void };
   /** The players of the campaign the table runs on. */
   readonly roster: TableRoster;
   /** The table's log: chat, rolls, who came and went. */
@@ -75,10 +78,30 @@ export class OnlineTable {
   readonly link: string;
   private readonly stopOwnership: () => void;
   /** The fork level each player's app declared. */
-  private readonly forkClients = new ForkClients();
+  private readonly forkClients: ForkClients;
+  private readonly pauseShare: PauseShare;
 
-  constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
+  constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, paused: boolean, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
     this.app = app;
+    this.forkClients = new ForkClients((player) => this.pauseShare.client(player));
+    const pauseShare = new PauseShare({
+      players: () => ownership.onlinePlayers(),
+      levelOf: (player) => this.forkClients.levelOf(player),
+      send: (body, to) => this.connection.send(body, to),
+    }, paused);
+    this.pauseShare = pauseShare;
+    this.pause = {
+      get paused(): boolean {
+        return pauseShare.paused;
+      },
+      set: (on) => {
+        if (on === pauseShare.paused) return;
+        pauseShare.set(on);
+        if (on) this.bound()?.share.cancelDrags();
+        events.paused(on);
+        events.changed();
+      },
+    };
     this.ownership = ownership;
     this.events = events;
     this.link = `${origin}/#${table.code}`;
@@ -146,6 +169,7 @@ export class OnlineTable {
         app,
         seats: ownership,
         forkLevelOf: (player) => this.forkClients.levelOf(player),
+        paused: () => this.pauseShare.paused,
         send: (body, to) => this.connection.send(body, to),
         sendLive: (body, key, to) => this.covers.sendLive(body, key, to),
         readImage: (path) => readVaultImage(app, path),

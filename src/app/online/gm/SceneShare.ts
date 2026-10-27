@@ -43,6 +43,8 @@ export interface SceneSharePorts extends TokenSharePorts, RulesSharePorts, Pick<
   seats?: SeatSource | undefined;
   /** The fork level a player's app declared (`ForkClients.levelOf`); without it every player has level 0. */
   forkLevelOf?(player: string): number;
+  /** Whether the GM has paused the game; without it the game never is. */
+  paused?(): boolean;
   /** Where the GM's lighting reads its rules and measurement, or null while it cannot be read. */
   lightingSource(): LightingSource | null;
   /** The Atlas settings that decide what players get. */
@@ -127,6 +129,7 @@ export class SceneShare {
     this.rules = new RulesShare(store, { ...ports, cursorsShown, rollDice: () => mapRollDice(ports.dice?.() ?? null) });
     this.moves = new PlayerMoves(store, {
       ...ports,
+      paused: () => ports.paused?.() === true,
       context: () => ({
         scene: this.tokens.listedScene,
         listedToken: (alias) => this.tokens.listedToken(alias),
@@ -234,6 +237,11 @@ export class SceneShare {
     if (message.t === 'laser' || message.t === 'measure' || message.t === 'cursor') return this.marks.receive(from, message);
     if (message.t === 'resync') return message.of === 'tokens' ? this.tokens.resync(from, message.scene) : this.inputs.resync(from, message.scene, message.of);
     if (message.t === 'asset-request') this.assets.answer(from, message);
+  }
+
+  /** The game was paused: players' drags in progress end with their tokens back where they were taken from. */
+  cancelDrags(): void {
+    this.moves.cancelDrags();
   }
 
   /** The GM id of a token by the id players know it by in the list of `scene`, while that is the scene of the last list they were sent. */

@@ -17,6 +17,8 @@ export const DRAG_IDLE_MS = 3_000;
 export interface PlayerDragPorts {
   /** The shared scene, its list, owners and map, with the tokens as the store holds them now. */
   context(state: MoveState): MoveContext;
+  /** Whether the GM has paused the game: drags are then ignored. */
+  paused?(): boolean;
   now(): number;
   setTimer(run: () => void, ms: number): number;
   clearTimer(timer: number): void;
@@ -79,6 +81,7 @@ export class PlayerDrags {
 
   /** A drag message: starts or moves the player's drag, or ends it when the token may no longer be theirs. */
   receive(from: string, drag: PlayerDrag): void {
+    if (this.ports.paused?.() === true) return;
     const state = this.store.getState();
     if (!this.rate.take(from, this.ports.now()) || !loaded(state) || this.gmHolds(state)) return;
     const live = this.find(from, drag.id);
@@ -139,6 +142,11 @@ export class PlayerDrags {
     const tokenId = context.listedToken(cancel.id);
     if (tokenId !== undefined) this.taken.delete(key(from, tokenId));
     if (live !== undefined) this.end([live], 'back');
+  }
+
+  /** Ends every drag with its token back where it was taken from: the game was paused. */
+  cancelAll(): void {
+    this.end([...this.live.values()], 'back');
   }
 
   /** A player left the table: their drags end with the tokens where they are. */

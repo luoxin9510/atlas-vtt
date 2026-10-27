@@ -3,7 +3,7 @@ import { renderAccountMenu, type AccountActions } from './accountMenu.ts';
 export { accountActions } from './accountMenu.ts';
 import { renderClosingRow, renderUpdateRow } from './closingRow.ts';
 import { inviteRow, surfaceHeader, textButton } from './controls.ts';
-import { gateEntries, renderCodeRow, renderPausedRow, type GateRowActions } from './gateRows.ts';
+import { gateEntries, renderCodeRow, renderPausedRow, renderPlayPausedRow, type GateRowActions } from './gateRows.ts';
 import { renderImageRow, type ImageRowActions } from './imageRow.ts';
 import type { MenuModel } from './panelModel.ts';
 import { addPlayerRow, linkEntries, type AddPlayerActions, type LinkActions } from './prompts.ts';
@@ -53,6 +53,7 @@ export function renderMenu(layer: HTMLElement, model: MenuModel, actions: MenuAc
   renderClosingRow(layer, model.closing, actions);
   renderUpdateRow(layer, model.updateAfter, actions);
   renderPausedRow(layer, model.gate, actions);
+  renderPlayPausedRow(layer, model.gate, actions);
   renderImageRow(layer, model.imageShown, actions);
   if (model.link !== null) inviteRow(layer, () => actions.copy(), { open: model.qr, toggle: () => actions.toggleQr() }, linkEntries(layer, actions, redraw));
   renderCodeRow(layer, model.gate, actions);
