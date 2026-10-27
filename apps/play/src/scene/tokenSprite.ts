@@ -71,6 +71,17 @@ export class TokenView {
     this.applyDowned();
   }
 
+  /** Back to the neutral disc; the texture stays the cache's to release. */
+  clearArt(): void {
+    this.sprite?.destroy();
+    this.sprite = null;
+  }
+
+  /** The texture of the artwork shown, or null on the neutral disc. */
+  artTexture(): Texture | null {
+    return this.sprite?.texture ?? null;
+  }
+
   private applyDowned(): void {
     if (this.sprite) this.sprite.tint = this.drawn?.token.ui?.downed ? 0x777777 : 0xffffff;
   }

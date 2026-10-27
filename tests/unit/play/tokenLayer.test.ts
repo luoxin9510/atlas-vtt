@@ -91,3 +91,38 @@ describe('TokenLayer art cache', () => {
     layer.destroy();
   });
 });
+
+describe('TokenLayer art changes', () => {
+  const hashA = 'a'.repeat(64);
+  const hashB = 'b'.repeat(64);
+  const withArt = (hash: string | null): SharedToken => token('a', 0, 0, 60, { art: hash === null ? null : { hash, size: 1, mime: 'image/png' } });
+
+  async function shown(): Promise<{ layer: TokenLayer; finishB: () => void }> {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 8, height: 8, close: vi.fn() })));
+    let finishB: () => void = () => undefined;
+    const asset = { bytes: new Uint8Array(1), mime: 'image/png', width: null, height: null };
+    const load = vi.fn((ref: { hash: string }) => (ref.hash === hashA ? Promise.resolve(asset) : new Promise<typeof asset>((resolve) => { finishB = () => resolve(asset); })));
+    const layer = new TokenLayer({ load }, true);
+    layer.sync([withArt(hashA)], new Set(), null);
+    await vi.waitFor(() => expect(layer.artOf('a')).not.toBeNull());
+    return { layer, finishB };
+  }
+
+  it('drops the old art from the view when the hash changes, before it is released', async () => {
+    const { layer } = await shown();
+    layer.sync([withArt(hashB)], new Set(), null);
+    expect(layer.artOf('a')).toBeNull();
+    expect(layer.cachedArt()).toEqual([hashB]);
+    layer.destroy();
+    vi.unstubAllGlobals();
+  });
+
+  it('goes back to the disc when the art becomes null', async () => {
+    const { layer } = await shown();
+    layer.sync([withArt(null)], new Set(), null);
+    expect(layer.artOf('a')).toBeNull();
+    expect(layer.cachedArt()).toEqual([]);
+    layer.destroy();
+    vi.unstubAllGlobals();
+  });
+});

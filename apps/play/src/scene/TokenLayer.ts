@@ -80,6 +80,7 @@ export class TokenLayer {
     if (hash !== entry.art) {
       entry.art = hash;
       entry.shown = false;
+      entry.view.clearArt();
     }
     if (token.art === null || entry.shown) return;
     const cached = this.textures.get(token.art.hash);
@@ -102,6 +103,8 @@ export class TokenLayer {
           made.bitmap = bitmap;
           return new Texture({ source: new ImageSource({ resource: bitmap, autoGenerateMipmaps: !this.lowPower }) });
         } catch {
+          made.bitmap?.close();
+          made.bitmap = null;
           return this.failed(made);
         }
       });
@@ -123,6 +126,11 @@ export class TokenLayer {
       this.textures.delete(hash);
       releaseArt(art);
     }
+  }
+
+  /** The texture a token's view shows, or null on the neutral disc; for tests. */
+  artOf(id: string): Texture | null {
+    return this.entries.get(id)?.view.artTexture() ?? null;
   }
 
   /** The hashes whose art is held; for tests. */
