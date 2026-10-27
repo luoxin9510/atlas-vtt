@@ -5,6 +5,7 @@ yarn-debug.log*
 
 # Build outputs
 dist/
+apps/play/dist/
 build/
 out/
 .cache/

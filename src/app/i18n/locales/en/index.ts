@@ -103,6 +103,7 @@ import { onlineGm } from './onlineGm';
 import { onlineDock } from './onlineDock';
 import { onlineLog } from './onlineLog';
 import { uvttImport } from './uvttImport';
+import { onlinePlay } from './onlinePlay';
 
 /** English, the source language: every key exists here, and other languages translate a subset of it. */
 export const en = {
@@ -213,4 +214,5 @@ export const en = {
   ...onlineDock,
   ...onlineLog,
   ...uvttImport,
+  ...onlinePlay,
 } as const;

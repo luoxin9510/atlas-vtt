@@ -20,7 +20,17 @@ const TYPES: Record<string, string> = {
 };
 
 const SECURITY_HEADERS = {
-  'content-security-policy': "default-src 'self'; script-src 'self'",
+  'content-security-policy': [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' blob: data:",
+    "worker-src 'self' blob:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join('; '),
   'x-content-type-options': 'nosniff',
 };
 

@@ -158,10 +158,19 @@ export const BOUNDARIES = {
       "zustand",
       "immer"
     ]
+  },
+  play: {
+    include: ["apps/play/src/**/*.ts", "apps/play/src/**/*.tsx"],
+    exclude: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**"],
+    mayImport: ["shared", "play"],
+    packages: [
+      "clipper2-ts", "pixi.js", "pixi-filters", "pixi-viewport", "react", "react-dom",
+      "framer-motion", "three", "lucide-react", "@radix-ui/*", "clsx", "tailwind-merge", "zustand", "immer"
+    ]
   }
 };
 
-export const ASSET_ROOTS = ["src/app/assets/", "src/app/sounds/", "styles/"];
+export const ASSET_ROOTS = ["src/app/assets/", "src/app/sounds/", "styles/", "apps/play/src/"];
 export const TYPE_PROJECTS = {
   "tsconfig.shared.json": {
     include: ["src/assets.d.ts", ...BOUNDARIES.shared.include],
