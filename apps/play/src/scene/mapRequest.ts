@@ -18,6 +18,6 @@ export function mapRequest(
 ): { ref: AssetRef; maxSide: number } | null {
   const { scene } = state;
   if (state.mode !== 'map' || scene === null || scene.lit !== false || scene.map === null) return null;
-  const side = lowPower || coarsePointer ? LOW_POWER_MAP_SIDE : Math.min(MAX_MAP_SIDE, maxTexture);
+  const side = Math.min(lowPower || coarsePointer ? LOW_POWER_MAP_SIDE : MAX_MAP_SIDE, maxTexture);
   return { ref: scene.map, maxSide: Math.max(MIN_MAP_SIDE, Math.floor(side)) };
 }

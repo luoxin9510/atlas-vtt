@@ -51,4 +51,14 @@ describe('logActions', () => {
     actions.react('m1', '👍', true);
     expect(send).toHaveBeenLastCalledWith({ t: 'react', id: 'm1', emoji: '👍', on: true });
   });
+
+  it('reports a message that could not be sent, and one that could', () => {
+    const results: boolean[] = [];
+    let ok = false;
+    const actions = logActions(() => ok, () => 'scene-1', () => null, (result) => results.push(result));
+    actions.say({ text: 'Hi' });
+    ok = true;
+    actions.react('m1', '👍', true);
+    expect(results).toEqual([false, true]);
+  });
 });

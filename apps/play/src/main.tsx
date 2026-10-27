@@ -1,5 +1,6 @@
 import './i18nInit.ts';
 import './theme.scss';
+import { browserStorage } from './browserStorage.ts';
 import { installDomHost } from '../../../src/app/host/dom.ts';
 
 // The browser has ordinary DOM APIs, without plugin augmentation.
@@ -22,14 +23,6 @@ installDomHost({
   activeDocument: () => document,
 });
 
-function browserStorage(): Storage | null {
-  try {
-    return localStorage;
-  } catch {
-    return null;
-  }
-}
-
 // Loaded after the language is set: some shared modules call t() when they load.
 async function start(): Promise<void> {
   const [{ createRoot }, { t, getLocale }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
@@ -44,7 +37,8 @@ async function start(): Promise<void> {
   document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
   document.title = t('onlinePlay.app.title');
   const storage = browserStorage();
-  const code = tableCodeOf(location.hash);
+  const secure = globalThis.crypto?.subtle !== undefined;
+  const code = secure ? tableCodeOf(location.hash) : null;
   const session = code === null ? null : new Session({
     origin: location.origin, code, storage,
     open: openBrowserSocket,
@@ -53,7 +47,7 @@ async function start(): Promise<void> {
   const container = document.getElementById('root');
   if (container) {
     createRoot(container).render(
-      <PlayApp session={session} language={language} lowPower={loadLowPower(storage, deviceEnv())} storage={storage} reload={() => location.reload()} />,
+      <PlayApp session={session} language={language} lowPower={loadLowPower(storage, deviceEnv())} storage={storage} secure={secure} reload={() => location.reload()} />,
     );
   }
 }

@@ -31,7 +31,7 @@ describe('mapRequest', () => {
     const store = createTableStore();
     store.applyMessage(scene('s1', false), 0);
     expect(mapRequest(store.getState(), false, 16384, true)?.maxSide).toBe(4096);
-    expect(mapRequest(store.getState(), false, 2048, true)?.maxSide).toBe(4096);
+    expect(mapRequest(store.getState(), false, 2048, true)?.maxSide).toBe(2048);
     expect(mapRequest(store.getState(), false, 16384, false)?.maxSide).toBe(8192);
   });
 

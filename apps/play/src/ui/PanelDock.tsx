@@ -30,7 +30,8 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
   const initiative = useStore(store, (state) => state.initiative);
   const refusal = useStore(store, (state) => state.rollRefusal);
   const self = useStore(store, (state) => state.self);
-  const actions = useMemo(() => sessionActions(session), [session]);
+  const [sendFailed, setSendFailed] = useState(false);
+  const actions = useMemo(() => sessionActions(session, (ok) => setSendFailed(!ok)), [session]);
   const unread = useSyncExternalStore(log.subscribe, () => log.snapshot().unread);
   useEffect(() => {
     log.setOpen(open === 'log');
@@ -41,12 +42,13 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
     <section className="atlas-play-dock" aria-label={t('onlinePlay.dock.label')}>
       <div className="atlas-play-tabs" role="tablist">
         {TABS.map(({ tab, label }) => (
-          <button key={tab} type="button" role="tab" aria-selected={open === tab} onClick={() => setOpen(open === tab ? null : tab)}>
+          <button key={tab} type="button" role="tab" aria-selected={open === tab} onClick={() => { setSendFailed(false); setOpen(open === tab ? null : tab); }}>
             {t(label)}
             {tab === 'log' && unread > 0 ? <span className="atlas-play-unread" aria-label={t('onlinePlay.log.unread', { count: unread })}>{unread}</span> : null}
           </button>
         ))}
       </div>
+      {sendFailed ? <p className="atlas-play-reason" role="alert">{t('onlinePlay.send.failed')}</p> : null}
       {open !== null ? (
         <div className="atlas-play-panel" role="tabpanel">
           {open === 'log' ? <LogPanel session={session} actions={actions} canSend={canSend} /> : null}

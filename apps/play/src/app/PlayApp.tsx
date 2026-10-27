@@ -21,6 +21,8 @@ export interface PlayAppProps {
   lowPower: boolean;
   storage: Storage | null;
   reload(): void;
+  /** False where `crypto.subtle` is missing (a page opened over plain http): assets could not be verified, so nothing is joined. Default true. */
+  secure?: boolean;
 }
 
 function Table({ session, language, lowPower: initialLowPower, storage, reload }: PlayAppProps & { session: Session }): ReactElement {
@@ -73,6 +75,7 @@ function Screens(props: PlayAppProps & { session: Session }): ReactElement {
 
 /** Picks the screen: no table link, the join form, or the table. */
 export function PlayApp(props: PlayAppProps): ReactElement {
-  const { session } = props;
+  const { session, secure = true } = props;
+  if (!secure) return <AppShell><p role="alert">{t('onlinePlay.app.insecure')}</p><LegalLinks /></AppShell>;
   return <AppShell>{session === null ? <><p>{t('onlinePlay.app.noTable')}</p><LegalLinks /></> : <Screens {...props} session={session} />}</AppShell>;
 }
