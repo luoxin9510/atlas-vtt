@@ -17,13 +17,20 @@ function unlitTable(id = 's1'): ReturnType<typeof createTableStore> {
 }
 
 describe('sceneMode', () => {
-  it('maps null, unlit and lit scenes', () => {
-    expect(sceneMode(null)).toBe('none');
-    expect(sceneMode(scene('a', false))).toBe('map');
-    expect(sceneMode(scene('a', true))).toBe('lit-placeholder');
+  it('maps null, unlit and lit scenes by the probe state', () => {
+    for (const lighting of ['unknown', 'ready', 'unsupported'] as const) {
+      expect(sceneMode(null, lighting)).toBe('none');
+      expect(sceneMode(scene('a', false), lighting)).toBe('unlit');
+    }
+    expect(sceneMode(scene('a', true), 'unknown')).toBe('placeholder');
+    expect(sceneMode(scene('a', true), 'unsupported')).toBe('placeholder');
+    expect(sceneMode(scene('a', true), 'ready')).toBe('lit');
   });
   it('fails closed on a scene whose lit is not false', () => {
-    expect(sceneMode({ id: 'a', map: null } as unknown as SharedScene)).toBe('lit-placeholder');
+    const unmarked = { id: 'a', map: null } as unknown as SharedScene;
+    expect(sceneMode(unmarked, 'unknown')).toBe('placeholder');
+    expect(sceneMode(unmarked, 'unsupported')).toBe('placeholder');
+    expect(sceneMode(unmarked, 'ready')).toBe('lit');
   });
 });
 
@@ -34,7 +41,7 @@ describe('table store', () => {
     store.applyMessage(fog('s1'), 0);
     store.applyMessage({ t: 'annotations', scene: 's1', drawings: [], texts: [] }, 0);
     const state = store.getState();
-    expect(state.mode).toBe('map');
+    expect(state.mode).toBe('unlit');
     expect(state.tokens.map((t) => t.id)).toEqual(['t1', 't2']);
     expect(state.cell).toBe(70);
     expect(state.fog).toEqual([]);
@@ -47,8 +54,9 @@ describe('table store', () => {
     store.applyMessage({ t: 'mine', scene: 's1', tokens: ['t1'] }, 0);
     store.select('t1');
     store.applyMessage({ t: 'scene', scene: scene('s1', true) }, 0);
+    store.setLighting('unsupported');
     let state = store.getState();
-    expect(state.mode).toBe('lit-placeholder');
+    expect(state.mode).toBe('placeholder');
     expect(state.tokens).toEqual([]);
     expect(state.fog).toBeUndefined();
     expect(state.mine.size).toBe(0);
@@ -62,12 +70,41 @@ describe('table store', () => {
     expect(state.yourTurnAt).toBeNull();
   });
 
-  it('keeps nothing of a scene that arrives lit', () => {
+  it('keeps nothing of a scene that arrives lit on a device that cannot light it', () => {
     const store = createTableStore();
+    store.setLighting('unsupported');
     store.applyMessage({ t: 'scene', scene: scene('L', true) }, 0);
     store.applyMessage(tokens('L', ['t1']), 0);
     expect(store.getState().tokens).toEqual([]);
-    expect(store.getState().mode).toBe('lit-placeholder');
+    expect(store.getState().mode).toBe('placeholder');
+  });
+
+  it('holds a lit scene\'s layers until the probe passes, then turns lit without a resend', () => {
+    const store = createTableStore();
+    store.applyMessage({ t: 'scene', scene: scene('L', true) }, 0);
+    store.applyMessage(tokens('L', ['t1']), 0);
+    store.applyMessage(fog('L'), 0);
+    expect(store.getState().mode).toBe('placeholder');
+    store.setLighting('ready');
+    expect(store.getState().mode).toBe('lit');
+    expect(store.getState().tokens.map((t) => t.id)).toEqual(['t1']);
+    expect(store.getState().fog).toEqual([]);
+    // The verdict outlives the scene: the next lit scene is lit at once, and an unlit one stays unlit.
+    store.applyMessage({ t: 'scene', scene: scene('M', true) }, 0);
+    expect(store.getState().mode).toBe('lit');
+    store.setLighting('unsupported');
+    expect(store.getState().mode).toBe('placeholder');
+    store.applyMessage({ t: 'scene', scene: scene('N', false) }, 0);
+    expect(store.getState().mode).toBe('unlit');
+  });
+
+  it('keeps the lighting inputs of a lit scene and clears them with the scene', () => {
+    const store = createTableStore();
+    store.applyMessage({ t: 'scene', scene: scene('L', true) }, 0);
+    store.applyMessage({ t: 'doors', scene: 'L', doors: [{ p: [0, 0, 1, 1], open: true }] }, 0);
+    expect(store.getState().lit.doors).toHaveLength(1);
+    store.applyMessage({ t: 'scene', scene: scene('L', true) }, 0);
+    expect(store.getState().lit.doors).toEqual([]);
   });
 
   it('ignores messages of another scene id', () => {

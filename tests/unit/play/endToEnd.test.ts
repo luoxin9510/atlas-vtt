@@ -227,7 +227,7 @@ describe('a table from the GM through the relay to the player app', () => {
     table.ownership.give(['hero'], {}, anaId);
 
     // The map, both tokens, and the token that is Ana's.
-    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('map'), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('unlit'), { timeout: 10_000 });
     await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
     await vi.waitFor(() => expect(ana.store.getState().mine.size).toBe(1), { timeout: 10_000 });
     expect(ben.store.getState().mine.size).toBe(0);
@@ -263,8 +263,9 @@ describe('a table from the GM through the relay to the player app', () => {
     const mapHash = ana.store.getState().scene?.map?.hash ?? '';
     expect(assetsServed(0).some(([hash, to]) => hash === mapHash && to === anaId)).toBe(true);
     const servedBefore = gmSent.length;
+    ana.store.setLighting('unsupported');
     tab.store.set(scene('hero', true));
-    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('lit-placeholder'), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('placeholder'), { timeout: 10_000 });
     expect(ana.store.getState().tokens).toHaveLength(0);
     expect(mapRequest(ana.store.getState(), false, 8192)).toBeNull();
     await new Promise((done) => setTimeout(done, 1_000));
@@ -273,7 +274,7 @@ describe('a table from the GM through the relay to the player app', () => {
 
     // The relay restarts on the same port and state: the player comes back with her key and the table resyncs.
     tab.store.set(scene('hero'));
-    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('map'), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('unlit'), { timeout: 10_000 });
     await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
     ana.store.dismissYourTurn();
     const key = JSON.parse(frames.ana?.[0] ?? '{}') as { key?: string };
@@ -292,7 +293,7 @@ describe('a table from the GM through the relay to the player app', () => {
     await vi.waitFor(() => expect(ana.store.getState().status.kind).toBe('joined'), { timeout: 30_000 });
     expect(ana.store.getState().self).toBe(anaId);
     await vi.waitFor(() => expect(ana.store.getState().tokens.some((entry) => entry.x === 205)).toBe(true), { timeout: 30_000 });
-    expect(ana.store.getState().mode).toBe('map');
+    expect(ana.store.getState().mode).toBe('unlit');
     expect(ana.store.getState().mine.size).toBe(1);
     // A resync is no new turn.
     expect(ana.store.getState().yourTurnAt).toBeNull();

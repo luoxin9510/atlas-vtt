@@ -9,7 +9,7 @@ import type { SensedMark, SharedAnnotations, SharedDoor, SharedGrid, SharedPin }
 import type { SharedRules } from '../../../../src/app/online/protocol/rules.ts';
 import type { SharedToken } from '../../../../src/app/online/protocol/tokens.ts';
 import type { SocketStatus } from '../net/TableSocket.ts';
-import { sceneMode, type SceneMode } from './sceneMode.ts';
+import { sceneMode, type LightingSupport, type SceneMode } from './sceneMode.ts';
 
 /** What the GM sent a lit scene's lighting is worked out from, for the current scene (cleared with it). */
 export interface LitInputs {
@@ -26,6 +26,8 @@ export interface TableState {
   ownCode: string | null;
   scene: SharedScene | null;
   mode: SceneMode;
+  /** Whether this device can light a lit scene; kept across scenes for the session. */
+  lighting: LightingSupport;
   tokens: readonly SharedToken[];
   cell: number;
   /** undefined: not received yet, so nothing of the map is drawn. */
@@ -46,6 +48,7 @@ export interface TableActions {
   applyMessage(message: GmMessage, now: number): void;
   setStatus(status: SocketStatus): void;
   setOwnCode(code: string): void;
+  setLighting(lighting: LightingSupport): void;
   select(id: string | null): void;
   dismissYourTurn(): void;
   clearRollRefusal(): void;
@@ -74,7 +77,7 @@ const EMPTY_SCENE_LAYER = {
 } satisfies Partial<TableState>;
 
 export function initialTableState(): TableState {
-  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', rollRefusal: null, ...EMPTY_SCENE_LAYER };
+  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, ...EMPTY_SCENE_LAYER };
 }
 
 /** What a lit scene keeps of the messages its lighting is worked out from; nothing is drawn from them here. */
@@ -103,17 +106,24 @@ function reduceLit(state: TableState, message: GmMessage): Partial<TableState> {
 export function reduceMessage(state: TableState, message: GmMessage, now: number): Partial<TableState> {
   if (message.t === 'scene') {
     const scene = message.scene;
-    const mode = sceneMode(scene);
+    const mode = sceneMode(scene, state.lighting);
     const sameScene = scene !== null && scene.id === state.scene?.id;
     // A resend of an unlit scene keeps its picture; a new scene, no scene, or a scene turned lit keeps nothing.
-    if (sameScene && mode === 'map') return { scene, mode };
+    if (sameScene && mode === 'unlit') return { scene, mode };
     return { ...EMPTY_SCENE_LAYER, scene, mode };
   }
   if (message.t === 'roll-refused') return { rollRefusal: message.reason };
   if (!('scene' in message) || typeof message.scene !== 'string') return {};
   if (message.scene !== state.scene?.id) return {};
-  if (state.mode === 'lit-placeholder') return reduceLit(state, message);
-  if (state.mode !== 'map') return {};
+  if (state.mode === 'none') return {};
+  // A lit scene keeps its layers while this device has yet to show it can light them (they are drawn only once it has);
+  // on a device that cannot, it keeps nothing.
+  if (state.mode === 'placeholder' && state.lighting === 'unsupported') return {};
+  return { ...(state.mode === 'unlit' ? {} : reduceLit(state, message)), ...reduceLayers(state, message, now) };
+}
+
+/** The layers every shown scene has: tokens, fog, grid, pins, annotations, initiative and rules. */
+function reduceLayers(state: TableState, message: GmMessage, now: number): Partial<TableState> {
   switch (message.t) {
     case 'tokens': {
       const selected = state.selected !== null && message.tokens.some((token) => token.id === state.selected) ? state.selected : null;
@@ -154,6 +164,10 @@ export function createTableStore(): TableStore {
     },
     setOwnCode(code: string): void {
       store.setState({ ownCode: code });
+    },
+    setLighting(lighting: LightingSupport): void {
+      const { scene } = store.getState();
+      store.setState({ lighting, mode: sceneMode(scene, lighting) });
     },
     select(id: string | null): void {
       store.setState({ selected: id });
