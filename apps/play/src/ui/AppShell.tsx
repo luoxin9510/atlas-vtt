@@ -1,12 +1,6 @@
-import type { ReactElement } from 'react';
-import { t } from '../../../../src/app/i18n/index.ts';
-import { LegalLinks } from './LegalLinks.tsx';
+import type { ReactElement, ReactNode } from 'react';
 
-export function AppShell(): ReactElement {
-  return (
-    <main className="atlas-play-shell">
-      <h1>{t('onlinePlay.app.title')}</h1>
-      <LegalLinks />
-    </main>
-  );
+/** The page's frame: one full-height column that holds the current screen. */
+export function AppShell({ children }: { children: ReactNode }): ReactElement {
+  return <main className="atlas-play-shell">{children}</main>;
 }

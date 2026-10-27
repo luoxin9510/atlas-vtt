@@ -22,11 +22,40 @@ installDomHost({
   activeDocument: () => document,
 });
 
+function browserStorage(): Storage | null {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
 // Loaded after the language is set: some shared modules call t() when they load.
 async function start(): Promise<void> {
-  const [{ createRoot }, { AppShell }] = await Promise.all([import('react-dom/client'), import('./ui/AppShell.tsx')]);
+  const [{ createRoot }, { t, getLocale }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
+    import('react-dom/client'),
+    import('../../../src/app/i18n/index.ts'),
+    import('./app/PlayApp.tsx'),
+    import('./app/session.ts'),
+    import('./scene/lowPower.ts'),
+    import('./net/browserSocket.ts'),
+  ]);
+  const language = getLocale();
+  document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
+  document.title = t('onlinePlay.app.title');
+  const storage = browserStorage();
+  const code = tableCodeOf(location.hash);
+  const session = code === null ? null : new Session({
+    origin: location.origin, code, storage,
+    open: openBrowserSocket,
+    indexedDB: typeof indexedDB === 'undefined' ? null : indexedDB,
+  });
   const container = document.getElementById('root');
-  if (container) createRoot(container).render(<AppShell />);
+  if (container) {
+    createRoot(container).render(
+      <PlayApp session={session} language={language} lowPower={loadLowPower(storage, deviceEnv())} storage={storage} reload={() => location.reload()} />,
+    );
+  }
 }
 
 void start();
