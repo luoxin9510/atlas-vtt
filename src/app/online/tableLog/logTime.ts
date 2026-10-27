@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -22,16 +23,16 @@ function shortDate(at: number, now: number, locale?: string): string {
 /** How long ago `at` was: "just now", "5m ago", "3h ago", and from a day on a short date. */
 export function relativeTime(at: number, now: number, locale?: string): string {
   const passed = now - at;
-  if (passed < MINUTE) return 'just now';
-  if (passed < HOUR) return `${Math.floor(passed / MINUTE)}m ago`;
-  if (passed < DAY) return `${Math.floor(passed / HOUR)}h ago`;
+  if (passed < MINUTE) return t('onlineLog.time.now');
+  if (passed < HOUR) return t('onlineLog.time.minutes', { count: Math.floor(passed / MINUTE) });
+  if (passed < DAY) return t('onlineLog.time.hours', { count: Math.floor(passed / HOUR) });
   return shortDate(at, now, locale);
 }
 
 /** The day `at` lies in, for the line between two days: "Today", "Yesterday", else a short date. */
 export function dayLabel(at: number, now: number, locale?: string): string {
-  if (sameDay(at, now)) return 'Today';
+  if (sameDay(at, now)) return t('onlineLog.time.today');
   // Noon of the day before: a day with a clock change is not 24 hours long.
-  if (sameDay(at, dayStart(now) - DAY / 2)) return 'Yesterday';
+  if (sameDay(at, dayStart(now) - DAY / 2)) return t('onlineLog.time.yesterday');
   return shortDate(at, now, locale);
 }

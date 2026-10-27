@@ -2,7 +2,10 @@
   "name": "atlas-vtt",
   "version": "0.9.1",
   "main": "dist/main.js",
+  "workspaces": ["apps/*"],
   "scripts": {
+    "relay": "node apps/relay/src/main.ts",
+    "check:relay": "tsc -p apps/relay",
     "dev": "cross-env COPY_ON_CHANGE=true vite build --watch",
     "obsidian": "node scripts/obsidian-cli.js",
     "obsidian:help": "node scripts/obsidian-cli.js help",

@@ -24,6 +24,7 @@ import { PlayerMoves } from './playerMoves.ts';
 import { movesOutOfTurn } from './turnShare.ts';
 import { RulesShare, type RulesSharePorts } from './RulesShare.ts';
 import { TOKEN_POLL_MS, TokenShare, type TokenSharePorts } from './TokenShare.ts';
+import { t } from '../../i18n';
 
 export { imageMimeType, isLit, LIGHTING_REFUSAL, REPEAT_REQUEST_MS };
 
@@ -280,7 +281,7 @@ export class SceneShare {
     const built = await this.build(state.background);
     if (this.key !== key) return;
     if (built === null) {
-      this.ports.notice('Atlas Online cannot send this scene\'s map image.');
+      this.ports.notice(t('onlineGm.scene.noImage'));
       this.publish(null, null);
       return;
     }

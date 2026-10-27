@@ -100,6 +100,9 @@ import { sbModel } from './sbModel';
 import { sbTemplate } from './sbTemplate';
 import { sbTemplateTable } from './sbTemplateTable';
 import { sbValues } from './sbValues';
+import { onlineGm } from './onlineGm';
+import { onlineDock } from './onlineDock';
+import { onlineLog } from './onlineLog';
 import { uvttImport } from './uvttImport';
 
 /** Simplified Chinese. Missing keys fall back to English. */
@@ -207,5 +210,8 @@ export const zh: Translation = {
   ...sbTemplate,
   ...sbTemplateTable,
   ...sbValues,
+  ...onlineGm,
+  ...onlineDock,
+  ...onlineLog,
   ...uvttImport,
 };

@@ -13,6 +13,10 @@ import { createInMemoryApp } from '../../../mocks/inMemoryVault';
 import { app as fakeApp, atlasTab, FakeSocket, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+import { UPSTREAM_RELAY_ORIGIN } from '../../../../src/app/online/gm/servers.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => ({
   notices: [] as string[],
@@ -301,7 +305,7 @@ describe('a player\'s code', () => {
 describe('a table that comes back', () => {
   it('gets a new join code where its saved one is now a player\'s own code', async () => {
     const { online, saves } = await gm();
-    const saved: SavedTable = { code: LINK, secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '000001', requireCode: true, askToJoin: true } };
+    const saved: SavedTable = { origin: UPSTREAM_RELAY_ORIGIN, code: LINK, secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '000001', requireCode: true, askToJoin: true } };
     const table = await online.resume(saved);
     expect(table?.gate.settings.code).toMatch(/^\d{6}$/);
     expect(table?.gate.settings.code).not.toBe('000001');
@@ -378,7 +382,7 @@ describe('a new link', () => {
 });
 
 describe('the played campaign', () => {
-  const SAVED: SavedTable = { code: LINK, secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '123456', requireCode: true, askToJoin: true } };
+  const SAVED: SavedTable = { origin: UPSTREAM_RELAY_ORIGIN, code: LINK, secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '123456', requireCode: true, askToJoin: true } };
   const playing = (app: App): string | null => CampaignPlay.forApp(app).playing();
 
   it('is the campaign chosen for the table from its start, and none once the GM stops it', async () => {

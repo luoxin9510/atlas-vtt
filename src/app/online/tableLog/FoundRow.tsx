@@ -9,6 +9,7 @@ import type { RowApi, RowFlags } from './panelTypes.ts';
 import { ReactionChips } from './ReactionChips.tsx';
 import { RowShell } from './RowShell.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { t } from '../../i18n';
 
 export interface FoundRowProps extends Omit<RowFlags, 'editing'> {
   readonly entry: FoundEntry;
@@ -22,7 +23,7 @@ export interface FoundRowProps extends Omit<RowFlags, 'editing'> {
 /** A note a readable pin let the players read: its card names it and who found it, and opens it to read. */
 export const FoundRow = memo(function FoundRow({ entry, onOpen, time, thread, api, ...flags }: FoundRowProps): ReactElement {
   const reactions = reactionsFor(entry, api.self);
-  const finder = entry.who === api.self ? 'you' : entry.name;
+  const finder = entry.who === api.self ? t('onlineLog.author.youLower') : entry.name;
   const excerpt = foundExcerpt(entry.body);
   const card = (
     <>
@@ -31,7 +32,7 @@ export const FoundRow = memo(function FoundRow({ entry, onOpen, time, thread, ap
       {onOpen !== undefined && (
         <span className="atlas-online-log__found-read">
           <BookOpen aria-hidden="true" />
-          Read
+          {t('onlineLog.found.read')}
         </span>
       )}
     </>
@@ -42,12 +43,12 @@ export const FoundRow = memo(function FoundRow({ entry, onOpen, time, thread, ap
         <AuthorDisc who={entry.who} name={entry.name} size="row" />
         <div className="atlas-online-log__content">
           <div className="atlas-online-log__byline">
-            <span className="atlas-online-log__name">{`Found by ${finder}`}</span>
+            <span className="atlas-online-log__name">{t('onlineLog.found.by', { finder })}</span>
             <span className="atlas-online-log__time">{time}</span>
           </div>
           {onOpen === undefined
             ? <div className="atlas-online-log__found">{card}</div>
-            : <button type="button" className="atlas-online-log__found atlas-online-log__found--open" aria-label={`Read ${entry.title}`} onClick={onOpen}>{card}</button>}
+            : <button type="button" className="atlas-online-log__found atlas-online-log__found--open" aria-label={t('onlineLog.found.readTitle', { title: entry.title })} onClick={onOpen}>{card}</button>}
           <ReactionChips id={entry.id} reactions={reactions} api={api} />
           <ThreadPill stat={thread} onOpen={() => api.openThread(entry.id)} />
         </div>

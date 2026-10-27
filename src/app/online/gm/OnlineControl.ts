@@ -13,11 +13,13 @@ import type { KnownPlayer, Ownership } from './ownership.ts';
 import { giveTokens, markTokens, playerTokenRows, type PlayerTokenRow } from './playerTokenRows.ts';
 import { presentOnPlayerView, presentedSceneSource, showPresentedElsewhere, type ShownElsewhere } from './presentedScene.ts';
 import type { SavedTable } from './savedTable.ts';
-import { RELAY_ORIGIN } from './servers.ts';
+import { relayOrigin } from './servers.ts';
+import { endStrayTable } from './strayTable.ts';
 import type { TableCampaigns } from './tableCampaigns.ts';
 import { createCampaignTable, NO_ACCOUNT, refused, startBlock, type HostAccount } from './tableStart.ts';
 import type { TableStatus } from './TableConnection.ts';
 import type { LostTable } from './tableEnd.ts';
+import { t } from '../../i18n';
 
 /**
  * The GM's side of online play, free of any panel: start and stop a table of a campaign, which this
@@ -128,6 +130,11 @@ export class OnlineControl {
    */
   async resume(saved: SavedTable): Promise<OnlineTable | null> {
     if (this.current !== null || this.starting) return this.current;
+    // A table is run again only on the server it was made on.
+    if (relayOrigin() !== saved.origin) {
+      this.campaigns.stop();
+      return null;
+    }
     this.starting = true;
     const closings = this.closings;
     const seats = await this.campaigns.open(saved.campaignId).catch(() => null).finally(() => (this.starting = false));
@@ -157,7 +164,7 @@ export class OnlineControl {
 
   /** Shows the active scene of this Atlas tab on Atlas's player view, which players online see too. */
   share(leaf: WorkspaceLeaf): void {
-    if (!presentOnPlayerView(this.app, leaf)) showNotice('Atlas cannot show this map on the player view.');
+    if (!presentOnPlayerView(this.app, leaf)) showNotice(t('onlineGm.share.noPlayerView'));
   }
 
   /** Every player of the running table's campaign: those online first, then by name. */
@@ -269,28 +276,40 @@ export class OnlineControl {
     if (this.current !== null || this.starting) return this.current;
     const blocked = startBlock(leaf, campaignId, this.account);
     const token = this.account.token();
-    if (blocked !== null || leaf === null || campaignId === null || token === null) return refused(blocked ?? NO_CAMPAIGN_TEXT);
+    // The server is read once: the table is asked of it, and run on it or ended there, whatever the setting says by then.
+    const origin = relayOrigin();
+    if (blocked !== null || leaf === null || campaignId === null || token === null || origin === null) return refused(blocked ?? NO_CAMPAIGN_TEXT);
     this.starting = true;
     this.changed();
     const closings = this.closings;
-    const made = await createCampaignTable(this.campaigns, campaignId, token, this.account, (level) => rememberMinLevel(this.app, level)).finally(() => (this.starting = false));
+    const made = await createCampaignTable(this.campaigns, campaignId, token, origin, this.account, (level) => rememberMinLevel(this.app, level)).finally(() => (this.starting = false));
     this.changed();
-    if (made === null || closings !== this.closings) return null;
+    if (made === null) return null;
+    // The control was closed while the table was made: nothing keeps this table, so it is ended on the server it was made on.
+    if (closings !== this.closings) {
+      endStrayTable(origin, made.created);
+      return null;
+    }
+    // The address was edited while the table was made: it belongs to a server that is no longer the one set.
+    if (relayOrigin() !== origin) {
+      endStrayTable(origin, made.created);
+      return null;
+    }
     // A new table's log is empty: the last table's goes.
     this.logs.forget();
     const mapPath = sceneStoreOf(leaf)?.getState().mapPath ?? null;
-    return this.run({ ...made.created, campaignId, mapPath, gate: newGate(undefined, made.seats.codes()) }, made.seats);
+    return this.run({ ...made.created, origin, campaignId, mapPath, gate: newGate(undefined, made.seats.codes()) }, made.seats);
   }
 
   /** Runs the table on its campaign: its players and books are the campaign's from before anyone can join until it ends. */
-  private run(given: SavedTable, seats: TableSeats, savedLog?: unknown): OnlineTable {
+  private run(given: SavedTable, seats: TableSeats, savedLog?: unknown): OnlineTable | null {
     // A join code that is now a player's own (made on another device since) is made anew: the page's one field takes both.
     const saved = { ...given, gate: freeGate(given.gate, seats.codes()) };
     this.ended = null;
     this.keep(saved);
     this.ownership.bind(seats);
     this.campaigns.bound(saved.campaignId);
-    const table = new OnlineTable(this.app, RELAY_ORIGIN, saved, saved.mapPath, this.ownership, seats, saved.gate, {
+    const table = new OnlineTable(this.app, saved.origin, saved, saved.mapPath, this.ownership, seats, saved.gate, {
       status: () => {
         // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
         if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);

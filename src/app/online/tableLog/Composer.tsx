@@ -14,6 +14,7 @@ import { HelpCard } from './HelpCard.tsx';
 import type { LogState, LogView } from './LogState.ts';
 import type { ChatDraft, RollDraft, SpeakerOption } from './panelTypes.ts';
 import { useLocalNotice, useRefusalNotice } from './useRefusalNotice.ts';
+import { t } from '../../i18n';
 
 /** From this many characters left, the field says how many. */
 const COUNTER_FROM = 50;
@@ -149,7 +150,7 @@ export function Composer(props: ComposerProps): ReactElement {
   const line = warning ?? (canSend ? null : offlineText);
   const listOpen = suggestions.open && canSend;
   const whisperLabel = whisperTo === null ? null : audienceNames(whisperTo, people, self);
-  const placeholder = whisperLabel !== null ? `Whisper to ${whisperLabel}` : speaker?.kind === 'token' ? `Speak as ${speaker.name}` : reply?.thread === true ? 'Reply in thread' : 'Message the table';
+  const placeholder = whisperLabel !== null ? t('onlineLog.whisperTo', { names: whisperLabel }) : speaker?.kind === 'token' ? t('onlineLog.speakAs', { name: speaker.name }) : reply?.thread === true ? t('onlineLog.replyInThread') : t('onlineLog.messageTable');
   return (
     <div className="atlas-online-log__composer">
       {help && <HelpCard onClose={() => { setHelp(false); toField(); }} />}
@@ -157,10 +158,10 @@ export function Composer(props: ComposerProps): ReactElement {
       <div className={classes('atlas-online-log__composer-box', !canSend && 'is-disabled')}>
         {listOpen && <SuggestionList id={listId} list={suggestions} onComplete={complete} />}
         {reply !== null && (reply.thread !== true || reply.whisper !== null) && (
-          <ComposerStrip text={reply.label} whisper={reply.whisper} clear={reply.thread === true ? undefined : { label: 'Cancel reply', onClear: onClearReply }} />
+          <ComposerStrip text={reply.label} whisper={reply.whisper} clear={reply.thread === true ? undefined : { label: t('onlineLog.cancelReply'), onClear: onClearReply }} />
         )}
         {whisperLabel !== null && (reply === null || reply.whisper === null) && (
-          <ComposerStrip text={`To ${whisperLabel}`} locked clear={{ label: 'Stop whispering', onClear: () => { state.setWhisperTo(null); toField(); } }} />
+          <ComposerStrip text={t('onlineLog.to', { names: whisperLabel })} locked clear={{ label: t('onlineLog.stopWhispering'), onClear: () => { state.setWhisperTo(null); toField(); } }} />
         )}
         <div className="atlas-online-log__field">
           {speakers.length > 1 && speaker !== null && (
@@ -173,7 +174,7 @@ export function Composer(props: ComposerProps): ReactElement {
             mode={choices.rollMode} open={menu === 'mode'} disabled={!canSend}
             onOpenChange={(open) => setMenu(open ? 'mode' : null)} onChoose={(mode) => choose(() => state.setRollMode(mode))}
           />
-          <label className="atlas-online-log__sr" htmlFor={name}>Message</label>
+          <label className="atlas-online-log__sr" htmlFor={name}>{t('onlineLog.message')}</label>
           <textarea
             ref={field} id={name} className="atlas-online-log__input" rows={1} maxLength={MAX_CHAT_TEXT} placeholder={placeholder}
             role="combobox" aria-autocomplete="list" aria-expanded={listOpen} aria-controls={listOpen ? listId : undefined}
@@ -181,10 +182,10 @@ export function Composer(props: ComposerProps): ReactElement {
             disabled={!canSend} value={draft} onChange={(event) => type(event.target.value)} onKeyDown={onKeyDown}
           />
           {left <= COUNTER_FROM && <span className="atlas-online-log__counter">{left}</span>}
-          <LabelTooltip label="Commands and dice">
+          <LabelTooltip label={t('onlineLog.commandsAndDice')}>
             <button type="button" className="atlas-online-log__chip-button" aria-expanded={help} onClick={() => setHelp(!help)}><CircleHelp /></button>
           </LabelTooltip>
-          <LabelTooltip label="Send">
+          <LabelTooltip label={t('onlineLog.send')}>
             <button type="button" className="atlas-online-log__send" disabled={!canSend || draft.trim() === ''} onClick={send}><ArrowUp /></button>
           </LabelTooltip>
         </div>

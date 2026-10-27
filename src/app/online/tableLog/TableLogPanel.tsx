@@ -13,8 +13,9 @@ import { useLogThread } from './useLogThread.ts';
 import { useLogUi } from './useLogUi.ts';
 import { usePanelDismissal } from './usePanelDismissal.ts';
 import { useViewSwap } from './useViewSwap.ts';
+import { t } from '../../i18n';
 
-const OFFLINE_TEXT = 'You cannot write right now.';
+const OFFLINE_TEXT = t('onlineLog.offline');
 
 /** Whether fingers are the pointer: focusing a field would raise the on-screen keyboard. */
 function isCoarse(doc: Document): boolean {

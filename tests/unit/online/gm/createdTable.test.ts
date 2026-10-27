@@ -42,14 +42,17 @@ describe('the relay\'s answer to a table request', () => {
     const created = await createTable((request) => {
       requests.push(request);
       return Promise.resolve({ status: 201, json: TABLE });
-    }, 'https://play.atlas-vtt.dev', 'account-token', link);
+    }, 'https://play.atlas-vtt.dev', 'account-token', link, false);
     expect(created).toMatchObject({ code: TABLE.code });
     expect(requests).toEqual([{ url: 'https://play.atlas-vtt.dev/api/tables', method: 'POST', authorization: 'Bearer account-token', json: { code: link, gmLevel: GM_LEVEL } }]);
     expect(requests.map(bodyOf)).toEqual([{ body: `{"code":"${link}","gmLevel":${GM_LEVEL}}`, contentType: 'application/json' }]);
-    expect(await createTable(() => Promise.resolve({ status: 403, json: { error: 'access-ended' } }), 'https://play.atlas-vtt.dev', 'account-token', link))
+    expect(await createTable(() => Promise.resolve({ status: 403, json: { error: 'access-ended' } }), 'https://play.atlas-vtt.dev', 'account-token', link, false))
       .toEqual({ status: 403, message: 'Your access to online play has ended. See your account page.' });
-    expect(await createTable(() => Promise.resolve({ status: 409, json: { error: 'link-taken' } }), 'https://play.atlas-vtt.dev', 'account-token', link))
+    expect(await createTable(() => Promise.resolve({ status: 409, json: { error: 'link-taken' } }), 'https://play.atlas-vtt.dev', 'account-token', link, false))
       .toEqual({ status: 409, message: 'This campaign\'s link belongs to another account. Make a new link.' });
-    expect(await createTable(() => Promise.reject(new Error('offline')), 'https://play.atlas-vtt.dev', 'account-token', link)).toEqual({ status: 0, message: 'The server could not be reached.' });
+    // The refusal text follows the kind of server the start began on, whatever the setting says by the time the answer comes.
+    expect(await createTable(() => Promise.resolve({ status: 401, json: { error: 'unauthorized' } }), 'https://play.atlas-vtt.dev', 'host-key', link, true)).toMatchObject({ status: 401, message: 'The host key is not accepted by this server.' });
+    expect(await createTable(() => Promise.resolve({ status: 401, json: { error: 'unauthorized' } }), 'https://play.atlas-vtt.dev', 'account-token', link, false)).toMatchObject({ status: 401, message: expect.stringContaining('signed out') });
+    expect(await createTable(() => Promise.reject(new Error('offline')), 'https://play.atlas-vtt.dev', 'account-token', link, false)).toEqual({ status: 0, message: 'The server could not be reached.' });
   });
 });

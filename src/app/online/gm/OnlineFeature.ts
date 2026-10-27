@@ -4,7 +4,7 @@ import { showNotice } from '../../ui/notice';
 import type { AtlasSettingSection } from '../../settings/settingSections';
 import { AccountControl } from './account/AccountControl.ts';
 import { obsidianHttp } from './account/obsidianHttp.ts';
-import { secretTokenStore } from './account/tokenStore.ts';
+import { secretHostKeyStore, secretTokenStore } from './account/tokenStore.ts';
 import { activeAtlasLeaf } from './atlasView.ts';
 import { AssetService } from '../../services/AssetService';
 import { CampaignBooks } from '../../campaigns/players/CampaignBooks';
@@ -35,14 +35,17 @@ import { carryAssignmentsOver, readLegacyAssignments } from './legacyAssignments
 import { NO_ASSIGNMENTS, type TokenAssignments } from '../../campaigns/players/tokenAssignments';
 import { appCampaignChoices } from './campaignChoices.ts';
 import { DASHBOARD_VIEW_TYPE } from '../../dashboard-view';
+import { setServerOrigin } from './servers.ts';
+import { applyServerSetting } from './serverSettings.ts';
 import { DEFAULT_SETTINGS, onlineSettingsSections, readSettings, type OnlineSettings } from './settings.ts';
+import { t } from '../../i18n';
 
 /** How long a change of the table's log waits before the data file is written. */
 const LOG_SAVE_MS = 10_000;
 /** How often the tab the table's log stands on and Atlas's image display are looked for. */
 const SYNC_MS = 1_000;
 
-const tokensText = (count: number): string => (count === 1 ? '1 token' : `${count} tokens`);
+const tokensText = (count: number): string => t('onlineGm.tokens', { count });
 
 /**
  * Online play: shares the scene of an Atlas map tab with players in their browsers. A child of the
@@ -87,6 +90,7 @@ export class OnlineFeature extends Component {
       http: obsidianHttp,
       timers: companionTimers(),
       tokens: secretTokenStore(this.app),
+      hostKeys: secretHostKeyStore(this.app),
       openUrl: (url) => void window.open(url),
       notify: (text) => showNotice(text),
     });
@@ -130,6 +134,9 @@ export class OnlineFeature extends Component {
     // Switched off while the data was read: nothing more is set up.
     if (!this.live) return;
     this.settings = readSettings(data);
+    applyServerSetting(this.settings);
+    // The module-wide server address goes with this feature.
+    this.register(() => setServerOrigin(null));
     this.ready = true;
     const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
     const campaigns = this.campaigns();
@@ -180,7 +187,7 @@ export class OnlineFeature extends Component {
       table: () => this.online.table,
       imageSrc: (path) => this.app.vault.adapter.getResourcePath(path),
       opened: (leaf) => docks.dockOf(leaf)?.makeWay(),
-      openNote: (link, sourcePath) => runInBackground(this.app.workspace.openLinkText(link, sourcePath, true), `Opening ${link}`, 'Could not open the found note'),
+      openNote: (link, sourcePath) => runInBackground(this.app.workspace.openLinkText(link, sourcePath, true), `Opening ${link}`, t('onlineGm.found.openFailed')),
     });
     this.logs = logs;
     this.register(this.online.onChange(() => (logs.sync(), logs.refresh(), images.sync(), this.chat.sync())));
@@ -214,7 +221,7 @@ export class OnlineFeature extends Component {
     this.command('copy-online-table-link', (checking) => {
       const link = this.online.link();
       if (link === null) return false;
-      if (!checking) void copyText(activeDocument.body, link).then((copied) => showNotice(copied ? 'Join link copied.' : 'The link could not be copied.'));
+      if (!checking) void copyText(activeDocument.body, link).then((copied) => showNotice(copied ? t('onlineGm.link.copied') : t('onlineGm.link.copyFailed')));
       return true;
     });
     this.command('make-selected-player-tokens', (checking) => this.markSelected(checking, true));
@@ -335,8 +342,8 @@ export class OnlineFeature extends Component {
     if (checking) return true;
     const count = this.online.markSelected(player);
     if (count === null) return true;
-    if (count === 0) showNotice('Select tokens on the map first.');
-    else showNotice(player ? `Player tokens: ${tokensText(count)}. Assign each to a player in the online panel.` : `${tokensText(count)} now belong to the GM.`);
+    if (count === 0) showNotice(t('onlineGm.mark.selectFirst'));
+    else showNotice(player ? t('onlineGm.mark.player', { tokens: tokensText(count) }) : t('onlineGm.mark.gm', { tokens: tokensText(count) }));
     return true;
   }
 }

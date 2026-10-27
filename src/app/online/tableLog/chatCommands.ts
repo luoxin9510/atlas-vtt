@@ -1,6 +1,7 @@
 import { commandMode, GM_AUTHOR, inlineMarks, MAX_FLAVOR, MAX_FORMULA, MAX_INLINE_ROLLS, shownLine, type RollMode, type TablePerson } from '../protocol/index.ts';
 import { commandNamed, type CommandInfo } from './commandList.ts';
 import type { ChatDraft, RollDraft, SpeakerOption } from './panelTypes.ts';
+import { t } from '../../i18n';
 
 /** What a command is read against: who the viewer is, who is at the table and what the viewer chose. */
 export interface CommandContext {
@@ -35,7 +36,7 @@ function tokenKey(context: CommandContext): string | undefined {
 
 /** A message, unless a roll written into it cannot be sent. */
 function said(text: string, fields: Omit<ChatDraft, 'text' | 'reply'>): ComposerIntent {
-  if (inlineMarks(text) === null) return error(`A message holds at most ${MAX_INLINE_ROLLS} rolls, and a roll button takes /r, /gmr, /br or /sr.`);
+  if (inlineMarks(text) === null) return error(t('onlineLog.error.tooManyRolls', { max: MAX_INLINE_ROLLS }));
   return { kind: 'say', draft: { text, ...fields } };
 }
 
@@ -50,10 +51,10 @@ function rolled(rest: string, spelling: string, mode: RollMode, context: Command
   const hash = rest.indexOf('#');
   const formula = (hash === -1 ? rest : rest.slice(0, hash)).replace(/\s+/g, ' ').trim();
   const flavorText = hash === -1 ? '' : rest.slice(hash + 1).trim();
-  if (formula === '') return error(`Write the dice after /${spelling}, like /${spelling} 1d20+5.`);
-  if (formula.length > MAX_FORMULA) return error('That formula is too long.');
+  if (formula === '') return error(t('onlineLog.error.writeDice', { spelling }));
+  if (formula.length > MAX_FORMULA) return error(t('onlineLog.error.formulaLong'));
   const flavor = flavorText === '' ? undefined : shownLine(flavorText, MAX_FLAVOR);
-  if (flavor === null) return error(`A roll's description holds at most ${MAX_FLAVOR} characters.`);
+  if (flavor === null) return error(t('onlineLog.error.flavorLong', { max: MAX_FLAVOR }));
   const speaker = tokenKey(context);
   return { kind: 'roll', draft: { formula, mode, ...(flavor !== undefined && { flavor }), ...(speaker !== undefined && { speaker }) } };
 }
@@ -64,7 +65,7 @@ function resolveName(name: string, people: readonly TablePerson[]): string | { r
   if (lower === 'gm' || lower === 'dm') return GM_AUTHOR;
   const found = people.filter((person) => person.away !== true && person.name.toLocaleLowerCase() === lower);
   if (found.length === 1) return found[0]!.id;
-  return { problem: found.length === 0 ? `Nobody at the table is called ${name}.` : `More than one person at the table is called ${name}.` };
+  return { problem: found.length === 0 ? t('onlineLog.error.nobody', { name }) : t('onlineLog.error.several', { name }) };
 }
 
 /** The names and the message of `/w Kara text` or `/w [Kara Thorn, GM] text`. */
@@ -82,18 +83,18 @@ function whisperParts(rest: string): { readonly names: readonly string[]; readon
 /** A message to `to` without the viewer; with no message, the audience to keep. */
 function whispered(to: readonly string[], message: string, context: CommandContext): ComposerIntent {
   const others = [...new Set(to)].filter((id) => id !== context.self);
-  if (others.length === 0) return error('You cannot whisper to yourself.');
+  if (others.length === 0) return error(t('onlineLog.error.whisperSelf'));
   return message === '' ? { kind: 'audience', to: others } : plain(message, context, others);
 }
 
 function whisper(rest: string, spelling: string, context: CommandContext): ComposerIntent {
   const parts = whisperParts(rest);
-  if (parts === null) return error('Close the list of names with ], like /w [Kara, GM] Hello.');
-  if (parts.names.length === 0) return error(`Write a name after /${spelling}, like /${spelling} Kara Hello.`);
+  if (parts === null) return error(t('onlineLog.error.closeNames'));
+  if (parts.names.length === 0) return error(t('onlineLog.error.writeName', { spelling }));
   const ids: string[] = [];
   for (const name of parts.names) {
     const id = resolveName(name, context.people);
-    if (typeof id !== 'string') return error(parts.bracketed ? id.problem : `${id.problem} Names with spaces go in brackets: /${spelling} [Kara Thorn] Hello.`);
+    if (typeof id !== 'string') return error(parts.bracketed ? id.problem : t('onlineLog.error.spaceNames', { problem: id.problem, spelling }));
     ids.push(id);
   }
   return whispered(ids, parts.message, context);
@@ -106,23 +107,23 @@ function command(info: CommandInfo, spelling: string, rest: string, context: Com
     case 'w':
       return whisper(rest, spelling, context);
     case 'gm':
-      return context.self === GM_AUTHOR ? error('You are the GM.') : whispered([GM_AUTHOR], rest, context);
+      return context.self === GM_AUTHOR ? error(t('onlineLog.error.youAreGm')) : whispered([GM_AUTHOR], rest, context);
     case 'players': {
       const players = context.people.filter((person) => person.away !== true).map((person) => person.id).filter((id) => id !== context.self);
-      return players.length === 0 ? error('No players are at the table.') : whispered(players, rest, context);
+      return players.length === 0 ? error(t('onlineLog.error.noPlayers')) : whispered(players, rest, context);
     }
     case 'reply':
-      return context.lastWhisper === null ? error('Nobody has whispered to you yet.') : replyAudience(context.lastWhisper, rest, context);
+      return context.lastWhisper === null ? error(t('onlineLog.error.nobodyWhispered')) : replyAudience(context.lastWhisper, rest, context);
     case 'ic': {
       const speaker = tokenKey(context);
-      if (speaker === undefined) return error('Choose a token to speak as first.');
-      if (rest === '') return error('Write what to say after /ic.');
+      if (speaker === undefined) return error(t('onlineLog.error.chooseToken'));
+      if (rest === '') return error(t('onlineLog.error.writeIc'));
       return said(rest, { style: 'ic', speaker, ...(context.whisperTo !== null && { to: context.whisperTo }) });
     }
     case 'ooc':
-      return rest === '' ? error('Write what to say after /ooc.') : said(rest, context.whisperTo === null ? {} : { to: context.whisperTo });
+      return rest === '' ? error(t('onlineLog.error.writeOoc')) : said(rest, context.whisperTo === null ? {} : { to: context.whisperTo });
     case 'em': {
-      if (rest === '') return error(`Write what you do after /${spelling}.`);
+      if (rest === '') return error(t('onlineLog.error.writeEm', { spelling }));
       const speaker = tokenKey(context);
       return said(rest, { style: 'emote', ...(speaker !== undefined && { speaker }), ...(context.whisperTo !== null && { to: context.whisperTo }) });
     }
@@ -143,7 +144,7 @@ export function parseComposerInput(text: string, context: CommandContext): Compo
   if (match === null) return plain(typed, context);
   const spelling = match[1]!;
   const info = commandNamed(spelling);
-  if (info === null) return error(`There is no command /${spelling}. Type /help to see them all.`);
+  if (info === null) return error(t('onlineLog.error.noCommand', { spelling }));
   return command(info, spelling.toLowerCase(), typed.slice(match[0].length).trim(), context);
 }
 
@@ -156,5 +157,5 @@ export function chosenSpeaker(speakers: readonly SpeakerOption[], key: string | 
 function replyAudience(last: readonly string[], rest: string, context: CommandContext): ComposerIntent {
   const gone = new Set(context.people.filter((person) => person.away === true).map((person) => person.id));
   const here = last.filter((id) => !gone.has(id));
-  return here.length === 0 ? error('Everyone in that whisper has left the table.') : whispered(here, rest, context);
+  return here.length === 0 ? error(t('onlineLog.error.whisperGone')) : whispered(here, rest, context);
 }

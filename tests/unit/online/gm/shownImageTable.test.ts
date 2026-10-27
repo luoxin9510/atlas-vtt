@@ -7,6 +7,10 @@ import { boundOwnership, fakeCampaigns } from './fakeSeats.ts';
 import type { SavedTable } from '../../../../src/app/online/gm/savedTable.ts';
 import { app, FakeSocket, png, workspace } from './fakeTable.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+import { UPSTREAM_RELAY_ORIGIN } from '../../../../src/app/online/gm/servers.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({
   Notice: class {},
@@ -18,7 +22,7 @@ vi.mock('obsidian', () => ({
 
 const ANA = 'anaanaanaanaanaanaan';
 const BEN = 'benbenbenbenbenbenbe';
-const SAVED: SavedTable = { code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '483912', requireCode: false, askToJoin: false } };
+const SAVED: SavedTable = { origin: UPSTREAM_RELAY_ORIGIN, code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: null, gate: { code: '483912', requireCode: false, askToJoin: false } };
 
 interface Sent {
   readonly to: string | undefined;

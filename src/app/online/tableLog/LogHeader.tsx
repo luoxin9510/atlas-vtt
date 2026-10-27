@@ -4,6 +4,7 @@ import { Button } from '../../packages/components/primitives/button';
 import { CloseButton } from '../../packages/components/primitives/CloseButton';
 import { LabelTooltip } from '../../packages/components/primitives/tooltip';
 import { classes } from './classes.ts';
+import { t } from '../../i18n';
 
 export interface LogHeaderProps {
   readonly titleId: string;
@@ -29,21 +30,21 @@ export function LogHeader({ titleId, pinned, asking, onClear, onAsk, onPin, onCl
 
   return (
     <div className="atlas-online-log__header">
-      <span id={titleId} className={classes('atlas-online-log__title', asking && 'atlas-online-log__sr')}>Table log</span>
+      <span id={titleId} className={classes('atlas-online-log__title', asking && 'atlas-online-log__sr')}>{t('onlineLog.log.title')}</span>
       {asking && onClear !== undefined ? (
         <div className="atlas-online-log__ask">
-          <span className="atlas-online-log__ask-text">Clear the log for everyone?</span>
-          <Button variant="ghost" size="sm" className="atlas-online-log__ask-button atlas-online-log__ask-button--danger" onClick={onClear}>Clear</Button>
-          <Button variant="ghost" size="sm" className="atlas-online-log__ask-button" autoFocus onClick={() => onAsk(false)}>Keep</Button>
+          <span className="atlas-online-log__ask-text">{t('onlineLog.log.clearAsk')}</span>
+          <Button variant="ghost" size="sm" className="atlas-online-log__ask-button atlas-online-log__ask-button--danger" onClick={onClear}>{t('onlineLog.log.clear')}</Button>
+          <Button variant="ghost" size="sm" className="atlas-online-log__ask-button" autoFocus onClick={() => onAsk(false)}>{t('onlineLog.keep')}</Button>
         </div>
       ) : (
         <div className="atlas-online-log__actions">
           {onClear !== undefined && (
-            <LabelTooltip label="Clear the log">
+            <LabelTooltip label={t('onlineLog.log.clearTip')}>
               <Button ref={clear} variant="ghost" size="icon" className="atlas-online-log__action" onClick={() => onAsk(true)}><Trash2 /></Button>
             </LabelTooltip>
           )}
-          <LabelTooltip label={pinned ? 'Unpin' : 'Pin'}>
+          <LabelTooltip label={pinned ? t('onlineLog.log.unpin') : t('onlineLog.log.pin')}>
             <Button variant="ghost" size="icon" className={classes('atlas-online-log__action', pinned && 'is-pinned')} aria-pressed={pinned} onClick={() => onPin(!pinned)}>
               {pinned ? <PinOff /> : <Pin />}
             </Button>

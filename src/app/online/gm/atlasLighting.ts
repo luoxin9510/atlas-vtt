@@ -3,6 +3,7 @@ import type { MeasurementSettings } from '../../grid/measurementFormat';
 import { resolveLaserPointerSettings, type LaserPointerSettings } from '../../tools/laserPointerSettings';
 import type { SightRules } from '../../vision/sightRules';
 import type { SceneState } from './atlasView.ts';
+import { t } from '../../i18n';
 
 /** The plugin id of Atlas, whose instance holds its settings. */
 export const ATLAS_PLUGIN_ID = 'atlas-vtt';
@@ -115,7 +116,7 @@ export function accentColour(doc: Document): string | null {
 }
 
 /** Why a lit scene cannot be shared: the GM's lighting cannot be read, so players would see the map unlit. */
-export const LIGHTING_REFUSAL = 'Atlas Online cannot read this scene\'s lighting, so players see nothing of it.';
+export const LIGHTING_REFUSAL = t('onlineGm.scene.noLighting');
 
 /** Whether players see the scene lit: its dynamic lighting is on. */
 export function isLit(state: SceneState): boolean {

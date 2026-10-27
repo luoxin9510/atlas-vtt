@@ -11,6 +11,7 @@ import type { RowApi, RowFlags } from './panelTypes.ts';
 import { ReactionChips } from './ReactionChips.tsx';
 import { RowShell } from './RowShell.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { t } from '../../i18n';
 
 interface ShownRowProps extends Omit<RowFlags, 'editing'> {
   readonly time: string;
@@ -20,10 +21,10 @@ interface ShownRowProps extends Omit<RowFlags, 'editing'> {
 }
 
 /** Who showed or handed out something, and when, over what they did. */
-function Byline({ who, name, verb, time, api }: { readonly who: string; readonly name: string; readonly verb: string; readonly time: string; readonly api: RowApi }): ReactElement {
+function Byline({ who, name, verb, time, api }: { readonly who: string; readonly name: string; readonly verb: 'image' | 'loot'; readonly time: string; readonly api: RowApi }): ReactElement {
   return (
     <div className="atlas-online-log__byline">
-      <span className="atlas-online-log__name">{`${shownName(who, name, api.self)} ${verb}`}</span>
+      <span className="atlas-online-log__name">{t(verb === 'image' ? 'onlineLog.shown.image' : 'onlineLog.shown.loot', { name: shownName(who, name, api.self) })}</span>
       <span className="atlas-online-log__time">{time}</span>
     </div>
   );
@@ -48,9 +49,9 @@ export const ImageRow = memo(function ImageRow({ entry, src, onOpen, time, threa
       <div className="atlas-online-log__message">
         <AuthorDisc who={entry.who} name={entry.name} size="row" />
         <div className="atlas-online-log__content">
-          <Byline who={entry.who} name={entry.name} verb="showed an image" time={time} api={api} />
+          <Byline who={entry.who} name={entry.name} verb="image" time={time} api={api} />
           <div className="atlas-online-log__shown" style={{ aspectRatio: `${entry.width} / ${entry.height}` }}>
-            {onOpen === undefined || src === null ? picture : <button type="button" className="atlas-online-log__shown-open" aria-label="Open the image" onClick={onOpen}>{picture}</button>}
+            {onOpen === undefined || src === null ? picture : <button type="button" className="atlas-online-log__shown-open" aria-label={t('onlineLog.shown.open')} onClick={onOpen}>{picture}</button>}
           </div>
           <ReactionChips id={entry.id} reactions={reactions} api={api} />
           <ThreadPill stat={thread} onOpen={() => api.openThread(entry.id)} />
@@ -74,7 +75,7 @@ export const LootRow = memo(function LootRow({ entry, time, thread, api, ...flag
       <div className="atlas-online-log__message">
         <AuthorDisc who={entry.who} name={entry.name} size="row" />
         <div className="atlas-online-log__content">
-          <Byline who={entry.who} name={entry.name} verb="handed out" time={time} api={api} />
+          <Byline who={entry.who} name={entry.name} verb="loot" time={time} api={api} />
           <div className="atlas-loot-card atlas-online-log__loot" data-rarity={rarityTone(entry.item.rarity)}>
             <LootItemContent draw={draw} />
           </div>

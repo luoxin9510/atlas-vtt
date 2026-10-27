@@ -1,16 +1,17 @@
 import { GM_AUTHOR, type LogEntry, type TablePerson } from '../protocol/index.ts';
+import { t } from '../../i18n';
 
 /** Someone a whisper is for, as the viewer reads it: "you", "GM", a name, or "someone" for a person who left. */
 export function personName(id: string, people: readonly TablePerson[], self: string | null): string {
-  if (self !== null && id === self) return 'you';
-  if (id === GM_AUTHOR) return 'GM';
-  return people.find((person) => person.id === id)?.name ?? 'someone';
+  if (self !== null && id === self) return t('onlineLog.author.youLower');
+  if (id === GM_AUTHOR) return t('onlineLog.author.gm');
+  return people.find((person) => person.id === id)?.name ?? t('onlineLog.author.someone');
 }
 
 /** Names as a sentence lists them: "Kara", "Kara and GM", "Kara, Mira and GM". */
 export function nameList(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return t('common.listAnd', { names: names.slice(0, -1).join(t('common.listSeparator')), last: names[names.length - 1] ?? '' });
 }
 
 /** An audience as the viewer reads it, the viewer first: "you and Kara", "Kara and GM". */

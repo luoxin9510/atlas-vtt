@@ -4,10 +4,11 @@ import type { FoundEntry, ImageEntry, LogSpeaker } from '../../protocol/index.ts
 import type { SceneStore } from '../atlasView.ts';
 import { detached } from '../dock/dockDom.ts';
 import { openThroughAtlas, takeOverDiceLog } from './diceLogTakeover.ts';
+import { t } from '../../../i18n';
 
 /** Atlas's own interface layer in a map view, in which its dice log stands. */
 const ATLAS_UI = '.atlas-ui';
-const OFFLINE_TEXT = 'The table is offline. You can write again once it is back.';
+const OFFLINE_TEXT = t('onlineLog.mountOffline');
 
 export interface TableLogMountDeps {
   readonly state: LogState;

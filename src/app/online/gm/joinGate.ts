@@ -3,6 +3,7 @@ import { JOIN_CODE_PATTERN, type PlayerInfo } from '../protocol/index.ts';
 import type { ArmedCards } from './armedCards.ts';
 import type { Timers } from './companionTimers.ts';
 import { ARM_MS, WaitingKnocks, type WaitingPlayer } from './waitingKnocks.ts';
+import { t } from '../../i18n';
 
 export { ARM_MS, FULL_NOTE_MS, type WaitingPlayer } from './waitingKnocks.ts';
 export { newJoinCode };
@@ -24,10 +25,10 @@ export interface GateFrame {
   readonly ask: boolean;
 }
 
-/** The longest a pause is shown, whatever the relay's clock says: the relay's own length of one. */
-const MAX_PAUSE_MS = 10 * 60_000;
+/** The longest a pause is ever shown (a day): the relay escalates its pauses to hours and says when each ends, so that is what is shown; this only guards against a clock that is far off. */
+const MAX_PAUSE_MS = 24 * 3_600_000;
 /** What the GM reads while too many wrong codes keep newcomers out. */
-export const PAUSED_TEXT = 'Joins paused: too many wrong codes';
+export const PAUSED_TEXT = t('onlineGm.gate.paused');
 
 /** A new table's gates: a fresh code that is none of `taken` (the players' own codes), and both switches on. */
 export const newGate = (random?: () => number, taken?: ReadonlySet<string>): GateSettings => ({ code: newJoinCode(random, taken), requireCode: true, askToJoin: true });

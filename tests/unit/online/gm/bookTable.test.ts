@@ -6,6 +6,9 @@ import { BookShelf } from '../../../../src/app/online/gm/book/BookShelf.ts';
 import { FakeSocket, workspace } from './fakeTable.ts';
 import { ANA, BEN, BRANNOCH, BRANNOCH_BOOK, BRANNOCH_ART, CAL, cave, delivered, DOOM, keptBooks, MAP, MIRA_BOOK, MIRA_ART, MIRA_DOOM, ofType, openTable, traffic, WORLD_MAP, type Delivered } from './bookTableHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({ Notice: class {}, normalizePath: (path: string) => path, requestUrl: () => Promise.resolve({ status: 201, json: null }), PluginSettingTab: class {}, Setting: class {} }));
 // The GM's marks draw with PIXI over Atlas's canvas, which a table of books has no use for.

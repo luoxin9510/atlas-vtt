@@ -8,6 +8,9 @@ import { FakeSocket, workspace } from './fakeTable.ts';
 import { ANA, BEN, cave, delivered, ofType, openTable, type Delivered } from './bookTableHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
 import { propertiesOf, StatblockNotes, templateOf } from './statblockNotes.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 vi.mock('obsidian', () => ({ Notice: class {}, normalizePath: (path: string) => path, requestUrl: () => Promise.resolve({ status: 201, json: null }), PluginSettingTab: class {}, Setting: class {} }));
 // The GM's marks draw with PIXI over Atlas's canvas, which a table of books has no use for.

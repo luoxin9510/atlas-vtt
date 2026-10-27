@@ -14,6 +14,7 @@ import { ROLL_MODE_INFO } from './rollModes.ts';
 import { RowShell } from './RowShell.tsx';
 import { SpeakerFace } from './SpeakerFace.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { t } from '../../i18n';
 
 export interface RollRowProps extends Omit<RowFlags, 'editing'> {
   readonly entry: RollEntry & Pick<ShownEntry, 'hidden'>;
@@ -29,7 +30,7 @@ export interface RollRowProps extends Omit<RowFlags, 'editing'> {
 
 /** Who rolled, the token first where the viewer knows its name: "Kara (Mira) rolled". */
 function rolledBy(roller: string, token: string | null): string {
-  return token === null || token === '' ? `${roller} rolled` : `${token} (${roller}) rolled`;
+  return token === null || token === '' ? t('onlineLog.roll.by', { roller }) : t('onlineLog.roll.byToken', { token, roller });
 }
 
 /** The roll's token, its speaker before the token a roll names. */
@@ -53,7 +54,7 @@ export const RollRow = memo(function RollRow({ entry, face, portrait, time, thre
   const roller = shownName(who, name, api.self);
   const ability = roll.source?.abilityName;
   // A roll answering a button in a whisper among players goes to that whisper's people, not to the GM.
-  const badge = mode === undefined ? null : mode === 'gm' && entry.to?.includes(GM_AUTHOR) === false ? 'Whisper' : ROLL_MODE_INFO[mode].badge;
+  const badge = mode === undefined ? null : mode === 'gm' && entry.to?.includes(GM_AUTHOR) === false ? t('onlineLog.mode.whisper') : ROLL_MODE_INFO[mode].badge;
   return (
     <RowShell id={id} className="atlas-online-log__row--roll" reactions={reactions} canEdit={false} canDelete={false} api={api} editing={false} {...flags}>
       <div className={classes('atlas-online-log__roll', critClass(roll, 'atlas-online-log__roll'), mode !== undefined && 'atlas-online-log__roll--private')}>
@@ -67,7 +68,7 @@ export const RollRow = memo(function RollRow({ entry, face, portrait, time, thre
           {request !== undefined && (
             <button type="button" className="atlas-online-log__roll-request" onClick={() => api.jumpTo(request.id)}>
               <CornerDownRight />
-              <span className="atlas-online-log__roll-request-text">{`for ${request.label}`}</span>
+              <span className="atlas-online-log__roll-request-text">{t('onlineLog.roll.for', { label: request.label })}</span>
             </button>
           )}
           {ability !== undefined && ability !== '' && <span className="atlas-online-log__roll-ability atlas-dice-toast__ability">{ability}</span>}
@@ -79,10 +80,10 @@ export const RollRow = memo(function RollRow({ entry, face, portrait, time, thre
           </div>
           <button type="button" className="atlas-online-log__roll-toggle" aria-expanded={open} aria-controls={dice} onClick={() => setOpen(!open)}>
             <ChevronDown className={classes('atlas-online-log__roll-chevron', open && 'is-open')} />
-            Dice
+            {t('onlineLog.help.dice')}
           </button>
           {open && <RollDice id={dice} roll={roll} />}
-          {entry.hidden === true && <span className="atlas-online-log__roll-hidden"><EyeOff />Only you see this roll</span>}
+          {entry.hidden === true && <span className="atlas-online-log__roll-hidden"><EyeOff />{t('onlineLog.roll.onlyYou')}</span>}
         </div>
       </div>
       <ReactionChips id={id} reactions={reactions} api={api} />

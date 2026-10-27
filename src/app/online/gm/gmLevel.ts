@@ -1,6 +1,7 @@
 import type { App } from 'obsidian';
 import { GM_LEVEL, isRecord, readLevel } from '../protocol/index.ts';
-import { RELAY_ORIGIN } from './servers.ts';
+import { relayOrigin } from './servers.ts';
+import { t } from '../../i18n';
 
 /** Device-local: the least GM level the relay last asked for, which relay said so, and when. */
 const MIN_LEVEL_KEY = 'atlas-vtt:online-min-level';
@@ -11,18 +12,20 @@ const MIN_LEVEL_KEY = 'atlas-vtt:online-min-level';
  */
 const REMEMBER_MS = 60 * 60 * 1000;
 
-export const OUTDATED_TEXT = 'Online play needs a newer Atlas.';
-export const UPDATE_AFTER_TEXT = 'Update Atlas after this session';
+export const OUTDATED_TEXT = t('onlineGm.outdated');
+export const UPDATE_AFTER_TEXT = t('onlineGm.updateAfter');
 
 /** Keeps what the relay last said it needs, from a welcome, a refused table or a refused hello. */
 export function rememberMinLevel(app: App, level: number): void {
-  app.saveLocalStorage(MIN_LEVEL_KEY, { origin: RELAY_ORIGIN, level, at: Date.now() });
+  const origin = relayOrigin();
+  if (origin !== null) app.saveLocalStorage(MIN_LEVEL_KEY, { origin, level, at: Date.now() });
 }
 
 /** What this build's relay asked for within the last hour; another relay's word (a staging build's) counts for nothing. */
 export function knownMinLevel(app: App): number {
+  const origin = relayOrigin();
   const saved: unknown = app.loadLocalStorage(MIN_LEVEL_KEY);
-  if (!isRecord(saved) || saved.origin !== RELAY_ORIGIN || typeof saved.at !== 'number') return 0;
+  if (origin === null || !isRecord(saved) || saved.origin !== origin || typeof saved.at !== 'number') return 0;
   return Date.now() - saved.at > REMEMBER_MS ? 0 : readLevel(saved.level);
 }
 

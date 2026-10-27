@@ -40,6 +40,12 @@ function menu(over: Partial<OnlineSnapshot>, account: AccountView, campaigns: Ca
 }
 
 describe('the online menu before a table runs', () => {
+  it('asks for the server address with no server set: no Sign in, no account, no Start', () => {
+    const shown = menu({}, { kind: 'no-server' });
+    expect(shown.lines).toContain('Set the online server address in Atlas settings first.');
+    expect(shown.buttons).toEqual([]);
+  });
+
   it('asks a signed-out GM to sign in, and offers nothing that takes a key', () => {
     const shown = menu({}, { kind: 'signed-out', notice: null });
     expect(shown.lines).toEqual(['Online play', 'Players see this map in their browsers and move their own tokens.']);

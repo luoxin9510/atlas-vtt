@@ -11,6 +11,10 @@ import { app, atlasTab, FakeSocket, png, present, switchScene, workspace } from 
 import { fakeTokenSource } from './fakeTokenSource.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { UPSTREAM_RELAY_ORIGIN } from '../../../../src/app/online/gm/servers.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => {
   /** The relay's answer to a table request. */
@@ -61,7 +65,7 @@ vi.mock('../../../../src/app/online/gm/atlasLighting.ts', async (original) => ({
 
 const ANA = 'anaanaanaanaanaanaan';
 const MAP = 'Scenes/Cave.atlasmap';
-const SAVED: SavedTable = { code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: MAP, gate: { code: '483912', requireCode: true, askToJoin: true } };
+const SAVED: SavedTable = { origin: UPSTREAM_RELAY_ORIGIN, code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: MAP, gate: { code: '483912', requireCode: true, askToJoin: true } };
 const ogre = (x: number): TokenEntity => ({ id: 'gm-ogre', kind: 'character', name: 'Ogre', imagePath: 'art/ogre.png', x, y: 140 });
 
 workspace.files = new Map<string, Uint8Array>([['maps/cave.png', png(700, 700)], ['maps/cave2.png', png(350, 350)], ['art/ogre.png', png(4, 4)]]);
@@ -173,7 +177,7 @@ describe('the online table', () => {
     await online.start(tab.leaf, 'c1');
     await advance(0);
     const created = saves.at(-1);
-    expect(created).toEqual({ code: 'b'.repeat(26), secret: 'n'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: MAP, gate: { code: expect.stringMatching(/^\d{6}$/) as string, requireCode: true, askToJoin: true } });
+    expect(created).toEqual({ origin: UPSTREAM_RELAY_ORIGIN, code: 'b'.repeat(26), secret: 'n'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: MAP, gate: { code: expect.stringMatching(/^\d{6}$/) as string, requireCode: true, askToJoin: true } });
     const link = online.link();
     const socket = FakeSocket.all[0];
     if (socket === undefined || created === null || created === undefined) throw new Error('no table');

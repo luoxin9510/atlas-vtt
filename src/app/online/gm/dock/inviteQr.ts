@@ -4,16 +4,19 @@ import { animatePanelIn, animatePanelOutAndRemove } from '../../../ui/panelMotio
 import { prefersReducedMotion } from '../../../utils/motion';
 import atlasIcon from '../assets/atlas-icon.png?inline';
 import { COPIED_MS } from './controls.ts';
-import { BAR_GAP, copyImage, detachedEl, roomAbove, rowOf, surfaceRise } from './dockDom.ts';
+import { aroundToken, BAR_GAP, copyImage, detachedEl, roomAbove, rowOf, surfaceRise } from './dockDom.ts';
 import { qrDrawing, qrMatrix, type QrDrawing } from './qrDrawing.ts';
 import { qrImageBlob } from './qrImage.ts';
 import { showNotice } from '../../../ui/notice';
+import { t } from '../../../i18n';
 
 const SVG = 'http://www.w3.org/2000/svg';
 /** The code's side the card aims at, in CSS pixels: large enough to scan across a table. */
 const CODE_SIDE = 260;
 /** The fewest pixels a module is drawn with where the view leaves less room: with fewer, a screen of one device pixel a pixel no longer shows the rounded modules well enough to read. */
 const MIN_MODULE = 4;
+/** Where the code's sentence puts the join code itself. */
+const CODE = '{code}';
 
 /** What the card shows of the running table. */
 export interface QrTable {
@@ -32,7 +35,7 @@ function svg(parent: Element, tag: string, attrs: Readonly<Record<string, string
 /** The code on its white field: dark on white in both themes, since cameras read an inverted code badly. */
 function drawCode(plate: HTMLElement, drawing: QrDrawing): void {
   plate.empty();
-  const root = svg(plate, 'svg', { viewBox: `0 0 ${drawing.side} ${drawing.side}`, role: 'img', 'aria-label': 'QR code of the invite link', class: 'atlas-online-qr__code' });
+  const root = svg(plate, 'svg', { viewBox: `0 0 ${drawing.side} ${drawing.side}`, role: 'img', 'aria-label': t('onlineDock.qr.codeOfLink'), class: 'atlas-online-qr__code' });
   svg(root, 'path', { d: drawing.modules });
   svg(root, 'path', { d: drawing.finders, 'fill-rule': 'evenodd' });
   const { x, y, side } = drawing.icon;
@@ -151,11 +154,11 @@ export class InviteQr {
    * row says so in the join code's place, as the panel's copy rows do.
    */
   private build(): HTMLElement {
-    const card = this.root.createDiv({ cls: 'atlas-online-qr', attr: { role: 'group', 'aria-label': 'Invite' } });
+    const card = this.root.createDiv({ cls: 'atlas-online-qr', attr: { role: 'group', 'aria-label': t('onlineDock.qr.invite') } });
     this.plate = card.createDiv({ cls: 'atlas-online-qr__plate' });
     const foot = card.createDiv({ cls: 'atlas-online-qr__foot' });
     foot.createDiv({ cls: 'atlas-online-qr__said', attr: { role: 'status' } });
-    const copy = foot.createEl('button', { cls: 'atlas-online-icon-button atlas-online-qr__copy', attr: { type: 'button', 'aria-label': 'Copy image', 'data-focus-key': 'qr-copy' } });
+    const copy = foot.createEl('button', { cls: 'atlas-online-icon-button atlas-online-qr__copy', attr: { type: 'button', 'aria-label': t('onlineDock.qr.copyImage'), 'data-focus-key': 'qr-copy' } });
     setIcon(copy, 'copy');
     copy.addEventListener('click', () => this.copy(card));
     this.icon = detachedEl(card, 'img', { attr: { src: atlasIcon } });
@@ -175,8 +178,10 @@ export class InviteQr {
     const foot = card.querySelector('.atlas-online-qr__foot');
     if (code === null || foot === null) return;
     const line = foot.createDiv({ cls: 'atlas-online-qr__join' });
-    line.createSpan({ cls: 'atlas-online-qr__join-label', text: 'Code ' });
+    const [before, after] = aroundToken(t('onlineDock.code', { code: CODE }), CODE);
+    if (before !== '') line.createSpan({ cls: 'atlas-online-qr__join-label', text: before });
     line.createSpan({ text: shownJoinCode(code) });
+    if (after !== '') line.createSpan({ cls: 'atlas-online-qr__join-label', text: after });
   }
 
   /**
@@ -191,7 +196,7 @@ export class InviteQr {
     const style = (el: Element): CSSStyleDeclaration => card.win.getComputedStyle(el);
     const png = qrImageBlob(card, drawing, { dark: style(code).fill, light: style(plate).backgroundColor, icon });
     void copyImage(card, png).then((copied) => {
-      if (!copied) showNotice('The image could not be copied.');
+      if (!copied) showNotice(t('onlineDock.qr.copyFailed'));
       else if (this.card === card) this.say(card);
     });
   }
@@ -201,7 +206,7 @@ export class InviteQr {
     const set = (copied: boolean): void => {
       const button = card.querySelector<HTMLElement>('.atlas-online-qr__copy');
       card.querySelector('.atlas-online-qr__foot')?.toggleClass('is-copied', copied);
-      card.querySelector('.atlas-online-qr__said')?.setText(copied ? 'Image copied' : '');
+      card.querySelector('.atlas-online-qr__said')?.setText(copied ? t('onlineDock.qr.copied') : '');
       if (button !== null) setIcon(button, copied ? 'check' : 'copy');
     };
     if (this.copiedTimer !== null) card.win.clearTimeout(this.copiedTimer);

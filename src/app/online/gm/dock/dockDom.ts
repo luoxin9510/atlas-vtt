@@ -101,3 +101,12 @@ export async function copyImage(el: HTMLElement, png: Promise<Blob>): Promise<bo
     return false;
   }
 }
+
+/**
+ * A sentence from one translated message that holds `token` (a placeholder kept literal, like `{name}`):
+ * the words before it and after it, so the caller can put its own element, styled alone, in the token's place.
+ */
+export function aroundToken(sentence: string, token: string): readonly [string, string] {
+  const at = sentence.indexOf(token);
+  return at === -1 ? [sentence, ''] : [sentence.slice(0, at), sentence.slice(at + token.length)];
+}

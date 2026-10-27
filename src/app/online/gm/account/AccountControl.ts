@@ -1,15 +1,18 @@
 import type { Timers } from '../companionTimers.ts';
-import { ACCOUNT_PAGE_URL, ACCOUNTS_ORIGIN, RELAY_ORIGIN } from '../servers.ts';
+import { accountPageUrl, accountsOrigin, isSelfHosted, isUpstream, relayOrigin } from '../servers.ts';
 import { accountView, SERVER_SIGNED_OUT_TEXT, type AccountFacts, type AccountView, type SignedOutNotice } from './accountView.ts';
 import { DeviceSignIn } from './deviceFlow.ts';
 import type { Http } from './http.ts';
 import { RelayAccount, signOutToken, type AccountAnswer } from './relayAccount.ts';
 import type { TokenStore } from './tokenStore.ts';
+import { t } from '../../../i18n';
 
 export interface AccountPorts {
   readonly http: Http;
   readonly timers: Timers;
   readonly tokens: TokenStore;
+  /** The host key of a self-hosted server, kept like the token. */
+  readonly hostKeys: TokenStore;
   readonly openUrl: (url: string) => void;
   /** Tells the GM something outside the dock (Obsidian's `Notice`). */
   readonly notify: (text: string) => void;
@@ -26,6 +29,9 @@ const FRESH_MS = 10_000;
  * host or why it may not, and sign-out. Invite keys are redeemed and the account's data is exported
  * and deleted on the website's account page, never here. A 401 anywhere clears the token and says
  * so; tables already running never depend on it. The dock and the settings read `view()`.
+ * Atlas's account service is reached only when the server address is Atlas's own (`isUpstream`): with no address set nothing is
+ * contacted at all, and the view says so. On a self-hosted server there is no account: the host key stands in for the token, is sent only with
+ * the table request, and none of the account calls are made.
  */
 export class AccountControl {
   private readonly ports: AccountPorts;
@@ -50,15 +56,38 @@ export class AccountControl {
     return () => this.listeners.delete(listener);
   }
 
-  /** The token tables are asked for with, or null while signed out. */
+  /** The token tables are asked for with (a self-hosted server's host key), or null while there is none. */
   token(): string | null {
-    return this.ports.tokens.get();
+    if (isSelfHosted()) return this.ports.hostKeys.get();
+    return isUpstream() ? this.ports.tokens.get() : null;
+  }
+
+  /** Keeps the host key of a self-hosted server (blank: forgets it); the GM is told where Obsidian has no secure storage. */
+  setHostKey(key: string): void {
+    const trimmed = key.trim();
+    try {
+      if (trimmed === '') this.ports.hostKeys.clear();
+      else this.ports.hostKeys.set(trimmed);
+    } catch {
+      this.ports.notify(t('onlineGm.account.noStorageHostKey'));
+    }
+    this.changed();
+  }
+
+  /** The server address changed: nothing known of the last server holds, and a sign-in that waits is dropped. */
+  serverChanged(): void {
+    this.flow?.cancel();
+    this.me = null;
+    this.checkedAt = Number.NEGATIVE_INFINITY;
+    this.notice = null;
+    this.changed();
+    void this.refresh(true);
   }
 
   /** Asks the relay what the account may host, unless it was asked moments ago (`force` asks anyway). */
   refresh(force = false): Promise<void> {
     const token = this.token();
-    if (token === null) return Promise.resolve();
+    if (token === null || !isUpstream()) return Promise.resolve();
     if (!force && this.me !== null && this.me !== 'unreachable' && this.ports.timers.now() - this.checkedAt < FRESH_MS) return Promise.resolve();
     this.checking ??= this.check(token).finally(() => (this.checking = null));
     return this.checking;
@@ -66,8 +95,8 @@ export class AccountControl {
 
   /** Starts a device sign-in: the approve page opens in the browser, and the dock shows the code. */
   async signIn(): Promise<void> {
-    if (this.flow !== null) return;
-    const flow = new DeviceSignIn({ http: this.ports.http, timers: this.ports.timers, origin: ACCOUNTS_ORIGIN, openUrl: this.ports.openUrl });
+    if (this.flow !== null || !isUpstream()) return;
+    const flow = new DeviceSignIn({ http: this.ports.http, timers: this.ports.timers, origin: accountsOrigin(), openUrl: this.ports.openUrl });
     this.flow = flow;
     this.userCode = null;
     this.notice = null;
@@ -83,8 +112,8 @@ export class AccountControl {
       try {
         this.ports.tokens.set(end.token);
       } catch {
-        this.ports.notify('Obsidian cannot keep the sign-in on this device: its secure storage is not available.');
-        void signOutToken(this.ports.http, ACCOUNTS_ORIGIN, end.token);
+        this.ports.notify(t('onlineGm.account.noStorageSignIn'));
+        void signOutToken(this.ports.http, accountsOrigin(), end.token);
         return this.changed();
       }
       this.me = null;
@@ -106,25 +135,30 @@ export class AccountControl {
 
   /** Signs this device's session out at the account service and forgets the token. */
   async signOut(): Promise<void> {
+    if (!isUpstream()) return;
     const token = this.token();
     this.forget(null);
-    if (token !== null) await signOutToken(this.ports.http, ACCOUNTS_ORIGIN, token);
+    if (token !== null) await signOutToken(this.ports.http, accountsOrigin(), token);
   }
 
   /** The server refused the token: it is forgotten, and the GM hears that running tables go on. */
-  signedOutByServer(): void {
-    if (this.token() === null) return;
+  signedOutByServer(selfHosted: boolean = isSelfHosted()): void {
+    // A host key the server refuses stays: the GM replaces it in the settings. `selfHosted` is what it was when the request went out.
+    if (selfHosted || !isUpstream() || this.token() === null) return;
     this.forget('server');
     this.ports.notify(SERVER_SIGNED_OUT_TEXT);
   }
 
   /** Opens the account page in the browser: invite keys are redeemed there, and it shows what the account may host. */
   openAccountPage(): void {
-    this.ports.openUrl(ACCOUNT_PAGE_URL);
+    if (!isUpstream()) return;
+    this.ports.openUrl(accountPageUrl());
   }
 
   private async check(token: string): Promise<void> {
-    const answer = await new RelayAccount(this.ports.http, RELAY_ORIGIN, token).me();
+    const origin = relayOrigin();
+    if (origin === null || !isUpstream()) return;
+    const answer = await new RelayAccount(this.ports.http, origin, token).me();
     if (this.token() !== token) return;
     if (answer === 'signed-out') return this.signedOutByServer();
     this.me = answer === 'unavailable' ? 'unreachable' : answer;
@@ -144,6 +178,8 @@ export class AccountControl {
       signingIn: this.flow !== null,
       userCode: this.userCode,
       token: this.token() !== null,
+      selfHosted: isSelfHosted(),
+      noServer: relayOrigin() === null,
       me: this.me,
       notice: this.notice,
     };

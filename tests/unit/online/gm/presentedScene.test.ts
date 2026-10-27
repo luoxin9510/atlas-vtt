@@ -13,6 +13,10 @@ import type { SavedTable } from '../../../../src/app/online/gm/savedTable.ts';
 import { app, atlasTab, FakeSocket, FakeTabs, png, present, switchScene, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
 import { advanceSettled as advance } from './settled.ts';
+import { useUpstreamServer } from './upstreamServer.ts';
+import { UPSTREAM_RELAY_ORIGIN } from '../../../../src/app/online/gm/servers.ts';
+
+useUpstreamServer();
 
 const seen = vi.hoisted(() => ({ notices: [] as string[] }));
 
@@ -49,7 +53,7 @@ const ANA = 'anaanaanaanaanaanaan';
 const BEN = 'benbenbenbenbenbenbe';
 const CAVE = 'Scenes/Cave.atlasmap';
 const HALL = 'Scenes/Hall.atlasmap';
-const SAVED: SavedTable = { code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: CAVE, gate: { code: '483912', requireCode: true, askToJoin: true } };
+const SAVED: SavedTable = { origin: UPSTREAM_RELAY_ORIGIN, code: 'a'.repeat(26), secret: 's'.repeat(43), maxPlayers: 12, campaignId: 'c1', mapPath: CAVE, gate: { code: '483912', requireCode: true, askToJoin: true } };
 const character = (id: string, name: string, x: number): TokenEntity => ({ id, kind: 'character', name, imagePath: 'art/ogre.png', x, y: 140 });
 const cave = (x = 140): SceneState => sceneState({ mapPath: CAVE, background: 'maps/cave.png', objects: { ...sceneState().objects, tokens: { 'gm-ogre': character('gm-ogre', 'Ogre', x) } } });
 const hall = (): SceneState => sceneState({ mapPath: HALL, background: 'maps/hall.png', objects: { ...sceneState().objects, tokens: { 'gm-goblin': character('gm-goblin', 'Goblin', 700) } } });

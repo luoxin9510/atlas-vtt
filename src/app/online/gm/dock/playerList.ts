@@ -2,6 +2,7 @@ import { setIcon } from 'obsidian';
 import { createTokenPortrait } from '../../../packages/components/shared/tokenPortraitElement';
 import { openMenuBelow, type MenuEntry } from './dockMenu.ts';
 import type { GroupPlayer, OnlinePlayer, PlayerGroup, TokenRow } from './panelModel.ts';
+import { t } from '../../../i18n';
 
 /** What the list's rows and menus do. */
 export interface ListActions {
@@ -38,9 +39,15 @@ function avatar(parent: HTMLElement, player: GroupPlayer, face: TokenRow | null,
   createTokenPortrait(picture, { src: actions.imageSrc(face.imagePath), alt: '', showRing: face.showRing, ringColor: face.ringColor ?? undefined, cls: 'atlas-online-avatar__portrait' });
 }
 
+/** What a player's row says to screen readers: whether they are here and the token they play. */
+function presenceText(online: boolean, face: TokenRow | null): string {
+  if (face === null) return t(online ? 'onlineDock.presence.online' : 'onlineDock.presence.away');
+  return t(online ? 'onlineDock.presence.onlinePlays' : 'onlineDock.presence.awayPlays', { label: face.label });
+}
+
 /** A mark beside a name for a token the players do not see. */
 function hiddenMark(parent: HTMLElement): void {
-  setIcon(parent.createSpan({ cls: 'atlas-online-token__hidden', attr: { 'aria-label': 'Hidden from players' } }), 'eye-off');
+  setIcon(parent.createSpan({ cls: 'atlas-online-token__hidden', attr: { 'aria-label': t('onlineDock.hiddenFromPlayers') } }), 'eye-off');
 }
 
 /**
@@ -50,9 +57,9 @@ function hiddenMark(parent: HTMLElement): void {
 function releaseEntries(face: TokenRow | null, tokens: readonly TokenRow[], actions: ListActions): MenuEntry[] {
   const releasing = (title: string, owned: readonly TokenRow[]): MenuEntry =>
     ({ title, icon: 'undo-2', disabled: owned.length === 0, run: () => actions.release(owned.map((token) => token.tokenId)) });
-  if (face === null) return [releasing('Release all', [])];
-  const one = releasing(`Release ${face.label}`, [face]);
-  return tokens.length === 0 ? [one] : [one, releasing('Release all', [face, ...tokens])];
+  if (face === null) return [releasing(t('onlineDock.releaseAll'), [])];
+  const one = releasing(t('onlineDock.release.one', { label: face.label }), [face]);
+  return tokens.length === 0 ? [one] : [one, releasing(t('onlineDock.releaseAll'), [face, ...tokens])];
 }
 
 /**
@@ -70,26 +77,26 @@ function playerRow(list: HTMLElement, player: GroupPlayer, face: TokenRow | null
   avatar(main, player, face, actions);
   main.createSpan({ cls: 'atlas-online-player__name', text: player.name });
   if (face?.hidden) hiddenMark(main);
-  main.createSpan({ cls: 'atlas-online-sr-only', text: `${player.online ? 'Online' : 'Away'}${face === null ? '' : `, plays ${face.label}`}` });
+  main.createSpan({ cls: 'atlas-online-sr-only', text: presenceText(player.online, face) });
   if (face !== null) main.addEventListener('click', () => actions.selectToken(face.tokenId));
-  const more = row.createEl('button', { cls: 'atlas-online-icon-button atlas-online-player__more', attr: { type: 'button', 'aria-label': `${player.name}: options`, 'aria-haspopup': 'menu', 'data-focus-key': `player:${player.id}` } });
+  const more = row.createEl('button', { cls: 'atlas-online-icon-button atlas-online-player__more', attr: { type: 'button', 'aria-label': t('onlineDock.playerOptions', { name: player.name }), 'aria-haspopup': 'menu', 'data-focus-key': `player:${player.id}` } });
   setIcon(more, 'more-horizontal');
   more.addEventListener('click', () => {
     const selected = actions.selected();
     openMenuBelow([
-      { title: 'Assign selected tokens here', icon: 'user-plus', disabled: selected.length === 0, run: () => actions.assign(selected, player.id) },
+      { title: t('onlineDock.assignSelected'), icon: 'user-plus', disabled: selected.length === 0, run: () => actions.assign(selected, player.id) },
       ...releaseEntries(face, tokens, actions),
-      { title: 'Copy code', icon: 'copy', apart: true, run: () => void actions.copyPlayerCode(player.id) },
-      { title: 'New code', icon: 'refresh-cw', run: () => actions.newPlayerCode(player.id) },
-      { title: 'Rename…', icon: 'pencil', run: () => actions.askRename(player) },
-      { title: 'Remove from table', icon: 'user-x', warning: true, apart: true, run: () => actions.kick(player.id) },
-      { title: 'Remove from campaign', icon: 'user-minus', warning: true, run: () => actions.askRemoveFromCampaign(player) },
+      { title: t('onlineDock.copyCode'), icon: 'copy', apart: true, run: () => void actions.copyPlayerCode(player.id) },
+      { title: t('onlineDock.newCode'), icon: 'refresh-cw', run: () => actions.newPlayerCode(player.id) },
+      { title: t('onlineDock.rename.menu'), icon: 'pencil', run: () => actions.askRename(player) },
+      { title: t('onlineDock.removeFromTable'), icon: 'user-x', warning: true, apart: true, run: () => actions.kick(player.id) },
+      { title: t('onlineDock.removeFromCampaign'), icon: 'user-minus', warning: true, run: () => actions.askRemoveFromCampaign(player) },
     ], more);
   });
 }
 
 /** A player as a menu row names them: away players say so. */
-export const playerTitle = (player: OnlinePlayer): string => (player.online ? player.name : `${player.name} (away)`);
+export const playerTitle = (player: OnlinePlayer): string => (player.online ? player.name : t('onlineDock.awayName', { name: player.name }));
 
 /**
  * Who plays the token, inside its row at the right. Only the GM gives tokens to players, so on a token
@@ -100,16 +107,16 @@ function ownerPicker(row: HTMLElement, token: TokenRow, players: readonly Online
   const owner = token.owner;
   const picker = row.createEl('button', {
     cls: `atlas-online-owner ${owner === null ? 'atlas-online-owner--free' : `atlas-online-colour-${owner.colour}`}`,
-    attr: { type: 'button', 'aria-haspopup': 'menu', 'aria-label': `${token.label}: ${owner === null ? 'free, assign to a player' : `played by ${owner.name}`}`, 'data-focus-key': `chip:${token.tokenId}` },
+    attr: { type: 'button', 'aria-haspopup': 'menu', 'aria-label': owner === null ? t('onlineDock.owner.free', { label: token.label }) : t('onlineDock.owner.playedBy', { label: token.label, name: owner.name }), 'data-focus-key': `chip:${token.tokenId}` },
   });
   if (owner !== null) picker.createSpan({ cls: 'atlas-online-owner__dot', attr: { 'aria-hidden': 'true' } });
-  picker.createSpan({ cls: 'atlas-online-owner__text', text: owner?.name ?? 'Assign' });
+  picker.createSpan({ cls: 'atlas-online-owner__text', text: owner?.name ?? t('onlineDock.assign') });
   setIcon(picker.createSpan({ cls: 'atlas-online-chevron' }), 'chevron-down');
   picker.addEventListener('click', () => {
     openMenuBelow([
       ...players.map((player) => ({ title: playerTitle(player), checked: owner?.id === player.id, run: () => actions.assign([token.tokenId], player.id) })),
-      { title: 'Release', icon: 'undo-2', disabled: owner === null, apart: players.length > 0, run: () => actions.release([token.tokenId]) },
-      { title: 'Not a player token', icon: 'shield', run: () => actions.unmark([token.tokenId]) },
+      { title: t('onlineDock.release.menu'), icon: 'undo-2', disabled: owner === null, apart: players.length > 0, run: () => actions.release([token.tokenId]) },
+      { title: t('onlineDock.notPlayerToken'), icon: 'shield', run: () => actions.unmark([token.tokenId]) },
     ], picker);
   });
 }
@@ -132,7 +139,7 @@ export function renderPlayerList(parent: HTMLElement, groups: readonly PlayerGro
     if (group.player === null && group.tokens.length === 0) continue;
     const block = list.createDiv({ cls: 'atlas-online-group' });
     if (group.player !== null) playerRow(block, group.player, group.face, group.tokens, actions);
-    else block.createDiv({ cls: 'atlas-online-group-label', text: 'Not assigned' });
+    else block.createDiv({ cls: 'atlas-online-group-label', text: t('onlineDock.notAssigned') });
     for (const token of group.tokens) tokenRow(block, token, players, actions);
   }
   return list;

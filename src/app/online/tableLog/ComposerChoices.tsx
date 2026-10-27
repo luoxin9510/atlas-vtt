@@ -8,6 +8,7 @@ import { ComposerMenu } from './ComposerMenu.tsx';
 import type { SpeakerOption } from './panelTypes.ts';
 import { ROLL_MODE_INFO } from './rollModes.ts';
 import { SpeakerFace } from './SpeakerFace.tsx';
+import { t } from '../../i18n';
 
 /** A speaker as the composer draws it: the viewer's own disc, or the token's portrait or letter. */
 function SpeakerIcon({ option, self }: { readonly option: SpeakerOption; readonly self: string | null }): ReactElement {
@@ -29,7 +30,7 @@ export interface SpeakerMenuProps {
 export function SpeakerMenu({ speakers, chosen, self, open, disabled, onOpenChange, onChoose }: SpeakerMenuProps): ReactElement {
   return (
     <ComposerMenu
-      label={`Speaking as ${chosen.kind === 'self' ? 'yourself' : chosen.name}`} open={open} onOpenChange={onOpenChange} disabled={disabled}
+      label={chosen.kind === 'self' ? t('onlineLog.speakingAsSelf') : t('onlineLog.speakingAs', { name: chosen.name })} open={open} onOpenChange={onOpenChange} disabled={disabled}
       triggerClassName="atlas-online-log__chip-button atlas-online-log__speaker-chip" face={<SpeakerIcon option={chosen} self={self} />}
     >
       {speakers.map((option) => (
@@ -39,7 +40,7 @@ export function SpeakerMenu({ speakers, chosen, self, open, disabled, onOpenChan
         >
           <span className="atlas-dropdown-menu-item__check">{option.key === chosen.key && <Check />}</span>
           <SpeakerIcon option={option} self={self} />
-          <span className="atlas-online-log__speaker-item-name">{option.kind === 'self' ? `${option.name} (you)` : option.name}</span>
+          <span className="atlas-online-log__speaker-item-name">{option.kind === 'self' ? t('onlineLog.selfOption', { name: option.name }) : option.name}</span>
         </Button>
       ))}
     </ComposerMenu>
@@ -59,7 +60,7 @@ export function RollModeMenu({ mode, open, disabled, onOpenChange, onChoose }: R
   const Icon = ROLL_MODE_INFO[mode].icon;
   return (
     <ComposerMenu
-      label={`Roll mode: ${ROLL_MODE_INFO[mode].choice}`} open={open} onOpenChange={onOpenChange} disabled={disabled}
+      label={t('onlineLog.rollMode', { mode: ROLL_MODE_INFO[mode].choice })} open={open} onOpenChange={onOpenChange} disabled={disabled}
       triggerClassName={`atlas-online-log__chip-button atlas-online-log__mode-button${mode === 'public' ? '' : ' is-private'}`} face={<Icon />}
     >
       {ROLL_MODES.map((option) => (
