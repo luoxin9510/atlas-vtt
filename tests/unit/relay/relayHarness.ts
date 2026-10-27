@@ -10,7 +10,7 @@ export const TEST_PUBLIC_ORIGIN = 'https://play.example.test';
 const directories: string[] = [];
 
 /** A relay on a free port with a state file in a temp directory and short timings. */
-export async function startTestRelay(overrides: Partial<RelayConfig> = {}): Promise<RunningRelay & { config: RelayConfig }> {
+export async function startTestRelay(overrides: Partial<RelayConfig> = {}, log?: (line: string) => void): Promise<RunningRelay & { config: RelayConfig }> {
   const directory = mkdtempSync(join(tmpdir(), 'atlas-relay-'));
   directories.push(directory);
   const config: RelayConfig = {
@@ -26,7 +26,7 @@ export async function startTestRelay(overrides: Partial<RelayConfig> = {}): Prom
     timing: { knockWaitMs: 500, wrongCodeWindowMs: 1000, wrongCodePauseMs: 1000, unhostedTableMs: 60_000, helloTimeoutMs: 10_000, pingIntervalMs: 30_000, stallMs: 30_000 },
     ...overrides,
   };
-  const running = await startRelay(config);
+  const running = await startRelay(config, log);
   return { ...running, config };
 }
 

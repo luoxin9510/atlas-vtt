@@ -27,6 +27,14 @@ export interface RelayConfig {
   /** Hard cap on one socket's unsent bytes (memory protection): over it the socket is closed 1013 at once. */
   readonly maxBacklogBytes: number;
   readonly timing: RelayTiming;
+  /** Where uploaded images are kept; default `assets` beside the state file. */
+  readonly assetDir?: string;
+  /** Most bytes one table may store (default 2 GiB). */
+  readonly maxTableAssetBytes?: number;
+  /** Most bytes all tables may store (default 10 GiB). */
+  readonly maxServerAssetBytes?: number;
+  /** Uploads are refused (507) while the disk has less free space (default 2 GiB). */
+  readonly minFreeBytes?: number;
 }
 
 export const DEFAULT_TIMING: RelayTiming = {
@@ -91,5 +99,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): RelayConfig {
     trustProxy: trustProxyIn(env.TRUST_PROXY),
     maxBacklogBytes: DEFAULT_MAX_BACKLOG_BYTES,
     timing: DEFAULT_TIMING,
+    ...(env.ASSET_DIR ? { assetDir: env.ASSET_DIR } : {}),
   };
 }

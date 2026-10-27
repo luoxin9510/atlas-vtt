@@ -1,7 +1,8 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { RelayConfig } from './config.ts';
+import { AssetStore, assetLimitsOf, SWEEP_INTERVAL_MS } from './assets/assetStore.ts';
 import { createHandler } from './http.ts';
 import { TableLinks } from './gmLink.ts';
 import { createSocketServer } from './socket.ts';
@@ -12,6 +13,7 @@ export interface RunningRelay {
   readonly origin: string;
   readonly tables: TableRegistry;
   readonly links: TableLinks;
+  readonly assets: AssetStore;
   /** How many TCP connections the HTTP server holds open right now (for tests and diagnostics). */
   openConnections(): Promise<number>;
   close(): Promise<void>;
@@ -20,8 +22,13 @@ export interface RunningRelay {
 /** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). */
 export async function startRelay(config: RelayConfig, log?: (line: string) => void): Promise<RunningRelay> {
   const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
+  tables.ensureTicketKey();
+  const assets = await AssetStore.open(config.assetDir ?? join(dirname(config.statePath), 'assets'), assetLimitsOf(config), Date.now);
+  tables.subscribe({ replaced: () => undefined, ended: (code) => void assets.deleteTable(code).catch(() => undefined) });
+  const sweeper = setInterval(() => void assets.sweep().catch(() => undefined), SWEEP_INTERVAL_MS);
+  sweeper.unref();
   const staticDir = config.staticDir === null ? null : resolve(config.staticDir);
-  const handler = createHandler({ config: { ...config, staticDir }, tables, log });
+  const handler = createHandler({ config: { ...config, staticDir }, tables, assets, log });
   const links = new TableLinks(tables, config.timing, config.maxBacklogBytes);
   const sockets = createSocketServer(tables, links, config, log);
   const server = createServer(handler);
@@ -35,6 +42,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
       });
     });
   } catch (error) {
+    clearInterval(sweeper);
     await tables.close();
     throw error;
   }
@@ -44,8 +52,10 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
     origin: `http://${hostName}:${port}`,
     tables,
     links,
+    assets,
     openConnections: () => new Promise<number>((done, fail) => server.getConnections((error, count) => (error === null ? done(count) : fail(error)))),
     async close(): Promise<void> {
+      clearInterval(sweeper);
       sockets.close();
       await new Promise<void>((done) => {
         server.close(() => done());

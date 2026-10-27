@@ -23,6 +23,7 @@ Configuration is by environment variables:
 | `MAX_PLAYERS` | `8` | Seats per table, 1-12. |
 | `STATE_PATH` | `./relay-state.json` | Where tables are kept across restarts. |
 | `STATIC_DIR` | none | A folder of static files (the player page) to serve: `apps/play/dist` after `npm run build:play`. |
+| `ASSET_DIR` | `assets` beside `STATE_PATH` | Where uploaded map and token images are kept (per table; removed when the table ends). A table may store 2 GiB, the server 10 GiB, and uploads stop (507) with less than 2 GiB of free disk. |
 | `TRUST_PROXY` | `none` | `none`, `xff` or `cf`: where the client address comes from. |
 
 In the Atlas plugin's online settings, set the server address to the relay's

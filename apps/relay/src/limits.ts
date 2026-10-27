@@ -6,6 +6,7 @@ import { sha256Hex } from './persist.ts';
 const WRONG_KEYS_BEFORE_LOCK = 5;
 const LOCK_MS = 10 * 60_000;
 const TABLES_PER_MINUTE = 10;
+const UPLOADS_PER_MINUTE = 60;
 const MINUTE_MS = 60_000;
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
@@ -85,10 +86,15 @@ export class HostKeyLock {
   }
 }
 
-/** Per client address: at most 10 `POST /api/tables` in any minute. */
-export class TableRateLimit {
+/** Per client address: at most `limit` requests in any minute. */
+class MinuteRateLimit {
   readonly #hits = new Map<string, number[]>();
+  readonly #limit: number;
   #swept = 0;
+
+  constructor(limit: number) {
+    this.#limit = limit;
+  }
 
   /** Addresses with a hit in memory. */
   get tracked(): number {
@@ -102,13 +108,27 @@ export class TableRateLimit {
       sweepHits(this.#hits, now, MINUTE_MS);
     }
     const recent = (this.#hits.get(address) ?? []).filter((at) => now - at < MINUTE_MS);
-    if (recent.length >= TABLES_PER_MINUTE) {
+    if (recent.length >= this.#limit) {
       this.#hits.set(address, recent);
       return false;
     }
     recent.push(now);
     this.#hits.set(address, recent);
     return true;
+  }
+}
+
+/** Per client address: at most 10 `POST /api/tables` in any minute. */
+export class TableRateLimit extends MinuteRateLimit {
+  constructor() {
+    super(TABLES_PER_MINUTE);
+  }
+}
+
+/** Per client address: at most 60 requests to the image upload routes in any minute. */
+export class UploadRateLimit extends MinuteRateLimit {
+  constructor() {
+    super(UPLOADS_PER_MINUTE);
   }
 }
 

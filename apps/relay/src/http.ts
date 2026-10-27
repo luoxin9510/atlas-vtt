@@ -4,24 +4,21 @@ import { normalizeOrigin, type RelayConfig } from './config.ts';
 import { clientAddress, HostKeyLock, sameText, TableRateLimit } from './limits.ts';
 import type { TableRegistry } from './tables.ts';
 import { serveStatic } from './static.ts';
+import { bearerOf, send } from './httpUtil.ts';
+import type { AssetStore } from './assets/assetStore.ts';
+import { createUploadRoutes } from './assets/uploadRoutes.ts';
 
 const MAX_BODY = 4 * 1024;
 
 export interface HttpContext {
   readonly config: RelayConfig;
   readonly tables: TableRegistry;
+  /** The image store; without one the asset routes do not exist. */
+  readonly assets?: AssetStore;
   readonly log?: (line: string) => void;
 }
 
 export type RequestHandler = (req: IncomingMessage, res: ServerResponse) => void;
-
-function send(res: ServerResponse, status: number, body?: unknown): void {
-  if (body === undefined) {
-    res.writeHead(status).end();
-    return;
-  }
-  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(body));
-}
 
 /** Reads at most 4 KiB of body; null when it is longer or the stream fails. Never stored or logged. */
 function readBody(req: IncomingMessage): Promise<string | null> {
@@ -38,11 +35,6 @@ function readBody(req: IncomingMessage): Promise<string | null> {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', () => resolve(null));
   });
-}
-
-function bearerOf(req: IncomingMessage): string {
-  const header = req.headers.authorization ?? '';
-  return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
 }
 
 function codeIn(text: string | null): string | null {
@@ -70,6 +62,7 @@ export function createHandler(context: HttpContext): RequestHandler {
   const { config, tables } = context;
   const lock = new HostKeyLock();
   const rate = new TableRateLimit();
+  const uploads = context.assets === undefined ? null : createUploadRoutes({ config, tables, store: context.assets });
 
   /** The one host-key check for every endpoint: 429 while the address is locked, a wrong key counts toward the lock. */
   function authorize(req: IncomingMessage, res: ServerResponse, address: string): boolean {
@@ -115,6 +108,7 @@ export function createHandler(context: HttpContext): RequestHandler {
 
   async function route(req: IncomingMessage, res: ServerResponse, method: string, path: string): Promise<void> {
     if (method === 'POST' && path === '/api/tables') return createTable(req, res);
+    if (uploads !== null && uploads.matches(method, path)) return uploads.handle(req, res, method, path);
     if (method === 'GET' && path === '/api/me') return me(req, res);
     if (method === 'POST' && (path === '/api/feedback' || path === '/api/reports')) return send(res, 204);
     if ((method === 'GET' || method === 'HEAD') && config.staticDir !== null && !path.startsWith('/api/')) return serveStatic(config.staticDir, path, method, res);
@@ -125,9 +119,11 @@ export function createHandler(context: HttpContext): RequestHandler {
     const method = req.method ?? 'GET';
     const path = (req.url ?? '/').split('?')[0] ?? '/';
     res.on('finish', () => context.log?.(`${method} ${path} ${res.statusCode}`));
-    // Only POST /api/tables reads a body (4 KiB at most). Every other answer to a request that may carry one closes the connection, so whatever
-    // a client goes on streaming (the unauthenticated sinks, a refusal, a 404) is cut off instead of drained.
-    if (method !== 'GET' && method !== 'HEAD' && !(method === 'POST' && path === '/api/tables')) res.setHeader('connection', 'close');
+    // Only POST /api/tables reads a body (4 KiB at most), and the image routes stream theirs (they close the connection themselves when they
+    // refuse). Every other answer to a request that may carry one closes the connection, so whatever a client goes on streaming (the
+    // unauthenticated sinks, a refusal, a 404) is cut off instead of drained.
+    const streams = uploads?.matches(method, path) === true;
+    if (method !== 'GET' && method !== 'HEAD' && !(method === 'POST' && path === '/api/tables') && !streams) res.setHeader('connection', 'close');
     route(req, res, method, path).catch(() => {
       if (!res.headersSent) send(res, 500);
       else res.end();
