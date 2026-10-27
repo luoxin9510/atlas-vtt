@@ -74,6 +74,18 @@ describe('uploadAsset', () => {
     expect(calls.map((call) => call.method)).toEqual(['GET', 'PUT', 'PUT', 'PUT']);
   });
 
+  it('does not try a part again after 429 or 507, nor after another 4xx', async () => {
+    for (const status of [429, 507, 415]) {
+      const calls: string[] = [];
+      const http: BinaryHttp = (request) => {
+        calls.push(request.method);
+        return Promise.resolve(request.method === 'GET' ? { status: 200, json: { parts: [] } } : { status, json: null });
+      };
+      expect(await uploadAsset(http, TABLE, HASH, new Uint8Array(MIB))).toBe(false);
+      expect(calls).toEqual(['GET', 'PUT']);
+    }
+  });
+
   it('is false when the relay completes another hash, or the status cannot be read', async () => {
     expect(await uploadAsset(fakeHttp({ done: 'b'.repeat(64) }).http, TABLE, HASH, new Uint8Array(MIB))).toBe(false);
     const broken: BinaryHttp = () => Promise.resolve({ status: 401, json: null });

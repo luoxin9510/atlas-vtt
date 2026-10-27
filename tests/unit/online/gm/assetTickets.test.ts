@@ -99,6 +99,74 @@ describe('AssetTickets', () => {
   });
 });
 
+describe('AssetTickets against the relay\'s limits', () => {
+  const hashes = ['1', '2', '3', '4', '5'].map((digit) => digit.repeat(64));
+
+  it('runs at most two uploads at a time and ticket all five images', async () => {
+    let flying = 0;
+    let most = 0;
+    const done = new Set<string>();
+    const http: BinaryHttp = async (request) => {
+      const hash = /assets\/([0-9a-f]{64})/.exec(request.url)?.[1] ?? '';
+      if (request.method === 'GET') {
+        flying += 1;
+        most = Math.max(most, flying);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return { status: 200, json: { parts: [] } };
+      }
+      if (request.method === 'PUT') return { status: 200, json: {} };
+      if (request.url.endsWith('/complete')) {
+        flying -= 1;
+        done.add(hash);
+        return { status: 200, json: { hash } };
+      }
+      return { status: 200, json: { url: `/api/assets/${hash}?t=${TABLE.code}.${PLAYER_A}.1000000.${'M'.repeat(43)}`, expires: 130_000 } };
+    };
+    const tickets = new AssetTickets(http, TABLE, () => 0);
+    const all = await Promise.all(hashes.map((hash) => tickets.ticket(hash, BYTES, PLAYER_A)));
+    expect(most).toBe(2);
+    expect(all.map((ticket) => ticket?.hash)).toEqual(hashes);
+    expect(done.size).toBe(5);
+  });
+
+  it('does not retry a part after 429, answers null, and tries again after 10 s', async () => {
+    const puts: number[] = [];
+    let busy = true;
+    const http: BinaryHttp = (request) => {
+      if (request.method === 'GET') return Promise.resolve({ status: 200, json: { parts: [] } });
+      if (request.method === 'PUT') {
+        puts.push(1);
+        return Promise.resolve({ status: busy ? 429 : 200, json: {} });
+      }
+      if (request.url.endsWith('/complete')) return Promise.resolve({ status: 200, json: { hash: HASH } });
+      return Promise.resolve({ status: 200, json: { url: `/api/assets/${HASH}?t=${TABLE.code}.${PLAYER_A}.1000000.${'M'.repeat(43)}`, expires: 130_000 } });
+    };
+    let now = 0;
+    const tickets = new AssetTickets(http, TABLE, () => now);
+    expect(await tickets.ticket(HASH, BYTES, PLAYER_A)).toBeNull();
+    expect(puts).toHaveLength(1);
+    now = 9_000;
+    expect(await tickets.ticket(HASH, BYTES, PLAYER_A)).toBeNull();
+    expect(puts).toHaveLength(1);
+    busy = false;
+    now = 10_001;
+    expect(await tickets.ticket(HASH, BYTES, PLAYER_A)).not.toBeNull();
+    expect(puts).toHaveLength(2);
+  });
+
+  it('uploads again on the same instance after a mint answers 404', async () => {
+    const relay = fakeRelay();
+    relay.release();
+    let lost = true;
+    const http: BinaryHttp = (request) => (lost && request.url.endsWith('/tickets') ? Promise.resolve({ status: 404, json: null }) : relay.http(request));
+    const tickets = new AssetTickets(http, TABLE, () => 0);
+    expect(await tickets.ticket(HASH, BYTES, PLAYER_A)).toBeNull();
+    lost = false;
+    expect(await tickets.ticket(HASH, BYTES, PLAYER_A)).not.toBeNull();
+    expect(relay.log.filter((line) => line === 'GET')).toHaveLength(2);
+  });
+});
+
 describe('asset answers with tickets', () => {
   const MAP = new Uint8Array(ASSET_CHUNK_BYTES * 2 + 5).map((_, index) => index % 251);
   const SCALED = new Uint8Array(5000).map((_, index) => (index * 7) % 253);
