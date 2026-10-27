@@ -1,13 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { PLAYER_ID_PATTERN } from '../../../../src/app/online/protocol/identity.ts';
 import { isHash } from '../../../../src/app/online/protocol/asset.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { RelayConfig } from '../config.ts';
-import { bearerOf, send } from '../httpUtil.ts';
+import { bearerOf, readBody, send } from '../httpUtil.ts';
 import { clientAddress, UploadRateLimit } from '../limits.ts';
 import type { TableRegistry } from '../tables.ts';
 import type { AssetStore, PartResult } from './assetStore.ts';
+import { mintTicket, TICKET_TTL_MS } from './tickets.ts';
 
-const ROUTE = /^\/api\/tables\/([^/]+)\/assets\/([^/]+)(?:\/(complete)|\/parts\/(\d{1,3}))?$/;
+const ROUTE = /^\/api\/tables\/([^/]+)\/assets\/([^/]+)(?:\/(complete|tickets)|\/parts\/(\d{1,3}))?$/;
 
 const REASONS: Record<number, string> = { 400: 'bad-request', 404: 'gone', 409: 'missing-parts', 413: 'too-large', 415: 'not-an-image', 422: 'hash-mismatch', 429: 'busy', 500: 'failed', 507: 'storage-full' };
 
@@ -24,19 +26,19 @@ interface UploadContext {
 }
 
 /**
- * `PUT .../parts/{index}`, `POST .../complete` and `GET .../assets/{hash}` (resume status) of a table, each with the table secret as Bearer.
+ * `PUT .../parts/{index}`, `POST .../complete`, `POST .../tickets` (mints a 120 s download ticket for a player) and `GET .../assets/{hash}` (resume status) of a table, each with the table secret as Bearer.
  * A refusal before the body is read closes the connection, so a client still streaming is cut off.
  */
 export function createUploadRoutes({ config, tables, store }: UploadContext): UploadRoutes {
   const rate = new UploadRateLimit();
 
-  function parse(method: string, path: string): { code: string; hash: string; part: number | null; complete: boolean } | null {
+  function parse(method: string, path: string): { code: string; hash: string; part: number | null; complete: boolean; mint: boolean } | null {
     const match = ROUTE.exec(path);
     if (match === null) return null;
     const [, code = '', hash = '', complete, part] = match;
     if (!TABLE_CODE_PATTERN.test(code) || !isHash(hash)) return null;
     const wanted = complete !== undefined ? 'POST' : part !== undefined ? 'PUT' : 'GET';
-    return method === wanted ? { code, hash, part: part === undefined ? null : Number(part), complete: complete !== undefined } : null;
+    return method === wanted ? { code, hash, part: part === undefined ? null : Number(part), complete: complete === 'complete', mint: complete === 'tickets' } : null;
   }
 
   function refuse(res: ServerResponse, status: number): void {
@@ -47,6 +49,21 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
   function answer(res: ServerResponse, result: PartResult, ok: unknown): void {
     if (result.status === 200) send(res, 200, ok);
     else refuse(res, result.status);
+  }
+
+  async function mint(req: IncomingMessage, res: ServerResponse, code: string, hash: string): Promise<void> {
+    const text = await readBody(req);
+    let player: unknown;
+    try {
+      const body: unknown = text === null ? null : JSON.parse(text);
+      player = typeof body === 'object' && body !== null ? (body as { player?: unknown }).player : undefined;
+    } catch {
+      player = undefined;
+    }
+    if (typeof player !== 'string' || !PLAYER_ID_PATTERN.test(player)) return refuse(res, 400);
+    if (!store.has(code, hash)) return refuse(res, 404);
+    const expires = Date.now() + TICKET_TTL_MS;
+    send(res, 200, { url: `/api/assets/${hash}?t=${mintTicket(tables.ensureTicketKey(), code, player, hash, expires)}`, expires });
   }
 
   return {
@@ -62,6 +79,7 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
       if (route.part !== null) {
         return answer(res, await store.writePart(route.code, route.hash, route.part, req), {});
       }
+      if (route.mint) return mint(req, res, route.code, route.hash);
       if (route.complete) return answer(res, await store.complete(route.code, route.hash), { hash: route.hash });
       send(res, 200, store.status(route.code, route.hash));
     },

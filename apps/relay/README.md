@@ -26,6 +26,15 @@ Configuration is by environment variables:
 | `ASSET_DIR` | `assets` beside `STATE_PATH` | Where uploaded map and token images are kept (per table; removed when the table ends). A table may store 2 GiB, the server 10 GiB, and uploads stop (507) with less than 2 GiB of free disk. |
 | `TRUST_PROXY` | `none` | `none`, `xff` or `cf`: where the client address comes from. |
 
+## Image tickets
+
+Players fetch map and token images with `GET /api/assets/{sha256}?t=<ticket>`. The GM's
+plugin asks for a ticket with `POST /api/tables/{code}/assets/{sha256}/tickets`
+(table secret as Bearer, body `{"player": "<player id>"}`); it is valid for 120 seconds and
+is signed (HMAC-SHA-256) with a 32 byte key kept in the state file, so a relay with a new
+state file refuses old tickets. Every failure (bad, expired or forged ticket, unknown
+image, ended table) gets the same `404`. The relay logs the path only, never the query.
+
 In the Atlas plugin's online settings, set the server address to the relay's
 public origin and keep the host key.
 

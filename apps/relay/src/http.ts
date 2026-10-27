@@ -4,8 +4,9 @@ import { normalizeOrigin, type RelayConfig } from './config.ts';
 import { clientAddress, HostKeyLock, sameText, TableRateLimit } from './limits.ts';
 import type { TableRegistry } from './tables.ts';
 import { serveStatic } from './static.ts';
-import { bearerOf, send } from './httpUtil.ts';
+import { bearerOf, readBody, send } from './httpUtil.ts';
 import type { AssetStore } from './assets/assetStore.ts';
+import { isDownload, serveDownload } from './assets/downloadRoute.ts';
 import { createUploadRoutes } from './assets/uploadRoutes.ts';
 
 const MAX_BODY = 4 * 1024;
@@ -19,23 +20,6 @@ export interface HttpContext {
 }
 
 export type RequestHandler = (req: IncomingMessage, res: ServerResponse) => void;
-
-/** Reads at most 4 KiB of body; null when it is longer or the stream fails. Never stored or logged. */
-function readBody(req: IncomingMessage): Promise<string | null> {
-  return new Promise((resolve) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY) {
-        resolve(null);
-        req.destroy();
-      } else chunks.push(chunk);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', () => resolve(null));
-  });
-}
 
 function codeIn(text: string | null): string | null {
   if (text === null) return null;
@@ -109,6 +93,7 @@ export function createHandler(context: HttpContext): RequestHandler {
   async function route(req: IncomingMessage, res: ServerResponse, method: string, path: string): Promise<void> {
     if (method === 'POST' && path === '/api/tables') return createTable(req, res);
     if (uploads !== null && uploads.matches(method, path)) return uploads.handle(req, res, method, path);
+    if (context.assets !== undefined && isDownload(method, path)) return serveDownload(req, res, path, tables, context.assets);
     if (method === 'GET' && path === '/api/me') return me(req, res);
     if (method === 'POST' && (path === '/api/feedback' || path === '/api/reports')) return send(res, 204);
     if ((method === 'GET' || method === 'HEAD') && config.staticDir !== null && !path.startsWith('/api/')) return serveStatic(config.staticDir, path, method, res);

@@ -14,3 +14,22 @@ export function bearerOf(req: IncomingMessage): string {
   const header = req.headers.authorization ?? '';
   return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
 }
+
+const MAX_BODY = 4 * 1024;
+
+/** Reads at most 4 KiB of body; null when it is longer or the stream fails. Never stored or logged. */
+export function readBody(req: IncomingMessage): Promise<string | null> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        resolve(null);
+        req.destroy();
+      } else chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', () => resolve(null));
+  });
+}
