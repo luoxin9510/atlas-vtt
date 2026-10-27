@@ -159,4 +159,28 @@ describe('your-turn through the scene share', () => {
     await go('elf', true);
     expect(turns()).toEqual([]);
   });
+
+  it('tells a player once their client message has arrived after the GM restarted (empty ForkClients), and not after they left and rejoined until it arrives again', async () => {
+    const clients = new ForkClients();
+    const { gm, go, turns } = await table({});
+    const sync = (): void => { gm.forkLevels = new Map([[P1, clients.levelOf(P1)], [P2, clients.levelOf(P2)]]); };
+    sync();
+    await go('hero');
+    expect(turns()).toEqual([]);
+    clients.receive(P1, { t: 'client', app: 'atlas-fork-play', forkLevel: 1 });
+    sync();
+    await go('ogre');
+    await go('hero');
+    expect(turns()).toEqual(['p1']);
+    clients.forget(P1);
+    sync();
+    await go('ogre');
+    await go('hero');
+    expect(turns()).toEqual(['p1']);
+    clients.receive(P1, { t: 'client', app: 'atlas-fork-play', forkLevel: 1 });
+    sync();
+    await go('ogre');
+    await go('hero');
+    expect(turns()).toEqual(['p1', 'p1']);
+  });
 });

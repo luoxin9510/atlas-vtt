@@ -83,6 +83,19 @@ describe('welcome', () => {
     sockets[0]!.receive({ v: 1, t: 'game', body: { t: 'hi' } });
     expect(games).toEqual([{ t: 'hi' }]);
   });
+  it('says its fork level again whenever the GM comes (back) online, not when it goes away', () => {
+    const { sockets } = setup();
+    const clients = (): number => sockets[0]!.frames().filter((f) => (f.body as { t?: string } | undefined)?.t === 'client').length;
+    sockets[0]!.receive({ v: 1, t: 'gm', online: true });
+    expect(clients()).toBe(0);
+    sockets[0]!.receive(welcome);
+    expect(clients()).toBe(1);
+    sockets[0]!.receive({ v: 1, t: 'gm', online: false });
+    expect(clients()).toBe(1);
+    sockets[0]!.receive({ v: 1, t: 'gm', online: true });
+    expect(clients()).toBe(2);
+    expect(JSON.parse(sockets[0]!.sent.at(-1)!)).toEqual({ v: 1, t: 'send', body: { t: 'client', app: 'atlas-fork-play', forkLevel: 1 } });
+  });
   it('rejects send before joining and over 4 KiB', () => {
     const { sockets, socket } = setup();
     expect(socket.send({ t: 'x' })).toBe(false);

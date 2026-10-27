@@ -87,7 +87,6 @@ export class Session {
         this.hadKey = true;
         this.seats.write(this.env.code, { id: seat.id, key: seat.key, name: this.name });
       },
-      onPeople: (change) => this.onPeople(change),
     });
     this.socket.start();
     this.ticker = setInterval(() => this.assets.tick(), TICK_MS);
@@ -123,15 +122,6 @@ export class Session {
       return;
     }
     this.store.setStatus(status);
-  }
-
-  private onPeople(change: { joined?: { id: string; name: string }; left?: string }): void {
-    const people = this.log.snapshot().people;
-    if (change.joined) {
-      const joined = change.joined;
-      this.log.setPeople([...people.filter((person) => person.id !== joined.id), joined]);
-    }
-    if (change.left !== undefined) this.log.setPeople(people.filter((person) => person.id !== change.left));
   }
 
   private apply(message: GmMessage): void {

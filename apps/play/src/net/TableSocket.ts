@@ -31,7 +31,6 @@ export interface TableSocketOptions {
   onStatus(status: SocketStatus): void;
   onGame(body: unknown): void;
   onSeat(seat: { id: string; key: string }): void;
-  onPeople?(change: { joined?: PlayerInfo; left?: string }): void;
 }
 
 /** How long after a ping some frame (a `pong` counts) must arrive before the socket is taken for dead. */
@@ -126,19 +125,16 @@ export class TableSocket {
         this.key = frame.key;
         this.code = undefined;
         this.wait = undefined;
-        socket.send(JSON.stringify({ v: 1, t: 'send', body: { t: 'client', app: FORK_APP, forkLevel: FORK_PROTOCOL_LEVEL } }));
+        this.sendClient(socket);
         this.options.onSeat({ id: frame.id, key: frame.key });
         this.options.onStatus({ kind: 'joined', id: frame.id, gmOnline: frame.gmOnline });
         this.startPing();
         break;
       case 'gm':
-        if (this.joined) this.options.onStatus({ kind: 'joined', id: this.seatId, gmOnline: frame.online });
-        break;
-      case 'player-joined':
-        this.options.onPeople?.({ joined: { id: frame.id, name: frame.name } });
-        break;
-      case 'player-left':
-        this.options.onPeople?.({ left: frame.id });
+        if (!this.joined) break;
+        // The relay drops player frames while the GM is away, and a restarted GM has forgotten the level: say it again.
+        if (frame.online) this.sendClient(socket);
+        this.options.onStatus({ kind: 'joined', id: this.seatId, gmOnline: frame.online });
         break;
       case 'game':
         if (this.joined) this.options.onGame(frame.body);
@@ -146,6 +142,11 @@ export class TableSocket {
       default:
         break;
     }
+  }
+
+  /** Declares this app's fork level to the GM. */
+  private sendClient(socket: SocketLike): void {
+    socket.send(JSON.stringify({ v: 1, t: 'send', body: { t: 'client', app: FORK_APP, forkLevel: FORK_PROTOCOL_LEVEL } }));
   }
 
   private onClose(code: number): void {
