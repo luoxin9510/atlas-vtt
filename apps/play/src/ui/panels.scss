@@ -17,7 +17,7 @@
   @media (min-width: 768px) {
     left: auto;
     top: 0;
-    width: 360px;
+    width: var(--atlas-play-dock-width);
     max-height: none;
     flex-direction: column;
     border-top: 0;

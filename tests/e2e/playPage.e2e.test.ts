@@ -144,4 +144,51 @@ describe('the player app in Chromium under the relay\'s CSP', () => {
     const header = (await page.request.get(origin)).headers()['content-security-policy'];
     expect(header).toBe("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
   });
+
+  it.each([[360, 640], [1024, 768]])('lays out at %i x %i: the settings button is reachable, the token card clears the tab bar, the map stays out from under the dock', async (width, height) => {
+    const { origin, gm } = await serve();
+    browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.goto(`${origin}/#${TABLE}`);
+    await page.waitForSelector('form.atlas-play-join');
+    const inputs = page.locator('form.atlas-play-join input');
+    await inputs.nth(0).fill('Ana');
+    await inputs.nth(1).fill('123456');
+    await page.click('form.atlas-play-join button[type=submit]');
+    const joined = await gm.frameOf('player-joined');
+    const say = (body: object): Promise<void> => gm.send({ t: 'send', to: joined.id, body });
+    await say({ t: 'scene', scene: { id: 'scene-one', map: null, lit: false } });
+    await say({ t: 'fog', scene: 'scene-one', fog: [] });
+    await page.waitForSelector('canvas', { timeout: 30_000 });
+
+    // The settings button is what a tap at its centre reaches (nothing covers it), and its sheet opens.
+    const settings = page.getByRole('button', { name: '设置' });
+    const box = (await settings.boundingBox())!;
+    const topmost = await page.evaluate(([x, y]) => {
+      const hit = document.elementFromPoint(x!, y!);
+      return hit?.closest('button')?.getAttribute('aria-label') ?? hit?.tagName ?? null;
+    }, [box.x + box.width / 2, box.y + box.height / 2]);
+    expect(topmost).toBe('设置');
+    await settings.click();
+    await page.waitForSelector('.atlas-play-sheet');
+    await page.locator('.atlas-play-sheet').getByRole('button', { name: '关闭' }).click();
+
+    // The canvas host ends before the dock begins (side panel) or above the tab bar (phone).
+    const dock = (await page.locator('.atlas-play-dock').boundingBox())!;
+    const host = (await page.locator('.atlas-play-scene').boundingBox())!;
+    if (width >= 768) expect(host.x + host.width).toBeLessThanOrEqual(dock.x + 0.5);
+    else expect(host.y + host.height).toBeLessThanOrEqual(dock.y + 0.5);
+
+    // A token card (the stylesheet decides where it goes) stands clear of the tab bar.
+    const cardBottom = await page.evaluate(() => {
+      const card = document.createElement('section');
+      card.className = 'atlas-play-token-card';
+      card.textContent = 'card';
+      document.querySelector('.atlas-play-stage')!.appendChild(card);
+      return card.getBoundingClientRect().bottom;
+    });
+    const tabs = (await page.locator('.atlas-play-tabs').boundingBox())!;
+    if (width < 768) expect(cardBottom).toBeLessThanOrEqual(tabs.y + 0.5);
+    else expect(await page.evaluate(() => document.querySelector('.atlas-play-token-card')!.getBoundingClientRect().right)).toBeLessThanOrEqual(dock.x + 0.5);
+  });
 });

@@ -4,6 +4,9 @@
 
 :root {
   color-scheme: light dark;
+  /* The dock: a tab bar under the table on a phone, a side panel of this width from 768 px. */
+  --atlas-play-dock-width: 360px;
+  --atlas-play-tabs-height: 45px;
   --text-normal: #222;
   --text-muted: #5c5c5c;
   --text-faint: #8a8a8a;
@@ -137,6 +140,7 @@ body {
   left: 16px;
   right: 16px;
   bottom: 16px;
+  z-index: 10;
   max-width: 360px;
   max-height: 60%;
   overflow: auto;
@@ -188,6 +192,13 @@ body {
   flex: 1;
   width: 100%;
   min-height: 0;
+  /* Room for the fixed dock, so the map, the status bar and its settings button are never under it. */
+  padding-bottom: calc(var(--atlas-play-tabs-height) + env(safe-area-inset-bottom));
+
+  @media (min-width: 768px) {
+    padding-bottom: 0;
+    padding-right: var(--atlas-play-dock-width);
+  }
 
   .atlas-play-stage, .atlas-play-lit { flex: 1; min-height: 0; }
 }

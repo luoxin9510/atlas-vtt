@@ -170,7 +170,7 @@ export const BOUNDARIES = {
   }
 };
 
-export const ASSET_ROOTS = ["src/app/assets/", "src/app/sounds/", "styles/", "apps/play/src/"];
+export const ASSET_ROOTS = ["src/app/assets/", "src/app/sounds/", "styles/"];
 export const TYPE_PROJECTS = {
   "tsconfig.shared.json": {
     include: ["src/assets.d.ts", ...BOUNDARIES.shared.include],
