@@ -38,6 +38,9 @@ export class CanvasInput {
     host.addEventListener('pointerup', this.onUp, true);
     host.addEventListener('pointercancel', this.onCancel, true);
     host.addEventListener('contextmenu', this.onMenu, true);
+    // A mouse released outside the host never reaches it (only touch is captured implicitly): the window hears it.
+    window.addEventListener('pointerup', this.onUp, true);
+    window.addEventListener('pointercancel', this.onCancel, true);
     this.timer = window.setInterval(() => this.recognizer.tick(), TICK_MS);
   }
 
@@ -54,7 +57,10 @@ export class CanvasInput {
     } else if (s.button === 0) {
       this.options.setCameraDrag(true);
     }
-    if (s.button === 0) this.down.add(s.id);
+    if (s.button === 0) {
+      this.down.add(s.id);
+      try { this.options.host.setPointerCapture(e.pointerId); } catch { /* not capturable: the window listeners cover it */ }
+    }
     this.recognizer.down(s);
   };
 
@@ -85,6 +91,8 @@ export class CanvasInput {
     host.removeEventListener('pointerup', this.onUp, true);
     host.removeEventListener('pointercancel', this.onCancel, true);
     host.removeEventListener('contextmenu', this.onMenu, true);
+    window.removeEventListener('pointerup', this.onUp, true);
+    window.removeEventListener('pointercancel', this.onCancel, true);
     window.clearInterval(this.timer);
   }
 }

@@ -36,9 +36,9 @@ function host(): HTMLDivElement {
   return element;
 }
 
-async function openView(store: TableStoreApi): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn> }> {
+async function openView(store: TableStoreApi, loader?: () => Promise<LoadedAsset | null>): Promise<{ view: SceneView; load: ReturnType<typeof vi.fn> }> {
   const asset = await mapAsset();
-  const load = vi.fn(async (): Promise<LoadedAsset | null> => asset);
+  const load = vi.fn(loader ?? (async (): Promise<LoadedAsset | null> => asset));
   const view = new SceneView(host(), store, { load } as Pick<AssetLoader, 'load'>, true);
   cleanup.push(() => view.destroy());
   await view.whenReady();
@@ -79,6 +79,50 @@ describe('player scene view', () => {
     await vi.waitFor(() => expect(reddish()).toBe(true));
     store.applyMessage({ t: 'fog', scene: 's1', fog: null }, 0);
     await vi.waitFor(() => expect(pixelAt(view, 25, 100)).toEqual([0, 0, 0]));
+  });
+
+  it('drops a map that arrives after the scene turned lit', async () => {
+    const store = createTableStore();
+    const asset = await mapAsset();
+    let release: (a: LoadedAsset) => void = () => undefined;
+    const { view, load } = await openView(store, () => new Promise((resolve) => { release = resolve; }));
+    unlit(store);
+    store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
+    release(asset);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(near(pixelAt(view, 100, 100), CLEAR)).toBe(true);
+  });
+
+  it('drops a map that arrives after the scene changed', async () => {
+    const store = createTableStore();
+    const asset = await mapAsset();
+    const releases: Array<(a: LoadedAsset) => void> = [];
+    const { view, load } = await openView(store, () => new Promise((resolve) => { releases.push(resolve); }));
+    unlit(store);
+    store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    const other = { hash: 'c'.repeat(64), size: 10, mime: 'image/png' } as SharedScene['map'];
+    store.applyMessage({ t: 'scene', scene: { id: 's2', map: other, lit: false } }, 0);
+    store.applyMessage({ t: 'fog', scene: 's2', fog: [] }, 0);
+    releases[0]!(asset);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(load).toHaveBeenCalledTimes(2);
+    // The first request's answer is ignored; the second (still pending) draws nothing yet.
+    expect(near(pixelAt(view, 100, 100), CLEAR)).toBe(true);
+  });
+
+  it('fits a map whose world is far larger than the screen', async () => {
+    const store = createTableStore();
+    const asset = await mapAsset();
+    const { view } = await openView(store, async () => ({ ...asset, width: 8000, height: 6000 }));
+    unlit(store);
+    store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
+    // 8000 x 6000 in 200 x 200: the whole map shows (scale 0.025, below the usual minimum zoom of 0.1).
+    await vi.waitFor(() => expect(near(pixelAt(view, 100, 50), MAP_GREEN)).toBe(true));
+    expect(near(pixelAt(view, 100, 150), MAP_GREEN)).toBe(true);
+    expect(near(pixelAt(view, 100, 190), CLEAR)).toBe(true);
   });
 
   it('draws nothing of the map until the fog arrives', async () => {

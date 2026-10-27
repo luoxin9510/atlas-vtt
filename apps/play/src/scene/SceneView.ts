@@ -97,7 +97,10 @@ export class SceneView {
     if (!lowPower) viewport.decelerate();
     viewport.addChild(this.map.layer, this.layers.annotations, this.layers.pins, this.layers.tokens, this.fogSlot);
     app.stage.addChild(viewport);
-    app.renderer.on('resize', (width: number, height: number) => viewport.resize(width, height, viewport.worldWidth, viewport.worldHeight));
+    app.renderer.on('resize', (width: number, height: number) => {
+      viewport.resize(width, height, viewport.worldWidth, viewport.worldHeight);
+      if (this.map.worldRect) this.applyZoomRange(this.map.worldRect);
+    });
     this.viewport = viewport;
     this.input = new CanvasInput({
       host: canvasHost, canvas: app.canvas, now: () => performance.now(),
@@ -170,10 +173,19 @@ export class SceneView {
     this.map.show(bitmap, world);
     const rect = this.map.worldRect!;
     this.viewport.resize(this.viewport.screenWidth, this.viewport.screenHeight, rect.width, rect.height);
+    this.applyZoomRange(rect);
     this.viewport.fit(true, rect.width, rect.height);
     this.viewport.moveCenter(rect.width / 2, rect.height / 2);
     this.loaded = true;
     this.drawLayers(this.store.getState());
+  }
+
+  /** The camera can always zoom out far enough to show the whole map, however large its world. */
+  private applyZoomRange(rect: { width: number; height: number }): void {
+    const { viewport } = this;
+    if (!viewport) return;
+    const fitScale = Math.min(viewport.screenWidth / rect.width, viewport.screenHeight / rect.height);
+    viewport.clampZoom({ minScale: Math.min(MIN_ZOOM, fitScale), maxScale: MAX_ZOOM });
   }
 
   /** Grid and fog follow the store; the map and grid show only once the fog is known. */
