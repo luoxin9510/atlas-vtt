@@ -77,12 +77,18 @@ describe('who hears a player\'s roll', () => {
     for (const body of JSON.parse(heard) as { t: string; people?: Record<string, unknown>[] }[]) for (const person of body.people ?? []) expect(Object.keys(person).sort()).toEqual(['id', 'name']);
   });
 
-  it('a self roll is thrown on its roller\'s page alone, and a blind one on nobody\'s', async () => {
+  it('a self roll is thrown on its roller\'s page alone, and a blind one shows its roller only the placeholder', async () => {
     const own = await table();
     const id = own.roll('self');
     expect(own.seenBy(P1)).toContain(id);
     const blind = await table();
-    expect(blind.seenBy(P1)).not.toContain(blind.roll('blind'));
+    const blindId = blind.roll('blind');
+    expect(blindId).not.toBe('');
+    // The roller hears only the log's placeholder line: no roll message, result, formula or dice
+    const heard = blind.seenBy(P1);
+    expect(heard).toContain(blindId);
+    expect(heard).not.toContain('"t":"roll"');
+    for (const content of ['1d20', '"total"', '"rolls"', '"result"', '"roll":']) expect(heard).not.toContain(content);
   });
 
   it('a public roll is heard by the other player', async () => {

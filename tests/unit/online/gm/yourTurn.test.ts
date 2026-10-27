@@ -21,6 +21,24 @@ describe('ForkClients', () => {
     clients.forget(P1);
     expect(clients.levelOf(P1)).toBe(0);
   });
+
+  it('takes a client message from the message chain and leaves every other message to it', () => {
+    const clients = new ForkClients();
+    expect(clients.receive(P1, { t: 'client', app: 'atlas-fork-play', forkLevel: 1 })).toBe(true);
+    expect(clients.levelOf(P1)).toBe(1);
+    expect(clients.receive(P1, { t: 'resync', scene: 's', of: 'tokens' })).toBe(false);
+    expect(clients.receive(P2, { t: 'client', app: 'x', forkLevel: 1.5 })).toBe(false);
+    expect(clients.levelOf(P2)).toBe(0);
+  });
+
+  it('reads level 0 for a player who rejoins after leaving, until they send client again', () => {
+    const clients = new ForkClients();
+    clients.receive(P1, { t: 'client', app: 'atlas-fork-play', forkLevel: 1 });
+    clients.forget(P1);
+    expect(clients.levelOf(P1)).toBe(0);
+    clients.receive(P1, { t: 'client', app: 'atlas-fork-play', forkLevel: 1 });
+    expect(clients.levelOf(P1)).toBe(1);
+  });
 });
 
 describe('YourTurnShare', () => {

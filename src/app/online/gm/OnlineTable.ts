@@ -1,4 +1,4 @@
-import { parsePlayerMessage, type ConnectionStats } from '../protocol/index.ts';
+import type { ConnectionStats } from '../protocol/index.ts';
 import type { App, WorkspaceLeaf } from 'obsidian';
 import { showNotice } from '../../ui/notice';
 import { randomHex } from '../../utils/randomHex';
@@ -194,19 +194,11 @@ export class OnlineTable {
         this.log.left(player);
       },
       // The log, the shown image and the books are the table's, so they hear players while no scene is shared too.
-      message: (from, body) => void (this.client(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
+      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
       access: (closesAt) => this.setClosing(closesAt),
     }, this.gate);
     this.roster = new TableRoster(seats, this.connection, { kick: (player) => this.kick(player), turnAway: (player) => this.connection.kick(player), joinCode: () => this.gate.settings.code });
     this.stopOwnership = ownership.onChange(() => this.bound()?.share.ownersChanged());
-  }
-
-  /** A player app's `client` message, which nothing answers. */
-  private client(from: string, body: unknown): boolean {
-    const message = parsePlayerMessage(body);
-    if (message?.t !== 'client') return false;
-    this.forkClients.record(from, message);
-    return true;
   }
 
   /** The players' rest requests waiting for the GM, and the GM's answers to them. */
