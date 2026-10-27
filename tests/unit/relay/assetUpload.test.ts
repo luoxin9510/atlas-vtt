@@ -274,7 +274,10 @@ describe('keeping and cleaning', () => {
     writeFileSync(join(assetDir, CODE, 'f'.repeat(64)), PNG_HEAD);
     const relay = await startTestRelay({ assetDir, statePath });
     running.push(relay);
-    expect(relay.tables.has(CODE)).toBe(false);
-    expect(existsSync(join(assetDir, CODE))).toBe(false);
+    // The expiry timer fires on its own tick, maybe after start returns; the listener then removes the folder.
+    await vi.waitFor(() => {
+      expect(relay.tables.has(CODE)).toBe(false);
+      expect(existsSync(join(assetDir, CODE))).toBe(false);
+    });
   });
 });
