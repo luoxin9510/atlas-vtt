@@ -38,7 +38,15 @@ function lightOf(shared: SharedLight): LightSource {
   };
 }
 
-/** A token as sight reads it: the effects are its conditions, and with every vision token hidden none gives sight. */
+/**
+ * Stands for the party's hidden vision tokens, which the GM leaves out of `sight` and marks with
+ * `blind`: sight then holds a vision token that gives the players none (`selectSight`), not no
+ * vision token at all, which would show them everything.
+ */
+export const BLIND_TOKEN_ID = 'blind:hidden-viewer';
+export const BLIND_TOKEN: SightToken = { id: BLIND_TOKEN_ID, x: 0, y: 0, size: 1, vision: { senses: [] } };
+
+/** A token as sight reads it: the effects are its conditions, and a hidden one gives the players no sight. */
 function tokenOf(shared: SightToken, blind: boolean): TokenEntity {
   return {
     id: shared.id, kind: 'token', imagePath: '', x: shared.x, y: shared.y, size: shared.size,
@@ -46,7 +54,7 @@ function tokenOf(shared: SightToken, blind: boolean): TokenEntity {
     ...(shared.vision && { vision: { enabled: true, ...(shared.vision.angle !== undefined && { angle: shared.vision.angle }) } }),
     ...(shared.light && { light: shared.light as unknown as LightEmission }),
     ...(shared.effects && shared.effects.length > 0 && { conditions: [...shared.effects] }),
-    ...(blind && shared.vision && { isHidden: true }),
+    ...(blind && shared.id === BLIND_TOKEN_ID && { isHidden: true }),
   };
 }
 
@@ -117,7 +125,7 @@ export class LightingInputs {
 
   private readTokens(shared: readonly SightToken[], blind: boolean): void {
     const next = new Map<string, Entry<SightToken, TokenEntity>>();
-    for (const token of shared) {
+    for (const token of blind ? [...shared, BLIND_TOKEN] : shared) {
       const before = this.tokens.get(token.id);
       next.set(token.id, before && before.blind === blind && sameValue(before.source, token) ? before : { source: token, blind, value: tokenOf(token, blind) });
     }

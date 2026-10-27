@@ -4,6 +4,7 @@ import { parseSenseDefinitions } from '../../../../src/app/gameSystems/senseVali
 import type { ConditionDefinition } from '../../../../src/app/types/collectionSettingsTypes';
 import type { SenseDefinition } from '../../../../src/app/types/senseTypes';
 import type { SightRules, TokenSight } from '../../../../src/app/vision/sightRules';
+import { BLIND_TOKEN } from './lightingInputs.ts';
 import { sameValue } from './sameValue.ts';
 
 /** One synthetic condition per effect: tokens carry the effect ids as their conditions (`LightingInputs`). */
@@ -46,7 +47,7 @@ function sameVisions(a: ReadonlyMap<string, SharedVision>, b: ReadonlyMap<string
  */
 export function sightRulesOf(lighting: SharedLightingScene, sight: SharedSight): SightRules {
   const visions = new Map<string, SharedVision>();
-  for (const token of sight.tokens) if (token.vision) visions.set(token.id, token.vision);
+  for (const token of sight.blind === true ? [...sight.tokens, BLIND_TOKEN] : sight.tokens) if (token.vision) visions.set(token.id, token.vision);
   const previous = last.get(lighting);
   if (previous && sameVisions(previous.visions, visions)) return previous.rules;
   const rules: SightRules = {

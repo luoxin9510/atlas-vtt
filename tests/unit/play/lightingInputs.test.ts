@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SharedLightingScene, SharedSight, SharedWall, SightToken } from '../../../src/app/online/protocol/index.ts';
 import { SceneModelBuilder } from '../../../src/app/vision/sceneModel';
 import type { MapBounds } from '../../../src/app/vision/visibility';
+import { sharedLightingScene, sharedSight } from '../../../src/app/online/gm/sceneInputs.ts';
+import type { TokenEntity } from '../../../src/app/types';
+import type { SceneState } from '../../../src/app/vision/sceneModel';
 import { LightingInputs } from '../../../apps/play/src/lighting/lightingInputs.ts';
 import { sightRulesOf } from '../../../apps/play/src/lighting/sightRulesOf.ts';
 import { createLightingStore } from '../../../apps/play/src/lighting/lightingStore.ts';
@@ -79,8 +82,29 @@ describe('lighting inputs', () => {
     expect(state.lighting).toEqual({ enabled: true, ambient: 1 });
   });
 
-  it('gives no player sight when every vision token is hidden', () => {
-    const result = build(rooms(wall(300, 100, 300, 400)), sightOf([token('a', 200)], { blind: true }));
+  it('gives no player sight when the GM sends blind with no vision token', () => {
+    const result = build(rooms(wall(300, 100, 300, 400)), sightOf([{ id: 'x', x: 200, y: 250, size: 1 }], { blind: true }));
+    expect(result.model.sight.all).toBe(false);
+    expect(result.model.sight.regions).toEqual([]);
+    const sameAgain = new LightingInputs();
+    const first = sameAgain.update(rooms(wall(300, 100, 300, 400)), sightOf([], { blind: true }), BOUNDS);
+    expect(sameAgain.update(rooms(wall(300, 100, 300, 400)), sightOf([], { blind: true }), BOUNDS).objects.tokens).toBe(first.objects.tokens);
+  });
+
+  it('shows nothing for a scene whose only vision token the GM hid (the GM\'s own messages)', () => {
+    const hidden: TokenEntity = { id: 'hero', kind: 'token', imagePath: '', x: 200, y: 250, size: 1, isHidden: true, vision: { enabled: true } };
+    const state: SceneState = {
+      objects: { tokens: { hero: hidden }, walls: { w: { id: 'w', kind: 'wall', type: 'solid', p1: { x: 300, y: 100 }, p2: { x: 300, y: 400 } } }, lights: {}, lightZones: {} },
+      lighting: { enabled: true, ambient: 1 },
+      grid: { enabled: true, size: 70, offsetX: 0, offsetY: 0, opacity: 1 },
+      heldTokens: {},
+    };
+    const rules = { definitions: [], conditions: [] };
+    const measurement = { mode: 'metric', unitType: 'feet', unitDistance: 5, ruleDistance: 5, diagonalRule: 'equidistant', rangeBands: [], coneAngle: 90 } as const;
+    const shared = sharedSight({ state, rules, shown: new Set(), tokenAlias: (id) => id, lightAlias: (id) => id });
+    expect(shared.blind).toBe(true);
+    expect(shared.tokens).toEqual([]);
+    const result = build(sharedLightingScene(state, rules, measurement), shared);
     expect(result.model.sight.all).toBe(false);
     expect(result.model.sight.regions).toEqual([]);
   });
