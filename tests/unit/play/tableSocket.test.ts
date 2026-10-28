@@ -72,7 +72,7 @@ describe('welcome', () => {
     sockets[0]!.receive(welcome);
     expect(seats).toEqual([{ id: 'p1', key: KEY }]);
     expect(statuses.at(-1)).toEqual({ kind: 'joined', id: 'p1', gmOnline: true });
-    expect(JSON.parse(sockets[0]!.sent[1]!)).toEqual({ v: 1, t: 'send', body: { t: 'client', app: 'atlas-fork-play', forkLevel: 2 } });
+    expect(JSON.parse(sockets[0]!.sent[1]!)).toEqual({ v: 1, t: 'send', body: { t: 'client', app: 'atlas-fork-play', forkLevel: 3 } });
     expect(socket.send({ t: 'x' })).toBe(true);
   });
   it('updates gmOnline and passes game bodies', () => {
@@ -94,7 +94,7 @@ describe('welcome', () => {
     expect(clients()).toBe(1);
     sockets[0]!.receive({ v: 1, t: 'gm', online: true });
     expect(clients()).toBe(2);
-    expect(JSON.parse(sockets[0]!.sent.at(-1)!)).toEqual({ v: 1, t: 'send', body: { t: 'client', app: 'atlas-fork-play', forkLevel: 2 } });
+    expect(JSON.parse(sockets[0]!.sent.at(-1)!)).toEqual({ v: 1, t: 'send', body: { t: 'client', app: 'atlas-fork-play', forkLevel: 3 } });
   });
   it('rejects send before joining and over 4 KiB', () => {
     const { sockets, socket } = setup();

@@ -1,3 +1,5 @@
+import { parseTextAsset, type AssetRef } from './asset.ts';
+import { bookLine } from './bookText.ts';
 import { MAX_SCENE_ID } from './moves.ts';
 
 /**
@@ -6,8 +8,9 @@ import { MAX_SCENE_ID } from './moves.ts';
  *
  * 1: `client` (the app declares its level) and `your-turn` (2026-10-26).
  * 2: pause, asset-ticket, move-refused reason paused, asset-request via socket.
+ * 3: notes (the shared notes list).
  */
-export const FORK_PROTOCOL_LEVEL = 2;
+export const FORK_PROTOCOL_LEVEL = 3;
 
 /** The level from which a player is sent `your-turn`. */
 export const YOUR_TURN_LEVEL = 1;
@@ -17,6 +20,9 @@ export const PAUSE_LEVEL = 2;
 
 /** The level from which a player is sent `asset-ticket` (an explicit 2, never `FORK_PROTOCOL_LEVEL`). */
 export const ASSET_TICKET_LEVEL = 2;
+
+/** The level from which a player is sent `notes` (an explicit 3, never `FORK_PROTOCOL_LEVEL`). */
+export const NOTES_LEVEL = 3;
 
 /** The name the fork's player app gives itself in `client`. */
 export const FORK_APP = 'atlas-fork-play';
@@ -83,4 +89,52 @@ export function parseAssetTicket(value: Record<string, unknown>): AssetTicketMes
   if (typeof url !== 'string' || !TICKET_URL_PATTERN.test(url) || HASH_IN_URL.exec(url)?.[1] !== hash) return null;
   if (typeof expires !== 'number' || !Number.isSafeInteger(expires) || expires < 0) return null;
   return { t: 'asset-ticket', hash, url, expires };
+}
+
+/** A note id: 24 lowercase hex characters. */
+export const NOTE_ID_PATTERN = /^[0-9a-f]{24}$/;
+/** The most notes in one list. */
+export const MAX_SHARED_NOTES = 500;
+const MAX_NOTE_TITLE = 120;
+const MAX_NOTE_GROUP = 60;
+
+/** One note the GM shares: its text is a Markdown asset the player fetches by hash. */
+export interface SharedNote {
+  readonly id: string;
+  readonly title: string;
+  readonly group?: string;
+  readonly text: AssetRef;
+}
+
+/** Sent to every level-3 player: the whole list of shared notes (replaces the previous list). */
+export interface NotesMessage {
+  readonly t: 'notes';
+  readonly notes: readonly SharedNote[];
+}
+
+function parseSharedNote(value: unknown): SharedNote | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const { id, title, group, text } = value as Record<string, unknown>;
+  if (typeof id !== 'string' || !NOTE_ID_PATTERN.test(id)) return null;
+  if (typeof title !== 'string' || bookLine(title, MAX_NOTE_TITLE) !== title) return null;
+  const asset = parseTextAsset(text);
+  if (!asset) return null;
+  if (group === undefined) return { id, title, text: asset };
+  if (typeof group !== 'string' || bookLine(group, MAX_NOTE_GROUP) !== group) return null;
+  return { id, title, group, text: asset };
+}
+
+/** A `notes` message as the player app reads it, or null for anything malformed (one bad entry rejects it all). */
+export function parseNotes(value: Record<string, unknown>): NotesMessage | null {
+  const { notes } = value;
+  if (!Array.isArray(notes) || notes.length > MAX_SHARED_NOTES) return null;
+  const seen = new Set<string>();
+  const parsed: SharedNote[] = [];
+  for (const entry of notes) {
+    const note = parseSharedNote(entry);
+    if (!note || seen.has(note.id)) return null;
+    seen.add(note.id);
+    parsed.push(note);
+  }
+  return { t: 'notes', notes: parsed };
 }
