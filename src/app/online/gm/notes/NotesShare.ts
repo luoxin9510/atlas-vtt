@@ -1,4 +1,4 @@
-import { TFile, type App, type EventRef, type TAbstractFile } from 'obsidian';
+import { TFile, type App, type TAbstractFile } from 'obsidian';
 import { QuestImages } from '../../../plugin/questImages';
 import { isRecord, MAX_ASSET_BYTES, parsePlayerMessage, TEXT_MIME_TYPE, type GmMessage, type PlayerMessage } from '../../protocol/index.ts';
 import { NOTES_LEVEL, type NotesMessage, type SharedNote } from '../../protocol/fork.ts';
@@ -9,6 +9,7 @@ import type { VaultImage } from '../TokenShare.ts';
 import { parseNote } from './parseNote';
 import { copyForPlayers } from './playerCopy';
 import { HeldHashes } from './heldHashes.ts';
+import { watchVault } from './notesWatch.ts';
 import { readFlag, SharedSet, type Entry } from './sharedNotes.ts';
 
 export interface NotesSharePorts {
@@ -26,6 +27,8 @@ export interface NotesSharePorts {
   images: QuestImages;
   readImage(path: string): Promise<VaultImage | null>;
   scaleImage?: ScaleImage | undefined;
+  /** The most bytes a copy may take (`MAX_ASSET_BYTES` when unset); a larger note is not shared. */
+  maxBytes?: number;
 }
 
 const EMPTY_LIST = JSON.stringify({ t: 'notes', notes: [] });
@@ -43,13 +46,15 @@ export class NotesShare {
   private readonly answers: AssetAnswers;
   private readonly entries = new Map<string, Entry>();
   /** Reads under way by note, with the links they began from; the last to start wins. */
+  /** Notes that could not be copied, by the state of their source: the same state is not read again. */
+  private readonly failed = new Map<string, string>();
   private readonly building = new Map<string, string>();
   private readonly turns = new Map<string, number>();
   private pending = 0;
   private epoch = 0;
   private readonly hashes = new HeldHashes();
   private lastList = EMPTY_LIST;
-  private refs: { readonly vault: EventRef[]; readonly meta: EventRef[] } = { vault: [], meta: [] };
+  private unwatch: () => void = () => undefined;
 
   constructor(ports: NotesSharePorts) {
     this.ports = ports;
@@ -76,19 +81,28 @@ export class NotesShare {
   }
 
   start(): void {
-    this.listen();
+    this.unwatch();
+    this.unwatch = watchVault(this.ports.app, {
+      changed: (file) => this.noteChanged(file),
+      deleted: (path) => this.noteDeleted(path),
+      resolved: () => this.sync(new Set()),
+      image: (file) => this.imageChanged(file),
+      renamed: (file, oldPath) => this.renamed(file, oldPath),
+    });
     for (const file of this.ports.app.vault.getMarkdownFiles()) this.set.set(file.path, readFlag(this.ports.app, file));
     this.sync(new Set(this.set.flagged()));
   }
 
   stop(): void {
     this.epoch++;
-    const { vault, metadataCache } = this.ports.app;
-    for (const ref of this.refs.meta) metadataCache.offref(ref);
-    for (const ref of this.refs.vault) vault.offref(ref);
-    this.refs = { vault: [], meta: [] };
+    this.unwatch();
+    this.unwatch = () => undefined;
     this.entries.clear();
     this.building.clear();
+    this.failed.clear();
+    this.hashes.clear();
+    this.lastList = EMPTY_LIST;
+    this.ports.images.retain(new Set());
   }
 
   /** The list again, to one player or to all. */
@@ -118,23 +132,6 @@ export class NotesShare {
   /** A player left the table: chunks queued for them are dropped, so they may ask again at once. */
   playerLeft(player: string): void {
     this.answers.forget(player);
-  }
-
-  private listen(): void {
-    if (this.refs.meta.length > 0) return;
-    const { vault, metadataCache } = this.ports.app;
-    const imageChanged = (file: TAbstractFile): void => this.imageChanged(file);
-    this.refs = {
-      meta: [
-        metadataCache.on('changed', (file) => this.noteChanged(file)),
-        metadataCache.on('deleted', (file) => this.noteDeleted(file.path)),
-        metadataCache.on('resolved', () => this.sync(new Set())),
-      ],
-      vault: [
-        vault.on('modify', imageChanged), vault.on('create', imageChanged), vault.on('delete', imageChanged),
-        vault.on('rename', (file, oldPath) => this.renamed(file, oldPath)),
-      ],
-    };
   }
 
   private noteChanged(file: TFile): void {
@@ -183,15 +180,36 @@ export class NotesShare {
       this.building.delete(path);
       this.turns.set(path, (this.turns.get(path) ?? 0) + 1);
     }
-    if (removed) this.settle();
     const links = this.ports.app.metadataCache.resolvedLinks;
+    const reads: Array<readonly [string, string]> = [];
     for (const path of shared) {
       const key = this.linkKey(links[path] ?? {});
+      if (dirty.has(path)) this.failed.delete(path);
+      else if (this.failed.get(path) === this.stamp(path, key)) continue;
+      const entry = this.entries.get(path);
       const reading = this.building.get(path);
-      const stale = reading !== undefined ? reading !== key : this.entries.get(path)?.linkKey !== key;
-      if (dirty.has(path) || stale) void this.build(path, key);
+      // A note that links to one whose state changed may still name it: its copy is withdrawn until it is read again.
+      if (entry !== undefined && entry.linkKey !== key) removed = this.entries.delete(path) || removed;
+      if (dirty.has(path) || (reading !== undefined ? reading !== key : entry?.linkKey !== key)) reads.push([path, key]);
     }
+    if (removed) this.settle();
+    for (const [path, key] of reads) void this.build(path, key);
     if (removed) this.publish();
+  }
+
+  /** The state of a note's source and links, which a failed read is remembered by. */
+  private stamp(path: string, key: string): string {
+    const file = this.ports.app.vault.getFileByPath(path);
+    return `${file?.stat.mtime}\n${file?.stat.size}\n${key}`;
+  }
+
+  /** A note that cannot be copied is not shared until a later read succeeds: what it had is withdrawn at once. */
+  private fail(path: string, turn: number, epoch: number, key: string): void {
+    if (this.turns.get(path) !== turn || this.epoch !== epoch) return;
+    this.failed.set(path, this.stamp(path, key));
+    if (!this.entries.delete(path)) return;
+    this.settle();
+    this.publish();
   }
 
   /** What the note's resolved links lead to now, as shared notes: a change reads the note again. */
@@ -225,7 +243,7 @@ export class NotesShare {
         },
       });
       const bytes = new TextEncoder().encode(copy.markdown).slice();
-      if (bytes.length > MAX_ASSET_BYTES) return;
+      if (bytes.length > (this.ports.maxBytes ?? MAX_ASSET_BYTES)) return this.fail(path, turn, epoch, key);
       const ref = { hash: await sha256Hex(bytes), size: bytes.length, mime: TEXT_MIME_TYPE };
       if (this.turns.get(path) !== turn || this.epoch !== epoch || this.set.info(path)?.id !== info.id) return;
       const images = new Map<string, string>();
@@ -236,7 +254,8 @@ export class NotesShare {
       this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images, linkKey: key, embeds: source.includes('![') });
       this.settle();
     } catch {
-      // The note keeps what it had; a later change reads it again. Nothing is logged: it would name the note.
+      // Nothing is logged: it would name the note.
+      this.fail(path, turn, epoch, key);
     } finally {
       if (this.turns.get(path) === turn) this.building.delete(path);
       this.pending--;

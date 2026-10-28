@@ -14,6 +14,12 @@ export class HeldHashes {
     return this.gone.has(hash);
   }
 
+  /** Holds nothing and remembers nothing. */
+  clear(): void {
+    this.held = new Set();
+    this.gone.clear();
+  }
+
   /** Takes the hashes held now; those that were held before and are not are returned. */
   replace(now: ReadonlySet<string>): string[] {
     const left = [...this.held].filter((hash) => !now.has(hash));

@@ -1,5 +1,5 @@
 import type { GmMessage, NotesMessage } from '../../../../../src/app/online/protocol/index.ts';
-import { NotesShare } from '../../../../../src/app/online/gm/notes/NotesShare.ts';
+import { NotesShare, type NotesSharePorts } from '../../../../../src/app/online/gm/notes/NotesShare.ts';
 import { readVaultImage } from '../../../../../src/app/online/gm/vaultImage.ts';
 import { QuestImages } from '../../../../../src/app/plugin/questImages';
 import { randomHex } from '../../../../../src/app/utils/randomHex';
@@ -33,7 +33,7 @@ export interface Table {
   request(from: string, hash: string): void;
 }
 
-export function makeTable(files: Record<string, string>): Table {
+export function makeTable(files: Record<string, string>, extra: Partial<NotesSharePorts> = {}): Table {
   const vault = questVault(files);
   const sent: Sent[] = [];
   const dropped: string[] = [];
@@ -53,6 +53,7 @@ export function makeTable(files: Record<string, string>): Table {
     now: () => Date.now(),
     images: new QuestImages(vault.app),
     readImage: (path) => readVaultImage(vault.app, path),
+    ...extra,
   });
   const lists = (to?: string): NotesMessage[] => sent.flatMap((entry) => (entry.body.t === 'notes' && (to === undefined || entry.to === to) ? [entry.body] : []));
   const list = (): NotesMessage['notes'] => current;
@@ -72,10 +73,34 @@ export function makeTable(files: Record<string, string>): Table {
 }
 
 /** Starts the share and lets every copy finish. */
-export async function started(files: Record<string, string>): Promise<Table> {
-  const table = makeTable(files);
+export async function started(files: Record<string, string>, extra: Partial<NotesSharePorts> = {}): Promise<Table> {
+  const table = makeTable(files, extra);
   table.share.start();
   await settled();
   table.share.resend();
   return table;
+}
+
+/**
+ * Makes the vault's reads wait: each read takes the note's text at the moment it is asked and hands it
+ * back when released, so builds can be finished in any order.
+ */
+export function holdReads(table: Table): { release(index?: number): Promise<void>; readonly waiting: number } {
+  const { vault } = table.vault.app;
+  const read = vault.read.bind(vault);
+  const held: Array<() => void> = [];
+  vault.read = (file) => {
+    const content = read(file);
+    return new Promise((resolve, reject) => void held.push(() => void content.then(resolve, reject)));
+  };
+  return {
+    get waiting() {
+      return held.length;
+    },
+    release: async (index = 0) => {
+      const [release] = held.splice(index, 1);
+      release?.();
+      await settled();
+    },
+  };
 }

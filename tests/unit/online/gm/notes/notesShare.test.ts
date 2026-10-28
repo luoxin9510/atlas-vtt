@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseGmMessage, type AssetRef } from '../../../../../src/app/online/protocol/index.ts';
+import { parseGmMessage, type AssetRef, type GmMessage } from '../../../../../src/app/online/protocol/index.ts';
 import { assetTag } from '../../../../../src/app/online/gm/assetServe.ts';
 import { settled } from '../settled.ts';
-import { ANA, BEN, gif, OLD, shared, started, type Table } from './notesHarness.ts';
+import { ANA, BEN, gif, holdReads, makeTable, OLD, shared, started, type Table } from './notesHarness.ts';
 
 const titles = (table: Table): string[] => table.list().map((note) => note.title);
 const idOf = (table: Table, title: string): string => table.list().find((note) => note.title === title)?.id ?? '';
@@ -169,5 +169,136 @@ describe('NotesShare', () => {
     } finally {
       for (const spy of spies) spy.mockRestore();
     }
+  });
+
+  describe('fails closed', () => {
+    it('withdraws a note whose rebuild throws, and does not read it again for the same source', async () => {
+      table = await started({ 'Keep.md': shared('Open.\n\nSecret passage.') });
+      const old = table.list()[0] as { text: AssetRef };
+      const reads = vi.spyOn(table.vault.app.vault, 'read').mockRejectedValue(new Error('disk'));
+      table.vault.write('Keep.md', shared('Open.\n\n> [!gm]\n> Secret passage.'));
+      await settled();
+      expect(table.list()).toEqual([]);
+      expect(table.dropped).toContain(assetTag(old.text.hash));
+      table.sent.length = 0;
+      expect(table.share.receive(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
+      expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: old.text.hash }]);
+      const attempts = reads.mock.calls.length;
+      table.vault.resolve();
+      table.vault.write('Other.md', 'x');
+      await settled();
+      expect(reads.mock.calls.length).toBe(attempts);
+      // A later change of the note reads it again.
+      reads.mockRestore();
+      table.vault.write('Keep.md', shared('Open again.'));
+      await settled();
+      expect(titles(table)).toEqual(['Keep']);
+    });
+
+    it('withdraws a note whose copy outgrows what an asset holds', async () => {
+      table = await started({ 'Keep.md': shared('Short.') }, { maxBytes: 64 });
+      const old = table.list()[0] as { text: AssetRef };
+      table.vault.write('Keep.md', shared('Long. '.repeat(40)));
+      await settled();
+      expect(table.list()).toEqual([]);
+      expect(table.dropped).toContain(assetTag(old.text.hash));
+      const reads = vi.spyOn(table.vault.app.vault, 'read');
+      reads.mockClear();
+      table.vault.resolve();
+      await settled();
+      expect(reads).not.toHaveBeenCalled();
+      table.sent.length = 0;
+      expect(table.share.receive(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
+      expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: old.text.hash }]);
+    });
+
+    it('keeps the newer copy when an older read finishes last', async () => {
+      table = await started({ 'Keep.md': shared('First.') });
+      const reads = holdReads(table);
+      table.vault.write('Keep.md', shared('Second.'));
+      table.vault.write('Keep.md', shared('Third.'));
+      expect(reads.waiting).toBe(2);
+      await reads.release(1);
+      await reads.release(0);
+      expect(table.list().length).toBe(1);
+      expect(await table.text(table.list()[0]?.id ?? '')).toBe('Third.');
+    });
+
+    it('discards a read that finishes after its note was unshared', async () => {
+      table = await started({ 'Keep.md': shared('First.') });
+      const reads = holdReads(table);
+      table.vault.write('Keep.md', shared('Second.'));
+      table.vault.write('Keep.md', 'No longer shared.');
+      expect(table.list().length).toBe(0);
+      await reads.release();
+      await reads.release();
+      expect(table.list()).toEqual([]);
+      expect(table.share.count).toBe(0);
+      // Nothing is kept for it either, or sharing it again without a change would bring the stale copy back.
+      expect((table.share as unknown as { entries: Map<string, unknown> }).entries.size).toBe(0);
+    });
+
+    it('serves an image shared by two notes until both stop naming it', async () => {
+      table = await started({ 'A.md': shared('![[art/map.gif]]'), 'B.md': shared('![[art/map.gif]] again'), 'art/map.gif': gif('one') });
+      const markdown = await table.text(idOf(table, 'A'));
+      const image = /atlas-asset:([0-9a-f]{64})/.exec(markdown)?.[1] ?? '';
+      const fetched = async (): Promise<GmMessage[]> => {
+        table?.sent.splice(0);
+        table?.share.playerLeft(ANA);
+        table?.request(ANA, image);
+        await settled();
+        return table?.sent.map((entry) => entry.body) ?? [];
+      };
+      table.vault.write('A.md', 'unshared');
+      await settled();
+      expect((await fetched()).map((body) => body.t)).toEqual(['asset-chunk']);
+      table.vault.write('B.md', 'unshared');
+      await settled();
+      expect(await fetched()).toEqual([{ t: 'asset-refused', hash: image }]);
+    });
+
+    it('withdraws the notes that link to a note at once when it is unshared, and lists them again once read', async () => {
+      table = await started({ 'A.md': shared('See [[B|b]] here.'), 'B.md': shared('B.'), 'C.md': shared('Alone.') });
+      const a = table.list().find((note) => note.title === 'A') as { text: AssetRef };
+      const reads = holdReads(table);
+      table.dropped.length = 0;
+      table.vault.write('B.md', 'B.');
+      expect(titles(table)).toEqual(['C']);
+      expect(table.dropped).toContain(assetTag(a.text.hash));
+      table.sent.length = 0;
+      expect(table.share.receive(ANA, { t: 'asset-request', hash: a.text.hash })).toBe(true);
+      expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: a.text.hash }]);
+      await reads.release();
+      expect(titles(table)).toEqual(['A', 'C']);
+      expect(await table.text(idOf(table, 'A'))).toBe('See b here.');
+    });
+
+    it('removes every listener when it stops, and answers nothing afterwards', async () => {
+      table = makeTable({ 'Keep.md': shared('Words.') });
+      const live = new Set<unknown>();
+      let registered = 0;
+      for (const target of [table.vault.app.vault, table.vault.app.metadataCache] as const) {
+        const on = target.on.bind(target) as (...args: unknown[]) => unknown;
+        const offref = target.offref.bind(target) as (ref: unknown) => void;
+        (target as { on: unknown }).on = (...args: unknown[]): unknown => {
+          const ref = on(...args);
+          live.add(ref);
+          registered++;
+          return ref;
+        };
+        (target as { offref: unknown }).offref = (ref: unknown): void => {
+          live.delete(ref);
+          offref(ref);
+        };
+      }
+      table.share.start();
+      await settled();
+      expect(registered).toBeGreaterThan(0);
+      table.share.resend();
+      const held = table.list()[0] as { text: AssetRef };
+      table.share.stop();
+      expect(live.size).toBe(0);
+      expect(table.share.receive(ANA, { t: 'asset-request', hash: held.text.hash })).toBe(false);
+    });
   });
 });
