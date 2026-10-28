@@ -196,7 +196,7 @@ describe('asset answers with tickets', () => {
     expect(mine.sent[1]).toEqual({ body: ticketFor(variant), to: 'alice' });
   });
 
-  it('tickets the original only for a request without maxSide', async () => {
+  it('tickets the original for a request without maxSide', async () => {
     const mine = table((hash) => Promise.resolve(ticketFor(hash)));
     mine.forkLevels = new Map([['alice', 2]]);
     mine.share.start();
@@ -206,6 +206,22 @@ describe('asset answers with tickets', () => {
     mine.share.receive('alice', { t: 'asset-request', hash });
     await vi.waitFor(() => expect(kinds(mine.sent)).toEqual(['asset-ticket']));
     expect(mine.asked).toEqual([`${hash}>alice`]);
+  });
+
+  it.each([['an image that needs no scaling', true], ['a table that cannot scale', false]])('tickets the original for a request with maxSide when there is no variant: %s', async (_name, hasScaler) => {
+    const asked: string[] = [];
+    const mine = shareHarness(sceneState(), new Map([['maps/cave.webp', MAP]]), undefined, undefined, {
+      tickets: { ticket: (hash, _bytes, player) => (asked.push(`${hash}>${player}`), Promise.resolve(ticketFor(hash))) },
+      ...(hasScaler ? { scaleImage: () => Promise.resolve(null) } : {}),
+    });
+    mine.forkLevels = new Map([['alice', ASSET_TICKET_LEVEL]]);
+    mine.share.start();
+    await mine.set(sceneState());
+    mine.sent.length = 0;
+    const hash = await sha256Hex(MAP);
+    mine.share.receive('alice', { t: 'asset-request', hash, maxSide: 8192 });
+    await vi.waitFor(() => expect(kinds(mine.sent)).toEqual(['asset-ticket']));
+    expect(asked).toEqual([`${hash}>alice`]);
   });
 
   it('sends chunks to a level 1 player and never asks for a ticket', async () => {

@@ -78,12 +78,11 @@ export class AssetAnswers {
 
   /** The image itself, or its scaled copy for `maxSide`, while it is still in the picture once the copy is made. */
   private async serveImage(hash: string, bytes: Uint8Array, mime: string, to: string, first: number, maxSide: number | undefined, via: 'socket' | undefined): Promise<void> {
-    // The original is ticketed only for a request that names no longest side.
-    if (maxSide === undefined) return this.deliver(hash, hash, bytes, to, first, via);
-    if (this.variants === null) return this.serve(hash, bytes, to, first);
+    // The original is ticketed whenever no scaled copy is made: no longest side asked, no scaler, or nothing to scale.
+    if (maxSide === undefined || this.variants === null) return this.deliver(hash, hash, bytes, to, first, via);
     const variant = await this.variants.get(hash, bytes, mime, maxSide);
     if (!this.inPicture(hash, to)) return this.refuse(hash, to);
-    if (variant === null) return this.serve(hash, bytes, to, first);
+    if (variant === null) return this.deliver(hash, hash, bytes, to, first, via);
     this.ports.send({ t: 'asset-variant', hash, maxSide, variant: variant.ref, width: variant.width, height: variant.height }, to);
     await this.deliver(hash, variant.ref.hash, variant.bytes, to, first, via);
   }
