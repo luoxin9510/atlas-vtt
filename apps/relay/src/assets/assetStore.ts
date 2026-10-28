@@ -1,17 +1,18 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, type ReadStream } from 'node:fs';
-import { mkdir, open, readdir, rename, rm, stat, statfs } from 'node:fs/promises';
+import { mkdir, readdir, rename, rm, stat, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Readable, Transform } from 'node:stream';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { MAX_ASSET_BYTES } from '../../../../src/app/online/protocol/asset.ts';
+import { MAX_ASSET_BYTES, PART_BYTES } from '../../../../src/app/online/protocol/asset.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { RelayConfig } from '../config.ts';
+import { scanTable } from './assetScan.ts';
+import { partGuard, StoreError, type StoreFailure } from './partGuard.ts';
 import { sniffImage, SNIFF_BYTES } from './sniff.ts';
 
 const GIB = 1024 ** 3;
-/** The size of one upload part, and so how many parts an asset has at most (0..7). */
-export const PART_BYTES = 8 * 1024 * 1024;
+/** How many parts an asset has at most (0..7). */
 export const MAX_PARTS = MAX_ASSET_BYTES / PART_BYTES;
 export const MAX_IN_FLIGHT = 2;
 export const MAX_UNFINISHED = 4;
@@ -29,28 +30,23 @@ export function assetLimitsOf(config: RelayConfig): AssetLimits {
   return { maxTableBytes: config.maxTableAssetBytes ?? 2 * GIB, maxServerBytes: config.maxServerAssetBytes ?? 10 * GIB, minFreeBytes: config.minFreeBytes ?? 2 * GIB };
 }
 
-export type StoreFailure = 400 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 507;
+export type { StoreFailure };
 export type PartResult = { readonly status: 200 } | { readonly status: StoreFailure };
 export type CompleteResult = PartResult;
-
-class StoreError extends Error {
-  constructor(readonly status: StoreFailure) {
-    super(`asset store: ${status}`);
-  }
-}
 
 interface TableAssets {
   readonly complete: Map<string, { size: number; mime: string }>;
   /** Hashes with parts (or an upload about to add the first), each with the size of every part held. */
   readonly parts: Map<string, Map<number, number>>;
   readonly completing: Set<string>;
+  /** Hashes with a part being written, by how many: the sweep leaves them alone. */
+  readonly writing: Map<string, number>;
   bytes: number;
   inFlight: number;
   /** The table ended: nothing it counted is counted any more. */
   gone: boolean;
 }
 
-const HASH_FILE = /^[0-9a-f]{64}$/;
 const sum = (sizes: Map<number, number>): number => [...sizes.values()].reduce((a, b) => a + b, 0);
 
 /** Images on disk: `<dir>/<code>/<hash>` when complete, `<dir>/<code>/.parts/<hash>/<index>` while uploading. */
@@ -103,16 +99,21 @@ export class AssetStore {
     if (table.completing.has(hash)) return { status: 409 };
     if (table.inFlight >= MAX_IN_FLIGHT || (!table.parts.has(hash) && table.parts.size >= MAX_UNFINISHED)) return { status: 429 };
     table.inFlight += 1;
+    table.writing.set(hash, (table.writing.get(hash) ?? 0) + 1);
     const held = table.parts.get(hash) ?? new Map<number, number>();
     table.parts.set(hash, held);
     let reserved = 0;
     const folder = join(this.dir, code, '.parts', hash);
-    const temporary = join(folder, `${index}.tmp`);
+    const temporary = join(folder, `${index}.${randomUUID()}.tmp`);
     try {
       if (await this.#diskLow()) throw new StoreError(507);
       await mkdir(folder, { recursive: true });
       const others = sum(held) - (held.get(index) ?? 0);
-      const guard = this.#guard(table, index === 0, others, (bytes) => (reserved += bytes));
+      const guard = partGuard(index === 0, others, (bytes) => {
+        reserved += bytes;
+        this.#add(table, bytes);
+        if (table.bytes > this.limits.maxTableBytes || this.#serverBytes > this.limits.maxServerBytes) throw new StoreError(507);
+      });
       await pipeline(body, guard, createWriteStream(temporary));
       await rename(temporary, join(folder, String(index)));
       const old = held.get(index) ?? 0;
@@ -126,6 +127,9 @@ export class AssetStore {
       return { status: failureOf(error) };
     } finally {
       table.inFlight -= 1;
+      const writers = (table.writing.get(hash) ?? 1) - 1;
+      if (writers > 0) table.writing.set(hash, writers);
+      else table.writing.delete(hash);
     }
   }
 
@@ -196,8 +200,9 @@ export class AssetStore {
   async sweep(): Promise<void> {
     for (const [code, table] of [...this.#tables]) {
       for (const hash of [...table.parts.keys()]) {
-        if (table.completing.has(hash)) continue;
-        const touched = await stat(join(this.dir, code, '.parts', hash)).then((info) => info.mtimeMs, () => 0);
+        if (table.completing.has(hash) || table.writing.has(hash)) continue;
+        // A folder that cannot be read right now (just made, just removed) counts as touched just now.
+        const touched = await stat(join(this.dir, code, '.parts', hash)).then((info) => info.mtimeMs, () => this.now());
         if (this.now() - touched > PARTS_STALE_MS) await this.#dropParts(code, table, hash);
       }
     }
@@ -206,10 +211,18 @@ export class AssetStore {
   #table(code: string): TableAssets {
     let table = this.#tables.get(code);
     if (table === undefined) {
-      table = { complete: new Map(), parts: new Map(), completing: new Set(), bytes: 0, inFlight: 0, gone: false };
+      table = { complete: new Map(), parts: new Map(), completing: new Set(), writing: new Map(), bytes: 0, inFlight: 0, gone: false };
       this.#tables.set(code, table);
     }
     return table;
+  }
+
+  async #scan(code: string): Promise<void> {
+    const table = this.#table(code);
+    const found = await scanTable(join(this.dir, code));
+    for (const [hash, entry] of found.complete) table.complete.set(hash, entry);
+    for (const [hash, held] of found.parts) table.parts.set(hash, held);
+    this.#add(table, found.bytes);
   }
 
   #add(table: TableAssets, bytes: number): void {
@@ -231,83 +244,6 @@ export class AssetStore {
       return space.bavail * space.bsize < this.limits.minFreeBytes;
     } catch {
       return false;
-    }
-  }
-
-  /** Counts a part while it streams: over 8 MiB or 64 MiB in all is 413, over a storage cap 507, a first part that is no image 415. */
-  #guard(table: TableAssets, first: boolean, others: number, reserve: (bytes: number) => void): Transform {
-    let written = 0;
-    let head = Buffer.alloc(0);
-    let sniffed = false;
-    let over = false;
-    const check = (): void => {
-      if (sniffImage(head) === null) throw new StoreError(415);
-      sniffed = true;
-    };
-    return new Transform({
-      transform: (chunk: Buffer, _encoding, done) => {
-        try {
-          written += chunk.length;
-          // Too much: read on and drop the rest (up to twice a part) so the 413 reaches the client before the connection ends.
-          if (written > 2 * PART_BYTES) throw new StoreError(413);
-          if (over || written > PART_BYTES || others + written > MAX_ASSET_BYTES) {
-            over = true;
-            return done();
-          }
-          reserve(chunk.length);
-          this.#add(table, chunk.length);
-          if (table.bytes > this.limits.maxTableBytes || this.#serverBytes > this.limits.maxServerBytes) throw new StoreError(507);
-          if (first && !sniffed) {
-            head = Buffer.concat([head, chunk]).subarray(0, SNIFF_BYTES);
-            if (head.length >= SNIFF_BYTES) check();
-          }
-          done(null, chunk);
-        } catch (error) {
-          done(error as Error);
-        }
-      },
-      flush: (done) => {
-        try {
-          if (over) throw new StoreError(413);
-          if (first && !sniffed) check();
-          done();
-        } catch (error) {
-          done(error as Error);
-        }
-      },
-    });
-  }
-
-  async #scan(code: string): Promise<void> {
-    const table = this.#table(code);
-    const folder = join(this.dir, code);
-    for (const entry of await readdir(folder)) {
-      if (entry.endsWith('.tmp')) await rm(join(folder, entry), { force: true });
-      else if (HASH_FILE.test(entry)) await this.#scanComplete(table, folder, entry);
-    }
-    const parts = join(folder, '.parts');
-    for (const hash of await readdir(parts).catch(() => [])) {
-      const held = new Map<number, number>();
-      for (const name of await readdir(join(parts, hash))) {
-        if (name.endsWith('.tmp')) await rm(join(parts, hash, name), { force: true });
-        else if (/^[0-7]$/.test(name)) held.set(Number(name), (await stat(join(parts, hash, name))).size);
-      }
-      if (held.size > 0) table.parts.set(hash, held);
-      this.#add(table, sum(held));
-    }
-  }
-
-  async #scanComplete(table: TableAssets, folder: string, hash: string): Promise<void> {
-    const file = await open(join(folder, hash), 'r');
-    try {
-      const head = Buffer.alloc(SNIFF_BYTES);
-      const { bytesRead } = await file.read(head, 0, SNIFF_BYTES, 0);
-      const mime = sniffImage(head.subarray(0, bytesRead));
-      const { size } = await file.stat();
-      if (mime !== null) table.complete.set(hash, { size, mime });
-      this.#add(table, size);
-    } finally {
-      await file.close();
     }
   }
 }

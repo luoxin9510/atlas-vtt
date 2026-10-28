@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BinaryHttp } from '../../../../src/app/online/gm/assetUpload/binaryHttp.ts';
-import { PART_BYTES, uploadAsset } from '../../../../src/app/online/gm/assetUpload/uploadAsset.ts';
+import { uploadAsset } from '../../../../src/app/online/gm/assetUpload/uploadAsset.ts';
+import { PART_BYTES } from '../../../../src/app/online/protocol/index.ts';
 
 const MIB = 1024 * 1024;
 const TABLE = { origin: 'https://play.example.com', code: 'abcdefghijklmnopqrstuvwxyz'.slice(0, 26), secret: 's3cret' };

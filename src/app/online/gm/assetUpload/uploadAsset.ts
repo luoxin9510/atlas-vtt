@@ -1,8 +1,6 @@
-import { isHash, isRecord } from '../../protocol/index.ts';
+import { isHash, isRecord, PART_BYTES } from '../../protocol/index.ts';
 import type { BinaryHttp } from './binaryHttp.ts';
 
-/** The relay's part size: an image goes up in slices of at most this many bytes. */
-export const PART_BYTES = 8 * 1024 * 1024;
 const TRIES = 3;
 
 /** Where a table's images go and the secret that lets the GM put them there. */

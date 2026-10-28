@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -252,6 +252,96 @@ describe('keeping and cleaning', () => {
     await reopened.sweep();
     expect(reopened.status(CODE, hash)).toEqual({ parts: [] });
     expect(existsSync(join(dir, CODE, '.parts', hash))).toBe(false);
+  });
+
+  it('deletes a complete file that is no image and does not count it against the quota', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-store-'));
+    folders.push(dir);
+    const hash = 'cd'.repeat(32);
+    mkdirSync(join(dir, CODE), { recursive: true });
+    writeFileSync(join(dir, CODE, hash), Buffer.alloc(500, 7));
+    const store = await AssetStore.open(dir, { maxTableBytes: 100, maxServerBytes: 100, minFreeBytes: 0 }, Date.now);
+    expect(store.has(CODE, hash)).toBe(false);
+    expect(existsSync(join(dir, CODE, hash))).toBe(false);
+    const { Readable } = await import('node:stream');
+    expect((await store.writePart(CODE, 'ab'.repeat(32), 0, Readable.from([PNG_HEAD]))).status).toBe(200);
+  });
+
+  it('leaves parts alone while a part of that image is being written', async () => {
+    let now = Date.now();
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-store-'));
+    folders.push(dir);
+    const store = await AssetStore.open(dir, { maxTableBytes: 2 ** 30, maxServerBytes: 2 ** 30, minFreeBytes: 0 }, () => now);
+    const { PassThrough } = await import('node:stream');
+    const hash = 'ab'.repeat(32);
+    const body = new PassThrough();
+    body.write(PNG_HEAD);
+    const writing = store.writePart(CODE, hash, 0, body);
+    await vi.waitFor(() => expect(existsSync(join(dir, CODE, '.parts', hash))).toBe(true));
+    const old = new Date(now - 2 * 3_600_000);
+    utimesSync(join(dir, CODE, '.parts', hash), old, old);
+    await store.sweep();
+    expect(existsSync(join(dir, CODE, '.parts', hash))).toBe(true);
+    body.end();
+    expect((await writing).status).toBe(200);
+    expect(store.status(CODE, hash)).toEqual({ parts: [0] });
+    now += 2 * 3_600_000;
+    await store.sweep();
+    expect(store.status(CODE, hash)).toEqual({ parts: [] });
+  });
+
+  it('treats a parts folder it cannot stat as just touched', async () => {
+    let now = Date.now();
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-store-'));
+    folders.push(dir);
+    const store = await AssetStore.open(dir, { maxTableBytes: 2 ** 30, maxServerBytes: 2 ** 30, minFreeBytes: 0 }, () => now);
+    const { Readable } = await import('node:stream');
+    const hash = 'ab'.repeat(32);
+    await store.writePart(CODE, hash, 0, Readable.from([PNG_HEAD]));
+    const { rm } = await import('node:fs/promises');
+    await rm(join(dir, CODE, '.parts', hash), { recursive: true });
+    now += 5 * 3_600_000;
+    await store.sweep();
+    expect(store.status(CODE, hash)).toEqual({ parts: [0] });
+  });
+
+  it('keeps two concurrent puts of the same part apart', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-store-'));
+    folders.push(dir);
+    const store = await AssetStore.open(dir, { maxTableBytes: 2 ** 30, maxServerBytes: 2 ** 30, minFreeBytes: 0 }, Date.now);
+    const { PassThrough } = await import('node:stream');
+    const hash = 'ab'.repeat(32);
+    const bodies = [new PassThrough(), new PassThrough()];
+    const results = bodies.map((body) => store.writePart(CODE, hash, 0, body));
+    const pause = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 20));
+    const fills = [Buffer.alloc(3000, 0x61), Buffer.alloc(3000, 0x62)];
+    for (const body of bodies) body.write(PNG_HEAD);
+    await pause();
+    for (let step = 0; step < 3; step += 1) {
+      for (const [i, body] of bodies.entries()) body.write(fills[i]!.subarray(step * 1000, (step + 1) * 1000));
+      await pause();
+    }
+    for (const body of bodies) body.end();
+    expect((await Promise.all(results)).map((r) => r.status)).toEqual([200, 200]);
+    const folder = join(dir, CODE, '.parts', hash);
+    expect(readdirSync(folder)).toEqual(['0']);
+    const saved = readFileSync(join(folder, '0'));
+    expect(saved.length).toBe(PNG_HEAD.length + 3000);
+    const tail = saved.subarray(PNG_HEAD.length);
+    expect(tail.equals(fills[0]!) || tail.equals(fills[1]!)).toBe(true);
+    expect(store.status(CODE, hash)).toEqual({ parts: [0] });
+  });
+
+  it('logs one line, without a path, when the startup purge fails', async () => {
+    const purge = vi.spyOn(AssetStore.prototype, 'purgeUnknown').mockRejectedValue(Object.assign(new Error('EACCES: permission denied, rm \'/secret/path\''), { code: 'EACCES' }));
+    try {
+      const lines: string[] = [];
+      await start({}, (line) => void lines.push(line));
+      expect(lines).toContain('asset purge failed: EACCES');
+      expect(lines.some((line) => line.includes('/secret/path'))).toBe(false);
+    } finally {
+      purge.mockRestore();
+    }
   });
 
   it('purges the folder of a table the state file no longer lists', async () => {

@@ -26,7 +26,11 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   const assets = await AssetStore.open(config.assetDir ?? join(dirname(config.statePath), 'assets'), assetLimitsOf(config), Date.now);
   // No await between open and subscribe, and the purge runs after: a table that ended during the open (or before this start) is not missed.
   tables.subscribe({ replaced: () => undefined, ended: (code) => void assets.deleteTable(code).catch(() => undefined) });
-  await assets.purgeUnknown((code) => tables.has(code)).catch(() => undefined);
+  await assets.purgeUnknown((code) => tables.has(code)).catch((error: unknown) => {
+    // The error's errno code or class only: its message may hold a path.
+    const errno = (error as NodeJS.ErrnoException).code;
+    log?.(`asset purge failed: ${typeof errno === 'string' ? errno : error instanceof Error ? error.name : 'error'}`);
+  });
   const sweeper = setInterval(() => void assets.sweep().catch(() => undefined), SWEEP_INTERVAL_MS);
   sweeper.unref();
   const staticDir = config.staticDir === null ? null : resolve(config.staticDir);
