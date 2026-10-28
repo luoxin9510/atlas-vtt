@@ -51,7 +51,7 @@ export interface Table {
  * owns the ogre, Ben the bear; their tokens stop at `walls`, none by default, and wait for their turn where `outOfTurn` says so. The clock is `Date.now` and the timers are the global ones, so fake
  * timers move both.
  */
-export function table(createViewAtlasStore: StoreFactory, walls: () => MoveWalls | null = () => null, outOfTurn: (tokenId: string) => boolean = () => false): Table {
+export function table(createViewAtlasStore: StoreFactory, walls: () => MoveWalls | null = () => null, outOfTurn: (tokenId: string) => boolean = () => false, paused: () => boolean = () => false): Table {
   const store = createViewAtlasStore({}, 'online-moves-test');
   store.getState().setPersistenceEnabled(false);
   runUntracked(store, () => store.setState((draft) => {
@@ -64,6 +64,7 @@ export function table(createViewAtlasStore: StoreFactory, walls: () => MoveWalls
   const sent: Table['sent'] = [];
   const moves = new PlayerMoves(store, {
     context: () => ({ scene: SCENE, listedToken: (alias) => LISTED.get(alias), ownerOf: (id) => OWNERS[id], map: { width: 2000, height: 1500 }, walls: walls(), outOfTurn }),
+    paused,
     send: (body, to) => sent.push({ body, to }),
     now: () => Date.now(),
     setTimer: (run, ms) => setTimeout(run, ms) as unknown as number,

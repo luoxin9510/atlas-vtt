@@ -309,7 +309,7 @@ export class OnlineControl {
     this.keep(saved);
     this.ownership.bind(seats);
     this.campaigns.bound(saved.campaignId);
-    const table = new OnlineTable(this.app, saved.origin, saved, saved.mapPath, this.ownership, seats, saved.gate, {
+    const table = new OnlineTable(this.app, saved.origin, saved, saved.mapPath, this.ownership, seats, saved.gate, saved.paused === true, {
       status: () => {
         // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
         if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);
@@ -317,6 +317,9 @@ export class OnlineControl {
       },
       gate: (gate) => {
         if (this.current === table && this.saved !== null) this.keep({ ...this.saved, gate });
+      },
+      paused: (paused) => {
+        if (this.current === table && this.saved !== null) this.keep({ ...this.saved, paused });
       },
       changed: () => this.changed(),
       log: () => void (this.current === table && this.logs.keep(table.log.saved())),

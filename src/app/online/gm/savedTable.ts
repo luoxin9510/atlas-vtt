@@ -22,6 +22,8 @@ export interface SavedTable extends CreatedTable {
   readonly mapPath: string | null;
   /** The join code and the two switches; a table saved before it had gates gets new ones, both on. */
   readonly gate: GateSettings;
+  /** The game pause: while true players' moves are refused. Read as false unless exactly true; absent when off. */
+  readonly paused?: boolean;
 }
 
 /**
@@ -30,11 +32,11 @@ export interface SavedTable extends CreatedTable {
  */
 export function readSavedTable(data: unknown): SavedTable | null {
   if (typeof data !== 'object' || data === null) return null;
-  const { code, secret, campaignId, mapPath, maxPlayers, gate, origin: savedOrigin } = data as Record<string, unknown>;
+  const { code, secret, campaignId, mapPath, maxPlayers, gate, origin: savedOrigin, paused } = data as Record<string, unknown>;
   if (typeof code !== 'string' || !TABLE_CODE_PATTERN.test(code) || typeof secret !== 'string' || !SECRET_PATTERN.test(secret) || !isAssetId(campaignId)) return null;
   const path = typeof mapPath === 'string' && mapPath !== '' && mapPath.length <= MAX_MAP_PATH ? mapPath : null;
   // A table saved before servers could differ was made on Atlas's own.
   const origin = savedOrigin === undefined ? UPSTREAM_RELAY_ORIGIN : typeof savedOrigin === 'string' ? normalizeServerOrigin(savedOrigin) : null;
   if (origin === null) return null;
-  return { code, secret, campaignId, origin, maxPlayers: seatsOf(maxPlayers), mapPath: path, gate: readGate(gate) };
+  return { code, secret, campaignId, origin, maxPlayers: seatsOf(maxPlayers), mapPath: path, gate: readGate(gate), ...(paused === true && { paused: true }) };
 }

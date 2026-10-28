@@ -1,7 +1,17 @@
 import { MAX_LOG_ENTRIES, quoting, type ChatRefusal, type LogEntry, type LogMessage, type RollMode, type TablePerson } from '../protocol/index.ts';
 
+/** A line only this page has (never sent, never part of the protocol), shown like a system line. */
+export interface LocalEntry {
+  readonly kind: 'local';
+  readonly id: string;
+  readonly at: number;
+  readonly who: '';
+  readonly name: '';
+  readonly text: string;
+}
+
 /** An entry as a panel shows it; `hidden`: only this viewer has it (a GM's roll the players are not shown). */
-export type ShownEntry = LogEntry & { readonly hidden?: true };
+export type ShownEntry = (LogEntry | LocalEntry) & { readonly hidden?: true };
 
 export interface LogView {
   readonly entries: readonly ShownEntry[];
@@ -52,6 +62,8 @@ export class LogState {
   private filled = false;
   /** The entries that arrived while the panel was closed and are still held. */
   private unread = new Set<string>();
+  /** Lines of this page alone: kept when the GM sends the whole log again. */
+  private locals: readonly LocalEntry[] = [];
   private readonly listeners = new Set<() => void>();
   private readonly self: () => string | null;
 
@@ -94,6 +106,13 @@ export class LogState {
     this.choose({ whisperTo: whisperTo === null || whisperTo.length === 0 ? null : whisperTo });
   }
 
+  /** Adds a line that only this page has (an app notice); it is never unread news and never sent. */
+  addLocal(text: string, at: number): void {
+    const entry: LocalEntry = { kind: 'local', id: `local-${this.locals.length + 1}`, at, who: '', name: '', text };
+    this.locals = [...this.locals, entry];
+    this.set({ entries: newest([...this.view.entries, entry]) });
+  }
+
   /** Sets who is at the table. */
   setPeople(people: readonly TablePerson[]): void {
     this.set({ people });
@@ -122,7 +141,7 @@ export class LogState {
   replace(entries: readonly ShownEntry[]): void {
     const before = new Map(this.view.entries.map((entry) => [entry.id, entry]));
     const latest = this.view.entries.reduce((at, entry) => Math.max(at, entry.at), -Infinity);
-    const kept = newest(entries);
+    const kept = newest(this.locals.length === 0 ? entries : [...entries, ...this.locals].sort((a, b) => a.at - b.at));
     const unread = new Set<string>();
     for (const entry of kept) {
       if (this.unread.has(entry.id)) unread.add(entry.id);
@@ -137,6 +156,7 @@ export class LogState {
   clear(): void {
     this.filled = false;
     this.unread = new Set();
+    this.locals = [];
     this.view = EMPTY;
     this.notify();
   }

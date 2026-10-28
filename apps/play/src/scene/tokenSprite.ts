@@ -37,6 +37,9 @@ export class TokenView {
   private readonly body = new Container({ label: 'body' });
   private readonly disc = new Graphics();
   private readonly frame = new Graphics();
+  /** The selection outline: in the token's own container, or lifted into another one (a lit scene draws it over the lighting). */
+  private readonly selection = new Graphics();
+  private lifted = false;
   private readonly ui = new Container({ label: 'ui' });
   private readonly rim = new Container({ label: 'conditions' });
   private sprite: Sprite | null = null;
@@ -45,11 +48,12 @@ export class TokenView {
   constructor(id: string) {
     this.root = new Container({ label: id, eventMode: 'none' });
     this.body.addChild(this.disc);
-    this.root.addChild(this.body, this.frame, this.rim, this.ui);
+    this.root.addChild(this.body, this.frame, this.selection, this.rim, this.ui);
   }
 
   update(token: SharedToken, mine: boolean, selected: boolean, uiScale: number): void {
     this.root.position.set(token.x, token.y);
+    if (this.lifted) this.selection.position.set(token.x, token.y);
     this.body.rotation = radians(token.rotation);
     const before = this.drawn;
     this.drawn = { token, mine, selected, scale: uiScale };
@@ -101,7 +105,8 @@ export class TokenView {
       this.frame.circle(0, 0, radius + width / 2).stroke({ color: colourOf(token.ring.colour), width });
     }
     if (token.ui?.downed) this.frame.circle(0, 0, radius).fill({ color: 0x000000, alpha: 0.25 });
-    if (selected) this.frame.circle(0, 0, outer + 3).stroke({ color: SELECT, width: 3 });
+    this.selection.clear();
+    if (selected) this.selection.circle(0, 0, outer + 3).stroke({ color: SELECT, width: 3 });
     if (mine) this.frame.circle(-outer * 0.7, -outer * 0.7, Math.max(4, outer * 0.12)).fill(ACCENT).stroke({ color: 0x000000, width: 1.5 });
     this.drawUi(token, outer, scale);
   }
@@ -150,8 +155,21 @@ export class TokenView {
     });
   }
 
+  /** Moves the selection outline into `host` (world space), or back into the token's container with null. */
+  liftSelection(host: Container | null): void {
+    this.lifted = host !== null;
+    if (host) {
+      host.addChild(this.selection);
+      this.selection.position.copyFrom(this.root.position);
+    } else {
+      this.root.addChildAt(this.selection, Math.min(2, this.root.children.length));
+      this.selection.position.set(0, 0);
+    }
+  }
+
   destroy(): void {
     this.sprite = null;
+    if (this.lifted) destroyTree(this.selection);
     destroyTree(this.root);
   }
 }

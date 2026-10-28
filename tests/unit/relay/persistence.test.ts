@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadTables, saveTables } from '../../../apps/relay/src/persist.ts';
+import { loadState, saveState } from '../../../apps/relay/src/persist.ts';
 import { TableRegistry } from '../../../apps/relay/src/tables.ts';
 
 const calls: string[] = [];
@@ -53,7 +53,7 @@ function registryAt(statePath: string, extra: { unhostedTableMs?: number; log?: 
 describe('durable state file (M5)', () => {
   it('syncs the temporary file to disk before it is renamed over the state file', async () => {
     const statePath = join(directory(), 'state.json');
-    await saveTables(statePath, { [CODE]: { secretHash: 'a'.repeat(64), lastHostedAt: 1 } });
+    await saveState(statePath, { tables: { [CODE]: { secretHash: 'a'.repeat(64), lastHostedAt: 1 } }, ticketKey: null });
     expect(calls.indexOf('datasync')).toBeGreaterThan(calls.indexOf('open'));
     expect(calls.indexOf('rename')).toBeGreaterThan(calls.indexOf('datasync'));
     expect(JSON.parse(readFileSync(statePath, 'utf8'))).toMatchObject({ version: 1 });
@@ -62,7 +62,7 @@ describe('durable state file (M5)', () => {
   it('names the state file in the error for one that is not valid JSON', () => {
     const statePath = join(directory(), 'state.json');
     writeFileSync(statePath, '{"tables": ');
-    expect(() => loadTables(statePath)).toThrow(statePath);
+    expect(() => loadState(statePath)).toThrow(statePath);
   });
 });
 
@@ -102,8 +102,28 @@ describe('hosted tables stay fresh (M3)', () => {
     const startedAt = Date.now();
     await new Promise((done) => setTimeout(done, 1000));
     await registry.flush();
-    const stored = loadTables(statePath)[CODE];
+    const stored = loadState(statePath).tables[CODE];
     expect(stored?.lastHostedAt ?? 0).toBeGreaterThan(startedAt + 400);
     expect(registry.has(CODE)).toBe(true);
+  });
+});
+
+describe('ticket key (M4)', () => {
+  it('is made once, saved, and read back after a restart', async () => {
+    const statePath = join(directory(), 'state.json');
+    const first = registryAt(statePath);
+    const key = first.ensureTicketKey();
+    expect(key.length).toBe(32);
+    first.create(CODE);
+    await first.flush();
+    expect(loadState(statePath).ticketKey).toBe(key.toString('base64url'));
+    const second = registryAt(statePath);
+    expect(second.ensureTicketKey().equals(key)).toBe(true);
+  });
+
+  it('ignores a key that is not 32 bytes of base64url and makes a new one', () => {
+    const statePath = join(directory(), 'state.json');
+    writeFileSync(statePath, JSON.stringify({ version: 1, tables: {}, ticketKey: 'short' }));
+    expect(loadState(statePath).ticketKey).toBeNull();
   });
 });

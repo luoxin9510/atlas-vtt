@@ -18,6 +18,8 @@ export interface MoveStore {
 export interface PlayerMovePorts {
   /** The shared scene, its list and owners, and the map's size, as they are now. */
   context(): Omit<MoveContext, 'tokens'>;
+  /** Whether the GM has paused the game: players' moves are refused and their drags ignored. */
+  paused?(): boolean;
   send(body: GmMessage, to: string): void;
   now(): number;
   setTimer(run: () => void, ms: number): number;
@@ -54,7 +56,7 @@ export class PlayerMoves {
   constructor(store: MoveStore, ports: PlayerMovePorts) {
     this.store = store;
     this.ports = ports;
-    this.drags = new PlayerDrags(store, { ...ports, context: (state) => this.context(state) });
+    this.drags = new PlayerDrags(store, { ...ports, context: (state) => this.context(state), paused: () => ports.paused?.() === true });
   }
 
   start(): void {
@@ -76,7 +78,13 @@ export class PlayerMoves {
 
   /** The player let go of a drag without a drop: the token goes back, with no undo step. */
   dragCancel(from: string, cancel: PlayerDragCancel): void {
+    if (this.ports.paused?.() === true) return;
     this.drags.cancel(from, cancel);
+  }
+
+  /** The game was paused: every drag under way ends with its token back where it was taken from. */
+  cancelDrags(): void {
+    this.drags.cancelAll();
   }
 
   /** A player left: their drags end with the tokens where they are. */
@@ -99,6 +107,8 @@ export class PlayerMoves {
   }
 
   receive(from: string, move: PlayerMove): void {
+    // Before the rate limit: every move of a paused game is answered, with the reason.
+    if (this.ports.paused?.() === true) return this.refuse(from, move, 'paused');
     const state = this.store.getState();
     if (!this.rate.take(from, this.ports.now()) || !state.mapLoaded || state.isMapLoading) return this.refuse(from, move);
     const dropped = this.drags.drop(from, move);
@@ -128,6 +138,11 @@ export class PlayerMoves {
     const waiting = [...this.waiting.values()];
     this.waiting.clear();
     for (const { from, move, x, y } of waiting) {
+      // Pause may have turned on since the move was queued behind the GM's drag.
+      if (this.ports.paused?.() === true) {
+        this.refuse(from, move, 'paused');
+        continue;
+      }
       const now = this.store.getState();
       const verdict = now.mapLoaded && !now.isMapLoading ? checkMove(from, move, this.context(now)) : null;
       const token = verdict?.ok === true ? mapTokens(now.objects)[verdict.tokenId] : undefined;
@@ -153,9 +168,9 @@ export class PlayerMoves {
 
   /**
    * Tells the sender the move was not taken, with the token's place where the players see it, and
-   * `turn` where the token may move only on its turn; every other refusal names no reason.
+   * `turn` where the token may move only on its turn, `paused` while the game is paused; every other refusal names no reason.
    */
-  private refuse(from: string, move: PlayerMove, reason?: 'turn'): void {
+  private refuse(from: string, move: PlayerMove, reason?: 'turn' | 'paused'): void {
     const state = this.store.getState();
     const context = this.context(state);
     const tokenId = context.scene === move.scene ? context.listedToken(move.id) : undefined;

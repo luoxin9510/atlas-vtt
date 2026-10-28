@@ -90,6 +90,8 @@ describe('player scene view', () => {
     unlit(store);
     store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
     await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    // On a device that cannot light it, a scene that turns lit is a placeholder (lit scenes on a capable device: playLighting.gpu.test.ts).
+    store.setLighting('unsupported');
     store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
     // The download is given up: nothing keeps asking the GM for a lit scene's map.
     expect(cancel).toHaveBeenCalledWith(MAP_REF!.hash);
@@ -132,14 +134,15 @@ describe('player scene view', () => {
     const store = createTableStore();
     const { view } = await openView(store);
     unlit(store);
-    await vi.waitFor(() => expect(store.getState().mode).toBe('map'));
+    await vi.waitFor(() => expect(store.getState().mode).toBe('unlit'));
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(near(pixelAt(view, 100, 100), CLEAR)).toBe(true);
   });
 
-  it('never requests nor draws a lit scene', async () => {
+  it('never requests nor draws a lit scene where lighting is unsupported', async () => {
     const store = createTableStore();
     const { view, load } = await openView(store);
+    store.setLighting('unsupported');
     store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
     store.applyMessage({ t: 'fog', scene: 's1', fog: [] }, 0);
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -147,14 +150,27 @@ describe('player scene view', () => {
     for (const [x, y] of [[10, 10], [100, 100], [190, 190]] as const) expect(near(pixelAt(view, x, y), CLEAR)).toBe(true);
   });
 
-  it('shows the placeholder text for a lit scene and no canvas', async () => {
+  it('shows the placeholder text over a lit scene this device cannot light', async () => {
     const store = createTableStore();
+    store.setLighting('unsupported');
     store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
     const element = host();
     const root: Root = createRoot(element);
     cleanup.push(() => act(() => root.unmount()));
     await act(async () => { root.render(createElement(SceneCanvas, { store, assets: { load: vi.fn(), cancel: vi.fn() }, lowPower: true })); });
-    expect(element.textContent ?? '').toMatch(/dynamic lighting|动态光照/);
-    expect(element.querySelector('canvas')).toBeNull();
+    expect(element.textContent ?? '').toMatch(/cannot show dynamic lighting|无法显示动态光照/);
+    expect(element.querySelector('.atlas-play-lit')).not.toBeNull();
+  });
+
+  it('says it is preparing the lighting while a lit scene has no sight yet', async () => {
+    const store = createTableStore();
+    store.applyMessage({ t: 'scene', scene: { id: 's1', map: MAP_REF, lit: true } }, 0);
+    const element = host();
+    const root: Root = createRoot(element);
+    cleanup.push(() => act(() => root.unmount()));
+    const load = vi.fn(async (): Promise<LoadedAsset | null> => mapAsset());
+    await act(async () => { root.render(createElement(SceneCanvas, { store, assets: { load, cancel: vi.fn() }, lowPower: true })); });
+    await vi.waitFor(() => expect(store.getState().mode).toBe('lit'));
+    expect(element.textContent ?? '').toMatch(/Preparing lighting|正在准备光照/);
   });
 });

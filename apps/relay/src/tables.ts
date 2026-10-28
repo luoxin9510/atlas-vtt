@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { loadTables, saveTables, sha256Hex, type StoredPlayer, type StoredTable, type StoredTables } from './persist.ts';
+import { loadState, saveState, sha256Hex, type StoredPlayer, type StoredState, type StoredTable } from './persist.ts';
 
 export const MAX_TABLES = 10;
 const SAVE_INTERVAL_MS = 1000;
@@ -38,7 +38,8 @@ export class TableRegistry {
   readonly #tables = new Map<string, StoredTable>();
   readonly #hosted = new Set<string>();
   readonly #timers = new Map<string, NodeJS.Timeout>();
-  #listener: TableListener | null = null;
+  readonly #listeners = new Set<TableListener>();
+  #ticketKey: string | null;
   #pending: Promise<void> = Promise.resolve();
   #dirty = false;
   #lastWrite = 0;
@@ -47,7 +48,9 @@ export class TableRegistry {
 
   constructor(options: TableRegistryOptions) {
     this.#options = options;
-    for (const [code, table] of Object.entries(loadTables(options.statePath))) this.#tables.set(code, table);
+    const state = loadState(options.statePath);
+    this.#ticketKey = state.ticketKey;
+    for (const [code, table] of Object.entries(state.tables)) this.#tables.set(code, table);
     for (const code of [...this.#tables.keys()]) this.#schedule(code);
   }
 
@@ -63,9 +66,19 @@ export class TableRegistry {
     return this.#tables.has(code);
   }
 
-  /** The one listener (the socket side) that hears of replaced secrets and ended tables. */
-  subscribe(listener: TableListener): void {
-    this.#listener = listener;
+  /** A listener (the socket side, the image store) that hears of replaced secrets and ended tables; the result stops the listening. */
+  subscribe(listener: TableListener): () => void {
+    this.#listeners.add(listener);
+    return () => void this.#listeners.delete(listener);
+  }
+
+  /** The 32 byte key tickets are signed with: made on first use, kept in the state file ever after. */
+  ensureTicketKey(): Buffer {
+    if (this.#ticketKey === null) {
+      this.#ticketKey = randomBytes(32).toString('base64url');
+      this.#save();
+    }
+    return Buffer.from(this.#ticketKey, 'base64url');
   }
 
   /** Makes a table, or gives an existing code a new secret (the old one stops working). 'full' at the table limit. */
@@ -76,7 +89,7 @@ export class TableRegistry {
     this.#tables.set(code, { players: this.#tables.get(code)?.players, secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
     this.#schedule(code);
     this.#save();
-    if (existed) this.#listener?.replaced(code);
+    if (existed) for (const listener of this.#listeners) listener.replaced(code);
     return { code, secret, maxPlayers: this.#options.maxPlayers };
   }
 
@@ -140,7 +153,7 @@ export class TableRegistry {
     this.#hosted.delete(code);
     this.#clearTimer(code);
     this.#save();
-    this.#listener?.ended(code);
+    for (const listener of this.#listeners) listener.ended(code);
   }
 
   /** Resolves once everything changed so far is on disk; rejects if the last write failed. */
@@ -204,10 +217,10 @@ export class TableRegistry {
     if (!this.#dirty) return;
     this.#dirty = false;
     this.#lastWrite = Date.now();
-    const snapshot: StoredTables = Object.fromEntries(this.#tables);
+    const snapshot: StoredState = { tables: Object.fromEntries(this.#tables), ticketKey: this.#ticketKey };
     this.#pending = this.#pending
       .catch(() => undefined)
-      .then(() => saveTables(this.#options.statePath, snapshot))
+      .then(() => saveState(this.#options.statePath, snapshot))
       .then(
         () => {
           this.#failing = false;

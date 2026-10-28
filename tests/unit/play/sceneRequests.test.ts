@@ -57,3 +57,17 @@ describe('low-power mode', () => {
     expect(loadLowPower({ getItem: () => { throw new Error('blocked'); } }, env)).toBe(true);
   });
 });
+
+describe('mapRequest by lighting state', () => {
+  it('asks for a lit map only once this device can light it', () => {
+    const store = createTableStore();
+    store.applyMessage(scene('s1', true), 0);
+    expect(mapRequest(store.getState(), false, 16384)).toBeNull();
+    store.setLighting('unsupported');
+    expect(mapRequest(store.getState(), false, 16384)).toBeNull();
+    store.setLighting('ready');
+    expect(mapRequest(store.getState(), false, 16384)).toEqual({ ref: MAP, maxSide: 8192 });
+    store.setLighting('unsupported');
+    expect(mapRequest(store.getState(), false, 16384)).toBeNull();
+  });
+});

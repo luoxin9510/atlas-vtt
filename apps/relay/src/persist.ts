@@ -18,6 +18,18 @@ export interface StoredPlayer {
 
 export type StoredTables = Record<string, StoredTable>;
 
+/** The whole state file: the tables and the key tickets are signed with (base64url of 32 bytes, null until first made). */
+export interface StoredState {
+  readonly tables: StoredTables;
+  readonly ticketKey: string | null;
+}
+
+const EMPTY_STATE: StoredState = { tables: {}, ticketKey: null };
+
+function storedKey(value: unknown): string | null {
+  return typeof value === 'string' && Buffer.from(value, 'base64url').length === 32 && Buffer.from(value, 'base64url').toString('base64url') === value ? value : null;
+}
+
 export function sha256Hex(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -39,12 +51,12 @@ function storedPlayers(value: unknown): Record<string, StoredPlayer> {
 }
 
 /** Reads the state file; a missing file is an empty state, an unreadable one is an error (never silently wiped). */
-export function loadTables(statePath: string): StoredTables {
+export function loadState(statePath: string): StoredState {
   let text: string;
   try {
     text = readFileSync(statePath, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return EMPTY_STATE;
     throw error;
   }
   let parsed: unknown;
@@ -53,25 +65,27 @@ export function loadTables(statePath: string): StoredTables {
   } catch (error) {
     throw new Error(`state file ${statePath} is not valid JSON (${error instanceof Error ? error.message : 'unreadable'}); fix or remove it`);
   }
-  const tables = typeof parsed === 'object' && parsed !== null ? (parsed as { tables?: unknown }).tables : undefined;
+  const root = typeof parsed === 'object' && parsed !== null ? (parsed as { tables?: unknown; ticketKey?: unknown }) : {};
+  const tables = root.tables;
   const result: StoredTables = {};
-  if (typeof tables !== 'object' || tables === null) return result;
+  const ticketKey = storedKey(root.ticketKey);
+  if (typeof tables !== 'object' || tables === null) return { tables: result, ticketKey };
   for (const [code, entry] of Object.entries(tables)) {
     if (!isStoredTable(entry)) continue;
     result[code] = { secretHash: entry.secretHash, lastHostedAt: entry.lastHostedAt, players: storedPlayers((entry as { players?: unknown }).players) };
   }
-  return result;
+  return { tables: result, ticketKey };
 }
 
 /**
  * Writes `<path>.tmp`, forces it to disk, and renames it over the state file: a crash never leaves half
  * a file, and a power loss never leaves an empty one (the rename could otherwise reach the disk first).
  */
-export async function saveTables(statePath: string, tables: StoredTables): Promise<void> {
+export async function saveState(statePath: string, state: StoredState): Promise<void> {
   const temporary = `${statePath}.tmp`;
   const file = await open(temporary, 'w', 0o600);
   try {
-    await file.writeFile(JSON.stringify({ version: 1, tables }));
+    await file.writeFile(JSON.stringify({ version: 1, tables: state.tables, ticketKey: state.ticketKey }));
     await file.datasync();
   } finally {
     await file.close();

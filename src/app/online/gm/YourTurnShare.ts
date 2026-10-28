@@ -1,4 +1,4 @@
-import { FORK_PROTOCOL_LEVEL } from '../protocol/fork.ts';
+import { YOUR_TURN_LEVEL } from '../protocol/fork.ts';
 import type { GmMessage } from '../protocol/index.ts';
 
 export interface YourTurnPorts {
@@ -34,7 +34,7 @@ export class YourTurnShare {
     for (const tokenId of turnTokens) {
       if (before.has(tokenId)) continue;
       const owner = this.ports.ownerOf(tokenId);
-      if (owner === undefined || owner === null || told.has(owner) || this.ports.levelOf(owner) < FORK_PROTOCOL_LEVEL) continue;
+      if (owner === undefined || owner === null || told.has(owner) || this.ports.levelOf(owner) < YOUR_TURN_LEVEL) continue;
       told.add(owner);
       this.ports.send({ t: 'your-turn', scene }, owner);
     }

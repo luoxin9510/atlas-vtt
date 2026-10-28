@@ -36,6 +36,8 @@ function releaseArt(art: CachedArt): void {
 /** The tokens the GM shared, one container each, moved in place as the list changes and drawn in list order. */
 export class TokenLayer {
   readonly container = new Container({ label: 'token-layer', eventMode: 'none' });
+  /** Where selection outlines are drawn while lifted out of the token containers; null: in each token's own. */
+  private selectionHost: Container | null = null;
   private readonly entries = new Map<string, Entry>();
   private readonly textures = new Map<string, CachedArt>();
   private tokens: readonly SharedToken[] = [];
@@ -59,12 +61,19 @@ export class TokenLayer {
         entry = { view: new TokenView(token.id), art: null, shown: false };
         this.entries.set(token.id, entry);
         this.container.addChild(entry.view.root);
+        if (this.selectionHost) entry.view.liftSelection(this.selectionHost);
       }
       entry.view.update(token, mine.has(token.id), selected === token.id, cell > 0 ? restingTokenUIScale(cell) : tokenUIScale(token.size));
       if (this.container.children[index] !== entry.view.root) this.container.setChildIndex(entry.view.root, index);
       this.showArt(entry, token);
     });
     this.sweep(new Set(tokens.flatMap((token) => (token.art ? [token.art.hash] : []))));
+  }
+
+  /** Draws selection outlines in `host` (or, with null, in each token's own container again). */
+  liftSelections(host: Container | null): void {
+    this.selectionHost = host;
+    for (const entry of this.entries.values()) entry.view.liftSelection(host);
   }
 
   containerOf(id: string): Container | undefined {

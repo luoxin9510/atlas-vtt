@@ -89,14 +89,14 @@ export class ServedAssets {
     return this.served.size + this.sends.size;
   }
 
-  /** Whether `player`'s request for `hash` (an asset, or `asset@side`) from chunk `from` is served now; noted when it is. */
+  /** Whether `player`'s request for `hash` (an asset, or `asset@side`, with `#socket` for a request via the socket) from chunk `from` is served now; noted when it is. */
   take(player: string, hash: string, from: number, now: number): boolean {
     // Once a window, so nothing older than a window is ever kept, however long a scene stands.
     if (now - this.lastSweep >= REPEAT_REQUEST_MS) this.sweep(now);
     const key = `${player}\n${hash}\n${from}`;
     const last = this.served.get(key);
     if (last !== undefined && now - last < REPEAT_REQUEST_MS) return false;
-    const asset = `${player}\n${hash.split('@', 1)[0] ?? hash}`;
+    const asset = `${player}\n${hash.split(/[@#]/, 1)[0] ?? hash}`;
     const recent = (this.sends.get(asset) ?? []).filter((at) => now - at < REPEAT_REQUEST_MS);
     if (recent.length >= MAX_SERVES_PER_ASSET) return false;
     this.sends.set(asset, [...recent, now]);

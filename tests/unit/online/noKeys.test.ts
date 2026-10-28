@@ -41,16 +41,16 @@ describe('online play\'s source', () => {
 
   const naming = (pattern: RegExp): string[] => files.filter((file) => pattern.test(readFileSync(file, 'utf8'))).map((file) => path.relative(ROOT, file)).sort();
 
-  it('reads the account token in one place, and sends it from two', () => {
+  it('reads the account token in one place, and sends it from three', () => {
     // The secret itself is read by the token store alone, and the store by the account control alone.
     expect(naming(/getSecret\(/)).toEqual(['gm/account/tokenStore.ts']);
     expect(naming(/tokens\.get\(/)).toEqual(['gm/account/AccountControl.ts']);
     // A self-hosted server's host key likewise: read by the account control alone, and the secret by the store.
     expect(naming(/hostKeys\.get\(/)).toEqual(['gm/account/AccountControl.ts']);
-    // A bearer is written by the table request and by the account's own calls (what it may host, sign-out).
-    expect(naming(/Bearer \$\{/)).toEqual(['gm/account/relayAccount.ts', 'gm/createTable.ts']);
+    // A bearer is written by the table request, by the account's own calls (what it may host, sign-out) and by the image uploader.
+    expect(naming(/Bearer \$\{/)).toEqual(['gm/account/relayAccount.ts', 'gm/assetUpload/binaryHttp.ts', 'gm/createTable.ts']);
     // The diagnostics make requests of their own, and never with it.
-    expect(naming(/requestUrl\(/)).toEqual(['gm/account/obsidianHttp.ts', 'gm/companionDiagnostics.ts']);
+    expect(naming(/requestUrl\(/)).toEqual(['gm/account/obsidianHttp.ts', 'gm/assetUpload/binaryHttp.ts', 'gm/companionDiagnostics.ts']);
     expect(readFileSync(path.join(ROOT, 'gm/companionDiagnostics.ts'), 'utf8')).not.toMatch(/Authorization|Bearer|token\(|secretStorage/);
   });
 

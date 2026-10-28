@@ -1,6 +1,7 @@
 import { ASSET_CHUNK_BYTES, type AssetRef, type GmMessage, type PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import type { BlobCache } from './blobCache.ts';
 import { sha256Hex } from './sha256.ts';
+import { fetchTicket } from './ticketFetch.ts';
 
 export type LoadedAsset = {
   readonly bytes: Uint8Array;
@@ -14,6 +15,10 @@ export interface LoaderPorts {
   send(body: PlayerMessage): void;
   cache: BlobCache;
   now(): number;
+  /** Downloads a ticket url; the page's own `fetch` when absent. */
+  fetch?: typeof fetch;
+  /** Called once per image when it falls back from a ticket to the GM's socket. */
+  onFallback?: (hash: string) => void;
 }
 
 /** A download with no new chunk for this long is asked again. */
@@ -38,6 +43,12 @@ interface Download {
   lastProgress: number;
   reasks: number;
   retried: boolean;
+  /** A ticket is being downloaded: no re-ask meanwhile. */
+  ticketing: boolean;
+  /** Aborts the ticket's fetch; set while one runs. */
+  abort: AbortController | null;
+  /** Fallen back to chunks: every later request says so, or the GM answers with a ticket again. */
+  viaSocket: boolean;
   readonly settle: (asset: LoadedAsset | null) => void;
 }
 
@@ -57,6 +68,8 @@ export class AssetLoader {
   private readonly pending = new Map<string, Promise<LoadedAsset | null>>();
   /** Which variant a requested hash and longest side were answered with: in memory only. */
   private readonly variants = new Map<string, Variant>();
+  /** Hashes (requested and expected) that already fell back to the socket: later loads ask by socket at once and the notice is not repeated. */
+  private readonly fallenBack = new Set<string>();
   /** Whether the GM can be asked now (joined, GM online); asks and re-asks wait for it. */
   private connected = true;
 
@@ -81,16 +94,61 @@ export class AssetLoader {
     // Without a connection nothing can be asked: the caller hears null and tries again when it is back.
     if (!this.connected) return null;
     return new Promise((resolve) => {
-      this.downloads.set(ref.hash, {
+      const download: Download = {
         ref, maxSide, expected: ref, variant: null, chunks: new Map(), count: null,
-        lastProgress: this.ports.now(), reasks: 0, retried: false, settle: resolve,
-      });
-      this.request(ref.hash, maxSide, 0);
+        lastProgress: this.ports.now(), reasks: 0, retried: false, ticketing: false, abort: null, viaSocket: this.fallenBack.has(ref.hash), settle: resolve,
+      };
+      this.downloads.set(ref.hash, download);
+      this.request(download, 0);
     });
   }
 
-  private request(hash: string, maxSide: number | null, from: number): void {
-    this.ports.send({ t: 'asset-request', hash, ...(from > 0 ? { from } : {}), ...(maxSide === null ? {} : { maxSide }) });
+  private request(download: Download, from: number): void {
+    const { maxSide, viaSocket } = download;
+    this.ports.send({
+      t: 'asset-request', hash: download.ref.hash, ...(from > 0 ? { from } : {}),
+      ...(maxSide === null ? {} : { maxSide }), ...(viaSocket ? { via: 'socket' as const } : {}),
+    });
+  }
+
+  /** A ticket: download it, verify it like chunks; on any failure ask for chunks, once. */
+  private ticket(hash: string, url: string): void {
+    const download = this.find(hash);
+    if (download === undefined || download.ticketing || download.viaSocket) return;
+    download.ticketing = true;
+    download.lastProgress = this.ports.now();
+    const { expected } = download;
+    const abort = new AbortController();
+    download.abort = abort;
+    const fetcher = this.ports.fetch ?? globalThis.fetch.bind(globalThis);
+    void (async (): Promise<void> => {
+      const bytes = await fetchTicket(fetcher, url, expected.size, () => { download.lastProgress = this.ports.now(); }, abort.signal);
+      const good = bytes !== null && bytes.length === expected.size && (await sha256Hex(bytes).catch(() => null)) === expected.hash;
+      if (this.downloads.get(download.ref.hash) !== download || !download.ticketing) return;
+      if (!good) return this.fallBack(download);
+      // Stays guarded (ticketing) until settled: a tick in the cache write must not re-ask without via.
+      download.lastProgress = this.ports.now();
+      await this.ports.cache.put(expected.hash, bytes).catch(() => undefined);
+      if (this.downloads.get(download.ref.hash) !== download) return;
+      this.settleWith(download, bytes);
+    })();
+  }
+
+  /** Gives up the ticket for this image: chunks from here on, and one local notice. */
+  private fallBack(download: Download): void {
+    if (download.viaSocket) return;
+    download.viaSocket = true;
+    download.ticketing = false;
+    download.abort?.abort();
+    download.abort = null;
+    download.chunks = new Map();
+    download.count = null;
+    download.lastProgress = this.ports.now();
+    this.request(download, 0);
+    const fresh = !this.fallenBack.has(download.ref.hash);
+    this.fallenBack.add(download.ref.hash);
+    this.fallenBack.add(download.expected.hash);
+    if (fresh) this.ports.onFallback?.(download.ref.hash);
   }
 
   /** Handles a GM message if it is about an asset. */
@@ -106,6 +164,9 @@ export class AssetLoader {
         }
         return true;
       }
+      case 'asset-ticket':
+        this.ticket(message.hash, message.url);
+        return true;
       case 'asset-refused':
         this.finish(message.hash, null);
         return true;
@@ -160,7 +221,12 @@ export class AssetLoader {
     if (digest !== expected.hash) return this.fail(download);
     if (this.downloads.get(download.ref.hash) !== download) return;
     await this.ports.cache.put(expected.hash, bytes).catch(() => undefined);
-    const { variant } = download;
+    this.settleWith(download, bytes);
+  }
+
+  /** Verified bytes of the download: remember its variant and resolve the load. */
+  private settleWith(download: Download, bytes: Uint8Array): void {
+    const { variant, expected } = download;
     if (variant !== null) this.variants.set(`${download.ref.hash}@${download.maxSide ?? ''}`, variant);
     this.finish(download.ref.hash, { bytes, mime: expected.mime, width: variant?.width ?? null, height: variant?.height ?? null });
   }
@@ -173,13 +239,15 @@ export class AssetLoader {
     download.chunks = new Map();
     download.count = null;
     download.lastProgress = this.ports.now();
-    this.request(download.ref.hash, download.maxSide, 0);
+    this.request(download, 0);
   }
 
   private finish(hash: string, asset: LoadedAsset | null): void {
     const download = this.downloads.get(hash) ?? this.find(hash);
     if (download === undefined) return;
     this.downloads.delete(download.ref.hash);
+    download.abort?.abort();
+    download.abort = null;
     download.settle(asset);
   }
 
@@ -189,6 +257,11 @@ export class AssetLoader {
     const now = this.ports.now();
     for (const download of [...this.downloads.values()]) {
       if (now - download.lastProgress < STALL_MS) continue;
+      // A ticket download that delivers no bytes for STALL_MS is a failed ticket (its fetch is aborted).
+      if (download.ticketing) {
+        this.fallBack(download);
+        continue;
+      }
       if (download.reasks >= MAX_REASKS) {
         this.finish(download.ref.hash, null);
         continue;
@@ -197,7 +270,7 @@ export class AssetLoader {
       download.lastProgress = now;
       let first = 0;
       while (download.chunks.has(first)) first += 1;
-      this.request(download.ref.hash, download.maxSide, first);
+      this.request(download, first);
     }
   }
 

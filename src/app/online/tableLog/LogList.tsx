@@ -121,6 +121,12 @@ export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, s
                 {entry.kind === 'loot' && <LootRow entry={entry} time={time} thread={thread} api={api} {...flags} />}
                 {entry.kind === 'rest' && <RestRow entry={entry} time={time} thread={thread} api={api} {...flags} />}
                 {entry.kind === 'found' && <FoundRow entry={entry} onOpen={openFound === undefined ? undefined : () => openFound(entry)} time={time} thread={thread} api={api} {...flags} />}
+                {entry.kind === 'local' && (
+                  <div className="atlas-online-log__presence">
+                    {entry.text}
+                    <span className="atlas-online-log__time">{time}</span>
+                  </div>
+                )}
                 {(entry.kind === 'joined' || entry.kind === 'left') && (
                   <div className="atlas-online-log__presence">
                     {entry.kind === 'joined' ? `${shownName(entry.who, entry.name, api.self)} joined the table` : `${shownName(entry.who, entry.name, api.self)} left the table`}

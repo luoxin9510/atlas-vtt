@@ -141,6 +141,9 @@ export class LightingRenderer implements SceneLightingView {
     return this.deps.store.getState().lighting.enabled;
   }
 
+  /** Whether the engine holds a world to light the map with (false while off, before a build and after a lost context). */
+  hasWorld(): boolean { return this.engine.hasWorld(); }
+
   currentSight(): Sight { return this.sight; }
   sightIsCurrent(): boolean { return !this.isEnabled() || this.lastScene !== null; }
   lightReaches(): LightReach[] { return this.reaches; }

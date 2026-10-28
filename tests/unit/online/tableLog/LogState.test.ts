@@ -345,4 +345,16 @@ describe('private rolls', () => {
     log.receive({ t: 'log-entry', entry: secret(2, ME) });
     expect(log.snapshot().unread).toBe(1);
   });
+
+  it('keeps a local line through a whole log, counts it as no news and drops it on clear', () => {
+    const log = state();
+    log.receive({ t: 'log', entries: [chat(1, MIRA)] });
+    log.addLocal('Image sent by the GM directly', 5000);
+    expect(log.snapshot().unread).toBe(0);
+    log.receive({ t: 'log', entries: [chat(1, MIRA), chat(2, MIRA)] });
+    expect(log.snapshot().entries.map((entry) => entry.kind)).toEqual(['chat', 'chat', 'local']);
+    expect(log.snapshot().entries.at(-1)).toMatchObject({ kind: 'local', text: 'Image sent by the GM directly' });
+    log.clear();
+    expect(log.snapshot().entries).toEqual([]);
+  });
 });

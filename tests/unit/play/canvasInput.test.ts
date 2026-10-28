@@ -33,4 +33,46 @@ describe('CanvasInput', () => {
     expect(gestures.map((g) => g.kind)).toEqual(['tap', 'tap']);
     expect(resumed.at(-1)).toBe(true);
   });
+  function setup(): { host: HTMLElement; gestures: Gesture[]; camera: boolean[] } {
+    const host = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    host.appendChild(canvas);
+    document.body.appendChild(host);
+    const gestures: Gesture[] = [];
+    const camera: boolean[] = [];
+    const input = new CanvasInput({
+      host, canvas, now: () => 0, tokenAt: () => 'mine', isMine: () => true,
+      onGesture: (g) => gestures.push(g), setCameraDrag: (on) => camera.push(on),
+    });
+    cleanup.push(() => { input.destroy(); host.remove(); });
+    return { host, gestures, camera };
+  }
+
+  it.each(['pointercancel', 'lostpointercapture'])('%s mid token drag cancels the drag and gives the camera back', (type) => {
+    const { host, gestures, camera } = setup();
+    fire(host, 'pointerdown', 1, 20, 20);
+    expect(camera.at(-1)).toBe(false);
+    fire(host, 'pointermove', 1, 60, 20);
+    fire(host, type, 1, 60, 20);
+    expect(gestures.map((g) => g.kind)).toEqual(['drag-token', 'drag-move', 'drag-cancel']);
+    expect(camera.at(-1)).toBe(true);
+  });
+
+  it('a normal release after a drag emits drag-end once, even with lostpointercapture after it', () => {
+    const { host, gestures } = setup();
+    fire(host, 'pointerdown', 1, 20, 20);
+    fire(host, 'pointermove', 1, 60, 20);
+    fire(host, 'pointerup', 1, 60, 20);
+    fire(host, 'lostpointercapture', 1, 60, 20);
+    expect(gestures.map((g) => g.kind)).toEqual(['drag-token', 'drag-move', 'drag-end']);
+  });
+
+  it('a second finger mid-drag cancels it and re-enables the camera', () => {
+    const { host, gestures, camera } = setup();
+    fire(host, 'pointerdown', 1, 20, 20);
+    fire(host, 'pointermove', 1, 60, 20);
+    fire(host, 'pointerdown', 2, 200, 200);
+    expect(gestures.map((g) => g.kind)).toEqual(['drag-token', 'drag-move', 'drag-cancel', 'pinch']);
+    expect(camera.at(-1)).toBe(true);
+  });
 });

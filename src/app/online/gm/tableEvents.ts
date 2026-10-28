@@ -13,6 +13,8 @@ export interface OnlineTableEvents {
   ended(end: 'stopped' | TableEnd): void;
   /** The gates' settings changed: they are kept with the table. */
   gate(settings: GateSettings): void;
+  /** The game pause was switched: it is kept with the table. */
+  paused(on: boolean): void;
   /** What the panels show of the gates changed: who waits, a pause. */
   changed(): void;
   /** The table's log changed: its panel draws anew and the log is kept with the table. */

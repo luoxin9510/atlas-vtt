@@ -55,8 +55,8 @@ export interface MoveRefused {
   readonly id: string;
   readonly x: number | null;
   readonly y: number | null;
-  /** Why, where it was the turn: the token may move only on its turn. Other refusals give none. Absent from older GMs. */
-  readonly reason?: 'turn';
+  /** Why: `turn` (the token may move only on its turn) or `paused` (the table is paused). Other refusals give none. Absent from older GMs; `paused` needs fork level 2. */
+  readonly reason?: 'turn' | 'paused';
 }
 
 const GRID_TYPES: readonly string[] = ['square', 'hex-horizontal', 'hex-vertical'];
@@ -89,8 +89,8 @@ export function parseDragCancel(value: Record<string, unknown>): PlayerDragCance
 export function parseMoveRefused(value: Record<string, unknown>): MoveRefused | null {
   const { scene, id, x, y } = value;
   if (!isSceneId(scene) || !isTokenId(id)) return null;
-  // The reason is optional: anything but `turn` reads as none, so a page never fails on it
-  const reason = value.reason === 'turn' ? { reason: 'turn' as const } : {};
+  // The reason is optional: anything but `turn` and `paused` reads as none, so a page never fails on it
+  const reason = value.reason === 'turn' ? { reason: 'turn' as const } : value.reason === 'paused' ? { reason: 'paused' as const } : {};
   if (x === null && y === null) return { t: 'move-refused', scene, id, x: null, y: null, ...reason };
   return isCoordinate(x) && isCoordinate(y) ? { t: 'move-refused', scene, id, x, y, ...reason } : null;
 }

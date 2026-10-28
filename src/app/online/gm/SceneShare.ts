@@ -8,6 +8,7 @@ import type { RemoteDrag } from '../marks/index.ts';
 import { dragRulerPaths, PlayerDragRulers, type GmRuler, type RulerPaths } from './dragRulers.ts';
 import { AssetAnswers } from './assetAnswers.ts';
 import { imageMimeType, REPEAT_REQUEST_MS, sha256Hex } from './assetServe.ts';
+import type { AssetTickets } from './assetUpload/AssetTickets.ts';
 import type { ScaleImage } from './assetVariants.ts';
 import { YourTurnShare } from './YourTurnShare.ts';
 import { MineShare } from './mineShare.ts';
@@ -43,6 +44,8 @@ export interface SceneSharePorts extends TokenSharePorts, RulesSharePorts, Pick<
   seats?: SeatSource | undefined;
   /** The fork level a player's app declared (`ForkClients.levelOf`); without it every player has level 0. */
   forkLevelOf?(player: string): number;
+  /** Whether the GM has paused the game; without it the game never is. */
+  paused?(): boolean;
   /** Where the GM's lighting reads its rules and measurement, or null while it cannot be read. */
   lightingSource(): LightingSource | null;
   /** The Atlas settings that decide what players get. */
@@ -53,6 +56,8 @@ export interface SceneSharePorts extends TokenSharePorts, RulesSharePorts, Pick<
   mapLayers?(): MapLayerSource | null;
   /** Scales an image for a player who asks for a longest side; without it players get originals only. */
   scaleImage?: ScaleImage;
+  /** The server image cache's download tickets; without them players get images as chunks. */
+  tickets?: Pick<AssetTickets, 'ticket'>;
   /** Takes a roll of the shared tab into the table's log. */
   logRoll?(roll: LoggedRoll): void;
   /** The vault path of a speaker's artwork the log shows, by hash. */
@@ -127,6 +132,7 @@ export class SceneShare {
     this.rules = new RulesShare(store, { ...ports, cursorsShown, rollDice: () => mapRollDice(ports.dice?.() ?? null) });
     this.moves = new PlayerMoves(store, {
       ...ports,
+      paused: () => ports.paused?.() === true,
       context: () => ({
         scene: this.tokens.listedScene,
         listedToken: (alias) => this.tokens.listedToken(alias),
@@ -141,7 +147,7 @@ export class SceneShare {
     });
     this.marks = new MarkShare({ ...ports, cursorsShown }, () => this.mapSize);
     this.dragRulers = new PlayerDragRulers((drags) => ports.showPlayerDrags?.(drags));
-    this.assets = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage }, {
+    this.assets = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 }, {
       map: () => {
         const map = this.scene?.map ?? null;
         return map !== null && this.mapBytes !== null ? { hash: map.hash, bytes: this.mapBytes, mime: map.mime } : null;
@@ -234,6 +240,11 @@ export class SceneShare {
     if (message.t === 'laser' || message.t === 'measure' || message.t === 'cursor') return this.marks.receive(from, message);
     if (message.t === 'resync') return message.of === 'tokens' ? this.tokens.resync(from, message.scene) : this.inputs.resync(from, message.scene, message.of);
     if (message.t === 'asset-request') this.assets.answer(from, message);
+  }
+
+  /** The game was paused: players' drags in progress end with their tokens back where they were taken from. */
+  cancelDrags(): void {
+    this.moves.cancelDrags();
   }
 
   /** The GM id of a token by the id players know it by in the list of `scene`, while that is the scene of the last list they were sent. */

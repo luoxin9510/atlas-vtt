@@ -35,7 +35,7 @@ Plan 2; pick them up when touching the code nearby.
 
 ## Player app (`apps/play`)
 - A stretched map (`GridState.mapStretch`) is not shared, so players see it unstretched (upstream protocol limit).
-- Lit scenes show a placeholder until Plan 2b; `drag-token` is recognised but does nothing yet.
+- Lit scenes and own-token drags came with Plan 2b (see "Plan 2b residuals").
 - The node end-to-end test has no Pixi view, so it drives the map request through `mapRequest` + `assets.load` and checks the GM serves nothing for a lit scene; the drawing itself is covered by the browser test (red map pixel, token art requested, under the CSP). Not covered: fog operations, pins and annotations drawn in a real browser.
 - The end-to-end test fakes Atlas's player settings (`getLocalPlayerViewSettings`) and wires Atlas's real `DiceTool` into the fake tab; if Atlas's plugin surface changes, `tests/unit/play/endToEnd.test.ts` is the place that breaks first.
 - The Chromium launch args (`--use-angle=swiftshader`, `--enable-unsafe-swiftshader`) are kept so Pixi gets WebGL on machines without a GPU; the test also passed without them on the development Mac.
@@ -51,3 +51,19 @@ Plan 2; pick them up when touching the code nearby.
 - `.atlas-play-reason` is styled only inside `.atlas-play-join`; the send-failed notice, the dice tray refusal and the refused screen show it unstyled.
 - `SceneView.sync` calls `coarsePointer()` (`matchMedia`) on every store update; evaluate it once.
 - `MapDownload` retries a map the GM never serves every 10 s without an upper bound (rate-limited, stops on scene change, lit scene or destroy).
+
+## Plan 2b residuals (image cache, lit scenes, drags, pause)
+What a user could notice; the rest of the deferred minors are in the SDD ledger.
+- A slow phone whose `cache.put` runs past the 10 s stall window after a good ticket can show the "Image sent by the GM directly" line and fetch the image twice (`AssetLoader`).
+- The fallback line is a local log entry ordered by the phone's clock, so it can sit slightly out of order among the GM's entries.
+- Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status (`apps/relay/src/assets`); the GM then sends chunks.
+- A relay that is full or has under 2 GiB of disk (`507`) sends everything over the socket instead; a `429` or `507` mint is not remembered as a failure, so each new player asks again.
+- Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.
+- A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
+- The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
+- A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.
+- Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
+- The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
+- Banner contrast in dark mode and the "paused" colour are untested on small screens.
+- `OnlineTable` has 11 positional constructor parameters and is about 390 lines; the pause wiring there is tested only through `PauseShare`.
+- A failed GM-side upload to the image cache writes no log line, so the GM cannot see why images arrive over the socket, and the player cannot tell either (Task 11 ruling).

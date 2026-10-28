@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import type { MessageKey } from '../../../../src/app/i18n/index.ts';
+import { t, type MessageKey } from '../../../../src/app/i18n/index.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { GmMessage, LogMessage, PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import { LogState } from '../../../../src/app/online/tableLog/index.ts';
@@ -55,6 +55,7 @@ export class Session {
       send: (body) => void this.send(body),
       cache: env.indexedDB === null ? memoryCache() : indexedDbCache(env.indexedDB),
       now: () => Date.now(),
+      onFallback: () => this.log.addLocal(t('onlinePlay.assets.socketFallback'), Date.now()),
     });
     this.feed = new GameFeed({
       send: (body) => void this.send(body),
@@ -85,6 +86,8 @@ export class Session {
       onGame: (body) => this.feed.receive(body),
       onSeat: (seat) => {
         this.hadKey = true;
+        // A pause seen before a drop may be over; the GM says it again after the client message if it still holds.
+        this.store.setState({ paused: false });
         this.seats.write(this.env.code, { id: seat.id, key: seat.key, name: this.name });
       },
     });
@@ -112,9 +115,9 @@ export class Session {
     this.view.setState({ screen: 'form', reason, name: this.name }, true);
   }
 
-  send(body: PlayerMessage): boolean {
+  readonly send = (body: PlayerMessage): boolean => {
     return this.socket?.send(body) ?? false;
-  }
+  };
 
   private onStatus(status: SocketStatus): void {
     this.assets.setConnected(status.kind === 'joined' && status.gmOnline);
@@ -127,9 +130,18 @@ export class Session {
     this.store.setStatus(status);
   }
 
+  /** A refused move says why when the GM gave a reason (as a line in the log, like the other local notes). */
+  private tellRefusal(reason: 'turn' | 'paused' | undefined): void {
+    if (reason === 'turn') this.log.addLocal(t('onlinePlay.move.notYourTurn'), Date.now());
+    else if (reason === 'paused') this.log.addLocal(t('onlinePlay.move.paused'), Date.now());
+  }
+
   private apply(message: GmMessage): void {
     if (this.assets.receive(message)) return;
     if (isLogMessage(message)) this.log.receive(message);
-    else this.store.applyMessage(message, Date.now());
+    else {
+      this.store.applyMessage(message, Date.now());
+      if (message.t === 'move-refused' && message.scene === this.store.getState().scene?.id) this.tellRefusal(message.reason);
+    }
   }
 }

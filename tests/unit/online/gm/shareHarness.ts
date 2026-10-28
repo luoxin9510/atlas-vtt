@@ -5,7 +5,7 @@ import type { TokenEntity } from '../../../../src/app/types';
 import type { TokenPerception } from '../../../../src/app/vision/tokenPerception';
 import type { SceneState, SceneStore } from '../../../../src/app/online/gm/atlasView.ts';
 import type { SeatSource } from '../../../../src/app/online/gm/seatSource.ts';
-import { imageMimeType, SceneShare } from '../../../../src/app/online/gm/SceneShare.ts';
+import { imageMimeType, SceneShare, type SceneSharePorts } from '../../../../src/app/online/gm/SceneShare.ts';
 import type { DiceSource } from '../../../../src/app/online/gm/atlasDice.ts';
 import type { AtlasPlayerSettings, LightingSource } from '../../../../src/app/online/gm/atlasLighting.ts';
 import type { MapLayerSource } from '../../../../src/app/online/gm/atlasMapLayers.ts';
@@ -45,6 +45,8 @@ export interface ShareHarness {
   perception: TokenPerception | undefined;
   /** The fork level each player's app declared, by player; absent means 0. */
   forkLevels: ReadonlyMap<string, number>;
+  /** Whether the GM has paused the game. */
+  paused: boolean;
   /** Whether the tab has a renderer. */
   rendered: boolean;
   /** Where the GM's lighting reads its rules, or null while it cannot be read. */
@@ -80,7 +82,7 @@ const counterId = (count: number): string => count.toString(16).padStart(24, '0'
  * vault's image files by path; `seats` tells who plays, owns which token and may claim which; `real`
  * (Atlas's own view store) replaces the fake store, and is written through its own actions, not `set`.
  */
-export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Uint8Array<ArrayBuffer>>, seats?: SeatSource, real?: SceneStore): ShareHarness {
+export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Uint8Array<ArrayBuffer>>, seats?: SeatSource, real?: SceneStore, extra: Pick<SceneSharePorts, 'tickets' | 'scaleImage'> = {}): ShareHarness {
   let current = initial;
   const listeners: ((next: SceneState) => void)[] = [];
   const store: SceneStore = real ?? {
@@ -99,6 +101,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
     notices: [],
     perception: undefined,
     forkLevels: new Map(),
+    paused: false,
     rendered: true,
     lighting: GENERIC_SOURCE,
     settings: PLAYER_SETTINGS,
@@ -141,6 +144,8 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
       clearTimer: (timer) => void timers.delete(timer),
       seats,
       forkLevelOf: (player) => harness.forkLevels.get(player) ?? 0,
+      paused: () => harness.paused,
+      ...extra,
     }),
     set: async (next) => {
       current = next;

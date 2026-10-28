@@ -23,7 +23,31 @@ Configuration is by environment variables:
 | `MAX_PLAYERS` | `8` | Seats per table, 1-12. |
 | `STATE_PATH` | `./relay-state.json` | Where tables are kept across restarts. |
 | `STATIC_DIR` | none | A folder of static files (the player page) to serve: `apps/play/dist` after `npm run build:play`. |
+| `ASSET_DIR` | `assets` beside `STATE_PATH` | Where uploaded map and token images are kept (per table; removed when the table ends). A table may store 2 GiB, the server 10 GiB, and uploads stop (507) with less than 2 GiB of free disk. |
 | `TRUST_PROXY` | `none` | `none`, `xff` or `cf`: where the client address comes from. |
+
+## Image cache
+
+The GM's plugin puts each map and token image into the relay once, so players download it
+over plain HTTP instead of in socket chunks. Images are kept per table under `ASSET_DIR`, are
+checked against their SHA-256 and their type (PNG, JPEG, WebP, GIF, AVIF; at most 64 MiB), and are
+deleted when the table ends or, after a restart, when no table with that code is left. Routes (all
+with the table secret as Bearer): `GET /api/tables/{code}/assets/{sha256}` (which parts are
+held), `PUT .../parts/{index}` (8 MiB parts), `POST .../complete` and `POST .../tickets`. Limits: a
+table has at most 2 uploads in flight and 4 unfinished images, and may store 2 GiB; the server stores
+10 GiB and refuses uploads with `507` below 2 GiB of free disk; part requests are limited to 60 a
+minute per client address (`429`); unfinished parts are deleted after 1 hour. The caps are
+`RelayConfig` fields (`maxTableAssetBytes`, `maxServerAssetBytes`, `minFreeBytes`), not environment
+variables. If the cache refuses, the GM sends the image over the socket as before.
+
+## Image tickets
+
+Players fetch map and token images with `GET /api/assets/{sha256}?t=<ticket>`. The GM's
+plugin asks for a ticket with `POST /api/tables/{code}/assets/{sha256}/tickets`
+(table secret as Bearer, body `{"player": "<player id>"}`); it is valid for 120 seconds and
+is signed (HMAC-SHA-256) with a 32 byte key kept in the state file, so a relay with a new
+state file refuses old tickets. Every failure (bad, expired or forged ticket, unknown
+image, ended table) gets the same `404`. Minting has its own limit of 600 requests per minute per client address (part uploads: 60). The relay logs the path only, never the query.
 
 In the Atlas plugin's online settings, set the server address to the relay's
 public origin and keep the host key.

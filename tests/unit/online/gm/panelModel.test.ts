@@ -167,6 +167,7 @@ describe('the selection bar', () => {
 });
 
 /** A table that shows players no image. */
+const NO_PAUSE = { paused: false, set: (): void => undefined };
 const NO_IMAGE = { isShown: false };
 const NO_RESTS = { cards: () => [], approve: () => undefined, decline: () => undefined };
 const noCards = (): readonly string[] => [];
@@ -240,7 +241,7 @@ describe('the view of OnlineControl', () => {
   });
 
   it('reads when the running table closes for want of access, and nothing while it does not', () => {
-    const table = { sharedTab: null, sharedStore: null, presentedName: null, gate: fakeGate(), image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, closesAt: null as number | null };
+    const table = { sharedTab: null, sharedStore: null, presentedName: null, gate: fakeGate(), image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, pause: NO_PAUSE, closesAt: null as number | null };
     const api = onlineApi({ ...control(), table }, hideNothing);
     expect(api.snapshot()).not.toHaveProperty('closesAt');
     table.closesAt = 1760000000000;
@@ -263,7 +264,7 @@ describe('the view of OnlineControl', () => {
   it('names the scene players see and its tokens from the table\'s shared store, and none while nothing is shared', () => {
     const tokens = { ogre: { imagePath: 'art/ogre.webp' } };
     const shared = { getState: () => ({ objects: { tokens } }) };
-    const table = { sharedTab: null, sharedStore: shared as typeof shared | null, presentedName: 'Kings Inn' as string | null, gate: fakeGate(), image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, closesAt: null };
+    const table = { sharedTab: null, sharedStore: shared as typeof shared | null, presentedName: 'Kings Inn' as string | null, gate: fakeGate(), image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, pause: NO_PAUSE, closesAt: null };
     const source = { ...control(), table };
     const api = onlineApi(source, hideNothing);
     expect(api.snapshot()).toMatchObject({ sharedLeaf: null, sharedName: 'Kings Inn', sharedTokens: tokens });
@@ -287,7 +288,7 @@ describe('the view of OnlineControl', () => {
 
   it('reads the running table\'s gates and passes the GM\'s choices on; without a table there are none and nothing happens', () => {
     const gate = fakeGate();
-    const api = onlineApi({ ...control(), table: { sharedTab: null, sharedStore: null, presentedName: null, gate, image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, closesAt: null } }, hideNothing);
+    const api = onlineApi({ ...control(), table: { sharedTab: null, sharedStore: null, presentedName: null, gate, image: NO_IMAGE, rests: NO_RESTS, cardOrder: noCards, pause: NO_PAUSE, closesAt: null } }, hideNothing);
     expect(api.snapshot().gate).toEqual(gate.view());
     api.gate.newCode();
     api.gate.setRequireCode(false);
@@ -304,7 +305,7 @@ describe('the view of OnlineControl', () => {
   it('says that players are shown an image only while they are, and hides it by the way it is given', () => {
     const image = { isShown: false };
     let hidden = 0;
-    const api = onlineApi({ ...control(), table: { sharedTab: null, sharedStore: null, presentedName: null, gate: fakeGate(), image, rests: NO_RESTS, cardOrder: noCards, closesAt: null } }, () => void (hidden += 1));
+    const api = onlineApi({ ...control(), table: { sharedTab: null, sharedStore: null, presentedName: null, gate: fakeGate(), image, rests: NO_RESTS, cardOrder: noCards, pause: NO_PAUSE, closesAt: null } }, () => void (hidden += 1));
     expect(api.snapshot()).not.toHaveProperty('imageShown');
     image.isShown = true;
     expect(api.snapshot().imageShown).toBe(true);

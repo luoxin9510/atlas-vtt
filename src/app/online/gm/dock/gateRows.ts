@@ -11,18 +11,23 @@ import { t } from '../../../i18n';
  * waits is not among it: their cards stand over the control (`KnockStack`), so a knock, whose moment a
  * stranger chooses, neither moves a row of the surface nor draws it anew under the GM's pointer.
  */
-export type GateRows = Omit<GateView, 'waiting'>;
+export type GateRows = Omit<GateView, 'waiting'> & {
+  /** The game is paused for players (not the join gate's `paused`); absent while it is not. */
+  readonly playPaused?: true;
+};
 
-export function gateRowsOf(gate: GateView | null): GateRows | null {
+export function gateRowsOf(gate: GateView | null, playPaused = false): GateRows | null {
   if (gate === null) return null;
   const { code, requireCode, askToJoin, paused, pauseArmed } = gate;
-  return { code, requireCode, askToJoin, paused, pauseArmed };
+  return { code, requireCode, askToJoin, paused, pauseArmed, ...(playPaused && { playPaused: true as const }) };
 }
 
 /** What the gates' rows and menu entries do. */
 export interface GateRowActions extends Pick<GateActions, 'newCode' | 'setRequireCode' | 'setAskToJoin'> {
   /** Copies the join code as people read it; false while there is none or the clipboard refused. */
   copyCode(): Promise<boolean>;
+  /** Pauses or resumes the game for players. */
+  setPlayPaused(on: boolean): void;
 }
 
 /** The gates' actions for the control whose root is `root`. */
@@ -31,6 +36,7 @@ export function gateRowActions(api: OnlineApi, root: HTMLElement): GateRowAction
     newCode: () => api.gate.newCode(),
     setRequireCode: (on) => api.gate.setRequireCode(on),
     setAskToJoin: (on) => api.gate.setAskToJoin(on),
+    setPlayPaused: (on) => api.setPlayPaused(on),
     copyCode: () => {
       const code = api.snapshot().gate?.code ?? null;
       return code === null ? Promise.resolve(false) : copyText(root, shownJoinCode(code));
@@ -45,6 +51,7 @@ export function gateEntries(gate: GateRows | null, actions: GateRowActions): Men
     { title: t('onlineDock.newCode'), icon: 'refresh-cw', apart: true, disabled: !gate.requireCode, run: () => actions.newCode() },
     { title: t('onlineDock.requireCode'), icon: 'key-round', checked: gate.requireCode, run: () => actions.setRequireCode(!gate.requireCode) },
     { title: t('onlineDock.askToJoin'), icon: 'user-check', checked: gate.askToJoin, run: () => actions.setAskToJoin(!gate.askToJoin) },
+    { title: t('onlineDock.pauseGame'), icon: 'pause', checked: gate.playPaused === true, run: () => actions.setPlayPaused(gate.playPaused !== true) },
   ];
 }
 
@@ -60,6 +67,14 @@ export function renderPausedRow(layer: HTMLElement, gate: GateRows | null, actio
   const button = textButton(row, t('onlineDock.newCode'), () => gate.pauseArmed && actions.newCode());
   button.dataset.focusKey = 'new-code';
   if (!gate.pauseArmed) button.setAttribute('aria-disabled', 'true');
+}
+
+/** Under a surface's header while the game is paused: players cannot move tokens until the GM resumes. */
+export function renderPlayPausedRow(layer: HTMLElement, gate: GateRows | null, actions: GateRowActions): void {
+  if (gate?.playPaused !== true) return;
+  const row = layer.createDiv({ cls: 'atlas-online-paused', attr: { role: 'status' } });
+  row.createSpan({ cls: 'atlas-online-paused__text', text: t('onlineDock.gamePaused') });
+  textButton(row, t('onlineDock.resumeGame'), () => actions.setPlayPaused(false)).dataset.focusKey = 'resume-game';
 }
 
 /** `Code 483 912` as a row that copies it, while the table asks for a code. */

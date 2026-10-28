@@ -1,13 +1,33 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import type { Point } from '../../../../src/app/grid/hexGeometry.ts';
+import type { SnapGrid } from '../../../../src/app/online/protocol/moves.ts';
+import { reduceLive } from '../scene/liveTokens.ts';
 import type { RollRefusal } from '../../../../src/app/online/protocol/dice.ts';
 import type { SharedFog } from '../../../../src/app/online/protocol/fog.ts';
 import type { GmMessage, SharedScene } from '../../../../src/app/online/protocol/game.ts';
+import type { SharedLightingScene, SharedSight } from '../../../../src/app/online/protocol/lighting.ts';
+import type { AssetRef } from '../../../../src/app/online/protocol/asset.ts';
 import type { SharedInitiative } from '../../../../src/app/online/protocol/initiative.ts';
-import type { SharedAnnotations, SharedGrid, SharedPin } from '../../../../src/app/online/protocol/mapLayers.ts';
+import type { SensedMark, SharedAnnotations, SharedDoor, SharedGrid, SharedPin } from '../../../../src/app/online/protocol/mapLayers.ts';
 import type { SharedRules } from '../../../../src/app/online/protocol/rules.ts';
 import type { SharedToken } from '../../../../src/app/online/protocol/tokens.ts';
 import type { SocketStatus } from '../net/TableSocket.ts';
-import { sceneMode, type SceneMode } from './sceneMode.ts';
+import { sceneMode, type LightingSupport, type SceneMode } from './sceneMode.ts';
+
+/** What the GM sent a lit scene's lighting is worked out from, for the current scene (cleared with it). */
+export interface LitInputs {
+  lighting: SharedLightingScene | null;
+  sight: SharedSight | null;
+  explored: AssetRef | null;
+  doors: readonly SharedDoor[];
+  sensed: readonly SensedMark[];
+}
+
+/** The GM did not take a move of the player's: the token it concerns and why (none: no reason given). */
+export interface MoveRefusal {
+  readonly id: string;
+  readonly reason?: 'turn' | 'paused';
+}
 
 export interface TableState {
   status: SocketStatus;
@@ -15,8 +35,18 @@ export interface TableState {
   ownCode: string | null;
   scene: SharedScene | null;
   mode: SceneMode;
+  /** Whether this device can light a lit scene; kept across scenes for the session. */
+  lighting: LightingSupport;
   tokens: readonly SharedToken[];
   cell: number;
+  /** The grid a dropped token snaps to; null: no snapping. */
+  snap: SnapGrid | null;
+  /** Where the tokens being dragged are now (by the GM or any player); the latest wins, the end of a drag removes it. */
+  live: ReadonlyMap<string, Point>;
+  /** The last refused move, a new object for each, so a repeat is told from the one before. */
+  refused: MoveRefusal | null;
+  /** The table is paused: the GM takes no moves. Set by `pause`, cleared by a new welcome. */
+  paused: boolean;
   /** undefined: not received yet, so nothing of the map is drawn. */
   fog: SharedFog | undefined;
   grid: SharedGrid | null;
@@ -28,12 +58,14 @@ export interface TableState {
   yourTurnAt: number | null;
   rollRefusal: RollRefusal | null;
   selected: string | null;
+  lit: LitInputs;
 }
 
 export interface TableActions {
   applyMessage(message: GmMessage, now: number): void;
   setStatus(status: SocketStatus): void;
   setOwnCode(code: string): void;
+  setLighting(lighting: LightingSupport): void;
   select(id: string | null): void;
   dismissYourTurn(): void;
   clearRollRefusal(): void;
@@ -42,12 +74,16 @@ export interface TableActions {
 export type TableStore = StoreApi<TableState> & TableActions;
 export type TableStoreApi = TableStore;
 
+const NO_LIT: LitInputs = { lighting: null, sight: null, explored: null, doors: [], sensed: [] };
 const NO_ANNOTATIONS: SharedAnnotations = { drawings: [], texts: [] };
 
 /** Everything that belongs to the shared scene; the table's own state (status, code, refusal) stays out. */
 const EMPTY_SCENE_LAYER = {
   tokens: [] as readonly SharedToken[],
   cell: 0,
+  snap: null,
+  live: new Map<string, Point>() as ReadonlyMap<string, Point>,
+  refused: null,
   fog: undefined,
   grid: null,
   pins: [] as readonly SharedPin[],
@@ -57,30 +93,70 @@ const EMPTY_SCENE_LAYER = {
   mine: new Set<string>() as ReadonlySet<string>,
   yourTurnAt: null,
   selected: null,
+  lit: NO_LIT,
 } satisfies Partial<TableState>;
 
 export function initialTableState(): TableState {
-  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', rollRefusal: null, ...EMPTY_SCENE_LAYER };
+  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, paused: false, ...EMPTY_SCENE_LAYER };
+}
+
+/** What a lit scene keeps of the messages its lighting is worked out from; nothing is drawn from them here. */
+function reduceLit(state: TableState, message: GmMessage): Partial<TableState> {
+  switch (message.t) {
+    case 'lighting': {
+      const { t: _t, scene: _scene, ...lighting } = message;
+      return { lit: { ...state.lit, lighting } };
+    }
+    case 'sight': {
+      const { t: _t, scene: _scene, seq: _seq, ...sight } = message;
+      return { lit: { ...state.lit, sight } };
+    }
+    case 'explored':
+      return { lit: { ...state.lit, explored: message.mask } };
+    case 'doors':
+      return { lit: { ...state.lit, doors: message.doors } };
+    case 'sensed':
+      return { lit: { ...state.lit, sensed: message.tokens } };
+    default:
+      return {};
+  }
 }
 
 /** The change one message makes (pure: no store, no clock); an empty object when it changes nothing. */
 export function reduceMessage(state: TableState, message: GmMessage, now: number): Partial<TableState> {
   if (message.t === 'scene') {
     const scene = message.scene;
-    const mode = sceneMode(scene);
+    const mode = sceneMode(scene, state.lighting);
     const sameScene = scene !== null && scene.id === state.scene?.id;
     // A resend of an unlit scene keeps its picture; a new scene, no scene, or a scene turned lit keeps nothing.
-    if (sameScene && mode === 'map') return { scene, mode };
+    if (sameScene && mode === 'unlit') return { scene, mode };
     return { ...EMPTY_SCENE_LAYER, scene, mode };
   }
   if (message.t === 'roll-refused') return { rollRefusal: message.reason };
+  if (message.t === 'pause') return state.paused === message.paused ? {} : { paused: message.paused };
   if (!('scene' in message) || typeof message.scene !== 'string') return {};
-  if (state.mode !== 'map' || message.scene !== state.scene?.id) return {};
+  if (message.scene !== state.scene?.id) return {};
+  if (state.mode === 'none') return {};
+  // A lit scene keeps its layers while this device has yet to show it can light them (they are drawn only once it has);
+  // on a device that cannot, it keeps nothing.
+  if (state.mode === 'placeholder' && state.lighting === 'unsupported') return {};
+  return { ...(state.mode === 'unlit' ? {} : reduceLit(state, message)), ...reduceLayers(state, message, now) };
+}
+
+/** The layers every shown scene has: tokens, fog, grid, pins, annotations, initiative and rules. */
+function reduceLayers(state: TableState, message: GmMessage, now: number): Partial<TableState> {
   switch (message.t) {
     case 'tokens': {
       const selected = state.selected !== null && message.tokens.some((token) => token.id === state.selected) ? state.selected : null;
-      return { tokens: message.tokens, cell: message.cell, selected };
+      const live = reduceLive(state.live, [], message.tokens);
+      return { tokens: message.tokens, cell: message.cell, snap: message.snap, selected, ...(live !== state.live && { live }) };
     }
+    case 'live': {
+      const live = reduceLive(state.live, message.tokens, state.tokens);
+      return live === state.live ? {} : { live };
+    }
+    case 'move-refused':
+      return { refused: { id: message.id, ...(message.reason !== undefined && { reason: message.reason }) } };
     case 'mine':
       return { mine: new Set(message.tokens) };
     case 'fog':
@@ -99,7 +175,7 @@ export function reduceMessage(state: TableState, message: GmMessage, now: number
     case 'your-turn':
       return { yourTurnAt: now };
     default:
-      // lighting, sight, explored, doors, sensed, widgets and the rest are ignored in M3.
+      // lighting, sight, explored, doors and sensed belong to lit scenes; widgets and the rest are ignored.
       return {};
   }
 }
@@ -116,6 +192,10 @@ export function createTableStore(): TableStore {
     },
     setOwnCode(code: string): void {
       store.setState({ ownCode: code });
+    },
+    setLighting(lighting: LightingSupport): void {
+      const { scene } = store.getState();
+      store.setState({ lighting, mode: sceneMode(scene, lighting) });
     },
     select(id: string | null): void {
       store.setState({ selected: id });

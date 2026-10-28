@@ -261,3 +261,15 @@ body {
     border-top: 0;
   }
 }
+
+// A lit scene's placeholder covers the stage, whose canvas holds nothing visible until the lighting is drawn.
+.atlas-play-stage > .atlas-play-lit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-primary);
+  color: var(--text-muted);
+}

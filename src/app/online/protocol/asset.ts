@@ -5,6 +5,8 @@ export const HASH_PATTERN = /^[0-9a-f]{64}$/;
 
 /** Bytes of an asset per chunk: their base64 is exactly 256 KiB. */
 export const ASSET_CHUNK_BYTES = 192 * 1024;
+/** The size of one image-cache upload part: the GM slices by it and the relay enforces it (so an asset has at most 8 parts). */
+export const PART_BYTES = 8 * 1024 * 1024;
 /** The largest asset the GM serves and a client accepts. */
 export const MAX_ASSET_BYTES = 64 * 1024 * 1024;
 

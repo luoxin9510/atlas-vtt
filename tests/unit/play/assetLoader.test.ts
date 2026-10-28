@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AssetLoader, STALL_MS } from '../../../apps/play/src/assets/AssetLoader.ts';
 import { memoryCache, type BlobCache } from '../../../apps/play/src/assets/blobCache.ts';
 import { sha256Hex } from '../../../apps/play/src/assets/sha256.ts';
+import { fetchTicket } from '../../../apps/play/src/assets/ticketFetch.ts';
 import { assetChunks } from '../../../src/app/online/gm/assetServe.ts';
 import type { AssetRef, GmMessage, PlayerMessage } from '../../../src/app/online/protocol/index.ts';
 
@@ -11,12 +12,22 @@ png.set([137, 80, 78, 71]);
 const hash = await sha256Hex(png);
 const ref: AssetRef = { hash, size: png.length, mime: 'image/png' };
 
-function setup(cache: BlobCache = memoryCache()): { loader: AssetLoader; sent: PlayerMessage[]; clock: { now: number }; cache: BlobCache } {
+function setup(cache: BlobCache = memoryCache(), fetcher?: typeof fetch): { loader: AssetLoader; sent: PlayerMessage[]; clock: { now: number }; cache: BlobCache; fallbacks: string[] } {
   const sent: PlayerMessage[] = [];
+  const fallbacks: string[] = [];
   const clock = { now: 0 };
-  return { loader: new AssetLoader({ send: (body) => void sent.push(body), cache, now: () => clock.now }), sent, clock, cache };
+  const loader = new AssetLoader({
+    send: (body) => void sent.push(body), cache, now: () => clock.now,
+    ...(fetcher === undefined ? {} : { fetch: fetcher }), onFallback: (h) => void fallbacks.push(h),
+  });
+  return { loader, sent, clock, cache, fallbacks };
 }
 
+const TICKET_PATH = (h: string): string => `/api/assets/${h}?t=${'a'.repeat(26)}.${'b'.repeat(20)}.9999999999999.${'c'.repeat(43)}`;
+const ticketOf = (h: string): GmMessage => ({ t: 'asset-ticket', hash: h, url: TICKET_PATH(h), expires: 9_999_999_999_999 });
+const okFetch = (bytes: Uint8Array): ReturnType<typeof vi.fn<typeof fetch>> => vi.fn<typeof fetch>(async () => new Response(bytes.slice(), { status: 200 }));
+
+const noProgress = (): void => undefined;
 const feed = (loader: AssetLoader, messages: readonly GmMessage[]): void => {
   for (const message of messages) expect(loader.receive(message)).toBe(true);
 };
@@ -236,5 +247,200 @@ describe('AssetLoader', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  describe('tickets', () => {
+    it('downloads by ticket, caches by hash and sends no chunk request', async () => {
+      const fetcher = okFetch(png);
+      const { loader, sent, cache } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      const asset = await result;
+      expect(asset?.bytes).toEqual(png);
+      expect(await cache.get(hash)).toEqual(png);
+      expect(sent).toEqual([{ t: 'asset-request', hash }]);
+    });
+
+    it('fetches the ticket url exactly as given, without credentials or cache', async () => {
+      const fetcher = okFetch(png);
+      const { loader } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await result;
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(fetcher).toHaveBeenCalledWith(TICKET_PATH(hash), { credentials: 'omit', cache: 'no-store', signal: expect.any(AbortSignal) });
+    });
+
+    it('loads a variant by ticket at the variant world size', async () => {
+      const small = png.slice(0, 5000);
+      const variant: AssetRef = { hash: await sha256Hex(small), size: small.length, mime: 'image/png' };
+      const { loader, cache } = setup(memoryCache(), okFetch(small));
+      const result = loader.load(ref, 512);
+      await flush();
+      feed(loader, [{ t: 'asset-variant', hash, maxSide: 512, variant, width: 3000, height: 2000 }, ticketOf(variant.hash)]);
+      const asset = await result;
+      expect(asset).toMatchObject({ width: 3000, height: 2000 });
+      expect(asset?.bytes).toEqual(small);
+      expect(await cache.get(variant.hash)).toEqual(small);
+    });
+
+    it('falls back once on a failed ticket', async () => {
+      const fetcher = vi.fn<typeof fetch>(async () => new Response('no', { status: 404 }));
+      const { loader, sent, fallbacks, clock } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, 512);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      expect(sent).toEqual([{ t: 'asset-request', hash, maxSide: 512 }, { t: 'asset-request', hash, maxSide: 512, via: 'socket' }]);
+      expect(fallbacks).toEqual([hash]);
+      // A second ticket for the same hash is ignored.
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(fallbacks).toHaveLength(1);
+      // Later asks (a stall re-ask) still say via socket.
+      clock.now += STALL_MS;
+      loader.tick();
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, maxSide: 512, via: 'socket' });
+      feed(loader, assetChunks(hash, png));
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('remembers a fallback across a reconnect and a new load, with one notice', async () => {
+      const fetcher = vi.fn<typeof fetch>(async () => new Response('no', { status: 404 }));
+      const { loader, sent, fallbacks } = setup(memoryCache(), fetcher);
+      const first = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      loader.setConnected(false);
+      expect(await first).toBeNull();
+      loader.setConnected(true);
+      const again = loader.load(ref, null);
+      await flush();
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      feed(loader, assetChunks(hash, png));
+      expect((await again)?.bytes).toEqual(png);
+      expect(fallbacks).toEqual([hash]);
+    });
+
+    it('never re-asks without via while a good ticket is being cached', async () => {
+      let release: () => void = () => undefined;
+      const slow: BlobCache = {
+        get: async () => null,
+        put: () => new Promise<void>((resolve) => { release = resolve; }),
+      };
+      const { loader, sent, clock } = setup(slow, okFetch(png));
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      clock.now += STALL_MS;
+      loader.tick();
+      expect(sent.slice(1).every((m) => m.t === 'asset-request' && m.via === 'socket')).toBe(true);
+      release();
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('keeps via socket on the retry after a corrupted chunk download', async () => {
+      const { loader, sent } = setup(memoryCache(), vi.fn<typeof fetch>(async () => new Response('', { status: 500 })));
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      const copy = png.slice();
+      copy[9] ^= 1;
+      feed(loader, assetChunks(hash, copy));
+      await flush();
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      feed(loader, assetChunks(hash, png));
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('falls back on wrong bytes and caches nothing', async () => {
+      const wrong = png.slice();
+      wrong[100] ^= 1;
+      const { loader, sent, cache, fallbacks } = setup(memoryCache(), okFetch(wrong));
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      expect(await cache.get(hash)).toBeNull();
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      expect(fallbacks).toEqual([hash]);
+      feed(loader, assetChunks(hash, png));
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('falls back and aborts the fetch when the ticket download stalls', async () => {
+      let signal: AbortSignal | undefined;
+      const fetcher = vi.fn<typeof fetch>((_url, init) => new Promise<Response>((_resolve, reject) => {
+        signal = init?.signal ?? undefined;
+        signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      }));
+      const { loader, sent, fallbacks, clock } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      clock.now += STALL_MS - 1;
+      loader.tick();
+      expect(signal?.aborted).toBe(false);
+      clock.now += 1;
+      loader.tick();
+      expect(signal?.aborted).toBe(true);
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      expect(fallbacks).toEqual([hash]);
+      feed(loader, assetChunks(hash, png));
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('does not fall back while bytes keep arriving, however long the total', async () => {
+      const third = Math.ceil(png.length / 3);
+      let body!: ReadableStreamDefaultController<Uint8Array>;
+      const fetcher = vi.fn<typeof fetch>(async () => new Response(new ReadableStream<Uint8Array>({ start: (c) => { body = c; } }), { status: 200 }));
+      const { loader, sent, fallbacks, clock } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      for (let i = 0; i < 3; i += 1) {
+        clock.now += STALL_MS * 0.6;
+        body.enqueue(png.slice(i * third, (i + 1) * third));
+        await flush();
+        loader.tick();
+      }
+      expect(clock.now).toBeGreaterThan(STALL_MS);
+      expect(fallbacks).toEqual([]);
+      expect(sent).toHaveLength(1);
+      body.close();
+      expect((await result)?.bytes).toEqual(png);
+      expect(sent).toHaveLength(1);
+    });
+
+    it('ignores a ticket for a hash with no pending download', async () => {
+      const fetcher = okFetch(png);
+      const { loader, sent } = setup(memoryCache(), fetcher);
+      expect(loader.receive(ticketOf(hash))).toBe(true);
+      await flush();
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(sent).toEqual([]);
+    });
+  });
+
+  describe('fetchTicket', () => {
+    it('returns the bytes of a 200', async () => {
+      expect(await fetchTicket(okFetch(png), '/x', png.length, noProgress, new AbortController().signal)).toEqual(png);
+    });
+    it('is null on a non-200, a network error and an oversize body', async () => {
+      expect(await fetchTicket(vi.fn<typeof fetch>(async () => new Response('', { status: 404 })), '/x', 10, noProgress, new AbortController().signal)).toBeNull();
+      expect(await fetchTicket(vi.fn<typeof fetch>(async () => { throw new Error('net'); }), '/x', 10, noProgress, new AbortController().signal)).toBeNull();
+      expect(await fetchTicket(okFetch(png), '/x', png.length - 1, noProgress, new AbortController().signal)).toBeNull();
+    });
   });
 });
