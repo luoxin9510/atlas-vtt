@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseGmMessage, type AssetRef, type GmMessage } from '../../../../../src/app/online/protocol/index.ts';
-import { assetTag } from '../../../../../src/app/online/gm/assetServe.ts';
+import { notesTag } from '../../../../../src/app/online/gm/notes/notesTag.ts';
 import { settled } from '../settled.ts';
 import { ANA, BEN, gif, holdReads, makeTable, OLD, shared, started, type Table } from './notesHarness.ts';
 
@@ -57,7 +57,7 @@ describe('NotesShare', () => {
     await settled();
     const chunks = table.sent.filter((entry) => entry.body.t === 'asset-chunk');
     expect(chunks.length).toBe(1);
-    expect(chunks[0]?.tag).toBe(assetTag(image));
+    expect(chunks[0]?.tag).toBe(notesTag(image));
     expect(Buffer.from((chunks[0]?.body as { data: string }).data, 'base64').toString('utf8')).toBe(gif('one'));
   });
 
@@ -71,7 +71,7 @@ describe('NotesShare', () => {
     table.vault.write('Keep.md', '---\natlas-share: false\n---\nThe keep.');
     await settled();
     table.sent.length = 0;
-    expect(table.share.receive(ANA, { t: 'asset-request', hash })).toBe(true);
+    expect(table.share.refuseGone(ANA, { t: 'asset-request', hash })).toBe(true);
     expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash }]);
     expect(table.share.receive(ANA, { t: 'asset-request', hash: 'f'.repeat(64) })).toBe(false);
   });
@@ -83,7 +83,7 @@ describe('NotesShare', () => {
     table.dropped.length = 0;
     table.vault.write('Keep.md', shared('Open words.\n\n> [!gm]\n> Secret passage.'));
     await settled();
-    expect(table.dropped).toContain(assetTag(before.text.hash));
+    expect(table.dropped).toContain(notesTag(before.text.hash));
     const after = table.list()[0] as { id: string; text: AssetRef };
     expect(after.id).toBe(before.id);
     expect(after.text.hash).not.toBe(before.text.hash);
@@ -97,15 +97,15 @@ describe('NotesShare', () => {
     table.vault.write('Keep.md', 'The keep.');
     await settled();
     expect(titles(table)).toEqual(['Cave']);
-    expect(table.dropped).toContain(assetTag(keep.text.hash));
+    expect(table.dropped).toContain(notesTag(keep.text.hash));
     table.sent.length = 0;
-    expect(table.share.receive(ANA, { t: 'asset-request', hash: keep.text.hash })).toBe(true);
+    expect(table.share.refuseGone(ANA, { t: 'asset-request', hash: keep.text.hash })).toBe(true);
     expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: keep.text.hash }]);
     // Deleting a note does the same.
     table.vault.remove('Cave.md');
     await settled();
     expect(table.list()).toEqual([]);
-    expect(table.dropped).toContain(assetTag(cave.text.hash));
+    expect(table.dropped).toContain(notesTag(cave.text.hash));
   });
 
   it('drops an image that is no longer named', async () => {
@@ -114,7 +114,7 @@ describe('NotesShare', () => {
     const image = /atlas-asset:([0-9a-f]{64})/.exec(markdown)?.[1] ?? '';
     table.vault.write('art/map.gif', gif('two'));
     await settled();
-    expect(table.dropped).toContain(assetTag(image));
+    expect(table.dropped).toContain(notesTag(image));
     table.sent.length = 0;
     table.request(ANA, image);
     expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: image }]);
@@ -190,9 +190,9 @@ describe('NotesShare', () => {
       table.vault.write('Keep.md', shared('Open.\n\n> [!gm]\n> Secret passage.'));
       await settled();
       expect(table.list()).toEqual([]);
-      expect(table.dropped).toContain(assetTag(old.text.hash));
+      expect(table.dropped).toContain(notesTag(old.text.hash));
       table.sent.length = 0;
-      expect(table.share.receive(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
+      expect(table.share.refuseGone(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
       expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: old.text.hash }]);
       const attempts = reads.mock.calls.length;
       table.vault.resolve();
@@ -212,14 +212,14 @@ describe('NotesShare', () => {
       table.vault.write('Keep.md', shared('Long. '.repeat(40)));
       await settled();
       expect(table.list()).toEqual([]);
-      expect(table.dropped).toContain(assetTag(old.text.hash));
+      expect(table.dropped).toContain(notesTag(old.text.hash));
       const reads = vi.spyOn(table.vault.app.vault, 'read');
       reads.mockClear();
       table.vault.resolve();
       await settled();
       expect(reads).not.toHaveBeenCalled();
       table.sent.length = 0;
-      expect(table.share.receive(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
+      expect(table.share.refuseGone(ANA, { t: 'asset-request', hash: old.text.hash })).toBe(true);
       expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: old.text.hash }]);
     });
 
@@ -275,9 +275,9 @@ describe('NotesShare', () => {
       table.dropped.length = 0;
       table.vault.write('B.md', 'B.');
       expect(titles(table)).toEqual(['C']);
-      expect(table.dropped).toContain(assetTag(a.text.hash));
+      expect(table.dropped).toContain(notesTag(a.text.hash));
       table.sent.length = 0;
-      expect(table.share.receive(ANA, { t: 'asset-request', hash: a.text.hash })).toBe(true);
+      expect(table.share.refuseGone(ANA, { t: 'asset-request', hash: a.text.hash })).toBe(true);
       expect(table.sent.map((entry) => entry.body)).toEqual([{ t: 'asset-refused', hash: a.text.hash }]);
       await reads.release();
       expect(titles(table)).toEqual(['A', 'C']);

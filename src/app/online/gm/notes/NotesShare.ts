@@ -3,12 +3,12 @@ import { QuestImages } from '../../../plugin/questImages';
 import { isRecord, MAX_ASSET_BYTES, parsePlayerMessage, TEXT_MIME_TYPE, type GmMessage, type PlayerMessage } from '../../protocol/index.ts';
 import { NOTES_LEVEL, type NotesMessage, type SharedNote } from '../../protocol/fork.ts';
 import { AssetAnswers, type AssetAnswerPorts } from '../assetAnswers.ts';
-import { assetTag, sha256Hex } from '../assetServe.ts';
+import { sha256Hex } from '../assetServe.ts';
 import type { ScaleImage } from '../assetVariants.ts';
 import type { VaultImage } from '../TokenShare.ts';
-import { parseNote } from './parseNote';
-import { copyForPlayers } from './playerCopy';
+import { copyNote } from './noteCopy.ts';
 import { HeldHashes } from './heldHashes.ts';
+import { NOTES_TAG_PREFIX, notesTag } from './notesTag.ts';
 import { watchVault } from './notesWatch.ts';
 import { readFlag, SharedSet, type Entry } from './sharedNotes.ts';
 
@@ -69,6 +69,7 @@ export class NotesShare {
         artPath: (hash) => this.imagePath(hash),
         text: (hash) => this.textBytes(hash),
       },
+      NOTES_TAG_PREFIX,
     );
   }
 
@@ -97,6 +98,8 @@ export class NotesShare {
 
   stop(): void {
     this.epoch++;
+    // Reads begun before this belong to the old epoch and no longer count.
+    this.pending = 0;
     this.unwatch();
     this.unwatch = () => undefined;
     this.entries.clear();
@@ -117,18 +120,26 @@ export class NotesShare {
     if (this.ports.levelOf(player) >= NOTES_LEVEL) this.ports.send(this.message(), player);
   }
 
-  /** A player's message: a request for a hash this share holds (answered) or held (refused); false for any other, which the others read. */
+  /** A player's message: a request for a hash this share holds now (answered); false for any other, which the other shares read. */
   receive(from: string, body: unknown): boolean {
-    if (!isRecord(body) || body.t !== 'asset-request') return false;
-    const message: PlayerMessage | null = parsePlayerMessage(body);
-    if (message?.t !== 'asset-request' || this.ports.levelOf(from) < NOTES_LEVEL) return false;
-    if (this.hashes.has(message.hash)) {
-      this.answers.answer(from, message);
-      return true;
-    }
-    if (!this.hashes.wasHeld(message.hash)) return false;
+    const message = this.requestOf(from, body);
+    if (message === null || !this.hashes.has(message.hash)) return false;
+    this.answers.answer(from, message);
+    return true;
+  }
+
+  /** The last to read a request: one for a hash this share held and no other share claimed is refused. */
+  refuseGone(from: string, body: unknown): boolean {
+    const message = this.requestOf(from, body);
+    if (message === null || !this.hashes.wasHeld(message.hash)) return false;
     this.ports.send({ t: 'asset-refused', hash: message.hash }, from);
     return true;
+  }
+
+  private requestOf(from: string, body: unknown): Extract<PlayerMessage, { t: 'asset-request' }> | null {
+    if (!isRecord(body) || body.t !== 'asset-request' || this.ports.levelOf(from) < NOTES_LEVEL) return null;
+    const message: PlayerMessage | null = parsePlayerMessage(body);
+    return message?.t === 'asset-request' ? message : null;
   }
 
   /** A player left the table: chunks queued for them are dropped, so they may ask again at once. */
@@ -234,34 +245,19 @@ export class NotesShare {
       const info = this.set.info(path);
       if (file === null || info === undefined) return;
       const source = await app.vault.read(file);
-      const resolved = new Map<string, string>();
-      const copy = await copyForPlayers(parseNote(source), {
-        note: (linkpath) => this.noteTarget(linkpath, path),
-        image: async (linkpath) => {
-          const image = this.ports.images.resolve(path, [{ target: linkpath, width: null, height: null }])[0];
-          const ref = image === undefined ? null : await this.ports.images.refOf(image.file);
-          if (image !== undefined && ref !== null) resolved.set(ref.hash, image.file.path);
-          return ref;
-        },
-      });
+      const copy = await copyNote(source, path, this.ports.images, (linkpath) => this.noteTarget(linkpath, path));
       const bytes = new TextEncoder().encode(copy.markdown).slice();
       if (bytes.length > (this.ports.maxBytes ?? MAX_ASSET_BYTES)) return this.fail(path, turn, epoch, key);
       const ref = { hash: await sha256Hex(bytes), size: bytes.length, mime: TEXT_MIME_TYPE };
       if (this.turns.get(path) !== turn || this.epoch !== epoch || this.set.info(path)?.id !== info.id) return;
-      const images = new Map<string, string>();
-      for (const hash of copy.images.keys()) {
-        const imagePath = resolved.get(hash);
-        if (imagePath !== undefined) images.set(hash, imagePath);
-      }
-      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images, linkKey: key, embeds: source.includes('![') });
+      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, embeds: source.includes('![') });
       this.settle();
     } catch {
       // Nothing is logged: it would name the note.
       this.fail(path, turn, epoch, key);
     } finally {
       if (this.turns.get(path) === turn) this.building.delete(path);
-      this.pending--;
-      if (this.pending === 0 && this.epoch === epoch) this.publish();
+      if (this.epoch === epoch && --this.pending === 0) this.publish();
     }
   }
 
@@ -303,7 +299,7 @@ export class NotesShare {
       for (const hash of entry.images.keys()) now.add(hash);
     }
     const left = this.hashes.replace(now);
-    for (const hash of left) this.ports.dropTagged(assetTag(hash));
+    for (const hash of left) this.ports.dropTagged(notesTag(hash));
     if (left.length > 0) this.answers.forget();
     this.ports.images.retain(new Set(this.listEntries().flatMap(({ entry }) => [...entry.images.values()])));
   }

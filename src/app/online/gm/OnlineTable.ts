@@ -240,7 +240,7 @@ export class OnlineTable {
         this.log.left(player);
       },
       // The log, the shown image and the books are the table's, so they hear players while no scene is shared too.
-      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.notes.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
+      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.notes.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.sceneOrGone(from, body)),
       access: (closesAt) => this.setClosing(closesAt),
     }, this.gate);
     this.roster = new TableRoster(seats, this.connection, { kick: (player) => this.kick(player), turnAway: (player) => this.connection.kick(player), joinCode: () => this.gate.settings.code });
@@ -392,6 +392,14 @@ export class OnlineTable {
   }
 
   /** The binding of the tab shared now, while it is still the same tab; null while there is none. */
+  /** The scene share reads what is left (it refuses an asset it does not show); with none bound, a request for a hash the notes once held is refused. */
+  private sceneOrGone(from: string, body: unknown): boolean {
+    const bound = this.bound();
+    if (bound === null) return this.notes.refuseGone(from, body);
+    bound.share.receive(from, body);
+    return true;
+  }
+
   private bound(): SceneBinding | null {
     const binding = this.watch.binding;
     return binding !== null && this.watch.isLive(binding) ? binding : null;

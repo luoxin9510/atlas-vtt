@@ -68,7 +68,11 @@ export function makeTable(files: Record<string, string>, extra: Partial<NotesSha
     const chunks = sent.flatMap((entry) => (entry.body.t === 'asset-chunk' ? [entry.body] : []));
     return chunks.map((chunk) => Buffer.from(chunk.data, 'base64').toString('utf8')).join('').trim();
   };
-  const request = (from: string, hash: string): void => void share.receive(from, { t: 'asset-request', hash });
+  const request = (from: string, hash: string): void => {
+    const body = { t: 'asset-request', hash };
+    // The table's chain: the other shares read it first, then the notes refuse what they held.
+    if (!share.receive(from, body)) share.refuseGone(from, body);
+  };
   return { vault, share, sent, dropped, levels, lists, list, text, request };
 }
 

@@ -37,9 +37,9 @@ export function messageParts(body: GmMessage, id: () => string): GmMessage[] {
   }));
 }
 
-/** The tag the chunks of the asset with `hash` are queued under, so they can be dropped together. */
-export function assetTag(hash: string): string {
-  return `asset:${hash}`;
+/** The tag the chunks of the asset with `hash` are queued under, so they can be dropped together; `prefix` keeps one share's chunks apart from another's. */
+export function assetTag(hash: string, prefix = ''): string {
+  return `${prefix}asset:${hash}`;
 }
 
 /** SHA-256 of bytes, in lowercase hex. */
