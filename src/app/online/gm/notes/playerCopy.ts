@@ -4,7 +4,7 @@ import { toMarkdown } from 'mdast-util-to-markdown';
 import { assetImageHref, assetImageOf, isHttpsUrl, noteHref, CALLOUT_TYPES } from '../../protocol/noteLinks.ts';
 import { htmlEnd, isBlank, stripBlockId, trimEdges } from './copyText';
 import { calloutOf, plainText, splitAtLine } from './copyCallouts';
-import { hasScheme, imageCaption, resolveWikiLink, vaultPath, type CopyTargets } from './copyLinks';
+import { hasScheme, imageCaption, namesTheFile, resolveWikiLink, vaultPath, type CopyTargets } from './copyLinks';
 import { PLAIN_CODE_LANGUAGES } from './plainLanguages';
 
 export type { CopyTargets } from './copyLinks';
@@ -116,15 +116,6 @@ async function markdownLink(url: string, text: string, children: PhrasingContent
 	if (note === null) return children;
 	if (children.length > 0 && !inLink) return [{ type: 'link', url: noteHref(note.id), title: null, children }];
 	return children.length > 0 ? children : noteLink(note.id, note.title, copy, inLink);
-}
-
-/** A caption that is only the file's name tells players the name: spaces, `_` and `-` count alike, the extension is optional. */
-function namesTheFile(caption: string, path: string): boolean {
-	const normal = (text: string): string => text.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
-	const name = path.slice(path.lastIndexOf('/') + 1);
-	const dot = name.lastIndexOf('.');
-	const shown = normal(caption);
-	return shown === normal(name) || (dot > 0 && shown === normal(name.slice(0, dot)));
 }
 
 /** Drops each `[[` up to its `]]` (or the end of the text): a wikilink the parser did not take must not show its typed target. */

@@ -179,6 +179,22 @@ describe('unclosed comments cut the copy globally', () => {
 	});
 });
 
+describe('adversarial pins: no secret word reaches the copy', () => {
+	const cases: Record<string, string> = {
+		'unclosed comment in a list item': '- open\n- item %% hidden\n- SECRET\n\nSECRET later',
+		'unclosed comment in a table cell': '| a | b %% hidden |\n| - | - |\n| SECRET | SECRET |\n\nSECRET',
+		'unclosed comment in a footnote, then visible text': '[^1]: note %% hidden\n\nSECRET visible text\n\nSECRET',
+		'escaped comment mark': 'before \\%% hidden SECRET\n\nSECRET',
+		'autolink holding a comment mark': 'see <https://x.y/%%> SECRET\n\nSECRET',
+		'bare url holding a comment mark': 'see https://x.y/%% SECRET\n\nSECRET',
+		'embeds in a table cell': '| ![[SECRET]] | ![[SECRET.png]] |\n| - | - |\n| ![[SECRET.md]] | ![SECRET](SECRET.png) |',
+		'nested wikilink': '[[ [[SECRET]] ]] and [[SECRET [[SECRET]]',
+	};
+	it.each(Object.entries(cases))('%s', async (_name, text) => {
+		expect(await copy(text)).not.toContain('SECRET');
+	});
+});
+
 describe('tightening', () => {
 	it('drops a non-https autolink whole but keeps the text of a written link', async () => {
 		expect(await copy('a <obsidian://open?file=Secret> b')).toBe('a  b\n');
@@ -192,7 +208,7 @@ describe('tightening', () => {
 	});
 
 	it('drops an image caption that is the file name', async () => {
-		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]']) {
+		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]', '![Secret%20Map.png](Secret%20Map.png)', '![Secret%20Map](Secret%20Map.png)', '![Secret Map.png](Secret%20Map.png)', '![%53ecret.png](Secret.png)']) {
 			expect(await copy(text), text).toMatch(/^!\[\]\(atlas-asset:/);
 		}
 		expect(await copy('![[Secret.png|The Secret]]')).toMatch(/^!\[The Secret\]/);

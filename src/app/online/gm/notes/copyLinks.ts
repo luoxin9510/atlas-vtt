@@ -96,3 +96,20 @@ export async function resolveWikiLink(node: WikiLink, targets: CopyTargets): Pro
 	}
 	return alias === null ? { kind: 'none' } : { kind: 'text', text: alias };
 }
+
+function safelyDecoded(text: string): string {
+	try {
+		return decodeURIComponent(text);
+	} catch {
+		return text;
+	}
+}
+
+/** A caption that is only the file's name tells players the name: spaces, `_` and `-` count alike, the extension is optional. */
+export function namesTheFile(caption: string, path: string): boolean {
+	const normal = (text: string): string => text.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+	const name = path.slice(path.lastIndexOf('/') + 1);
+	const dot = name.lastIndexOf('.');
+	const names = [normal(name), ...(dot > 0 ? [normal(name.slice(0, dot))] : [])];
+	return [caption, safelyDecoded(caption)].some((text) => names.includes(normal(text)));
+}

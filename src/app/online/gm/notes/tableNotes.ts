@@ -36,6 +36,6 @@ export function tableNotes(deps: TableNotesDeps): NotesShare {
     images: new QuestImages(deps.app),
     readImage: (path) => deps.readImage(path),
     scaleImage: deps.scaleImage,
-    changed: () => deps.changed?.(),
+    changed: (): void => deps.changed?.(),
   });
 }

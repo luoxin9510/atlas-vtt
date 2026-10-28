@@ -72,7 +72,7 @@ the same host key into the Atlas plugin's online settings. Install the unit from
 ```sh
 COMMIT=$(tar -xzOf relay-bundle.tgz ./VERSION)
 sudo mkdir -p /opt/atlas-relay/releases/$COMMIT
-sudo tar -xzf relay-bundle.tgz -C /opt/atlas-relay/releases/$COMMIT
+sudo tar --no-same-owner -xzf relay-bundle.tgz -C /opt/atlas-relay/releases/$COMMIT
 cd /opt/atlas-relay/releases/$COMMIT && sudo npm ci --omit=dev
 sudo ln -sfn /opt/atlas-relay/releases/$COMMIT /opt/atlas-relay/current
 sudo systemctl daemon-reload && sudo systemctl enable --now atlas-relay
