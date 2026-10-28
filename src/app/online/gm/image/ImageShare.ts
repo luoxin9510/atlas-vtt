@@ -7,7 +7,7 @@ import type { ScaleImage } from '../assetVariants.ts';
 import type { VaultImage } from '../TokenShare.ts';
 
 export interface ImageSharePorts {
-  send(body: GmMessage, to?: string): void;
+  send(body: GmMessage, to?: string, tag?: string): void;
   now(): number;
   /** A new showing's id: 24 hex characters from the cryptographic source. */
   randomId(): string;
@@ -51,7 +51,7 @@ export class ImageShare {
     this.ports = ports;
     const scale = ports.scaleImage;
     this.answers = new AssetAnswers({
-      send: (body, to) => ports.send(body, to),
+      send: (body, to, tag) => ports.send(body, to, tag),
       now: () => ports.now(),
       tickets: ports.tickets,
       levelOf: (player) => ports.forkLevelOf?.(player) ?? 0,

@@ -1,11 +1,11 @@
 import { ASSET_TICKET_LEVEL, type GmMessage, type PlayerAssetRequest } from '../protocol/index.ts';
-import { assetChunks, ServedAssets, sha256Hex } from './assetServe.ts';
+import { assetChunks, assetTag, ServedAssets, sha256Hex } from './assetServe.ts';
 import type { AssetTickets } from './assetUpload/AssetTickets.ts';
 import { AssetVariants, fitsWithin, type ScaleImage } from './assetVariants.ts';
 import type { VaultImage } from './TokenShare.ts';
 
 export interface AssetAnswerPorts {
-  send(body: GmMessage, to: string): void;
+  send(body: GmMessage, to: string, tag?: string): void;
   now(): number;
   readImage(path: string): Promise<VaultImage | null>;
   /** Scales an image for a player who asks for a longest side; without it players get originals only. */
@@ -104,7 +104,7 @@ export class AssetAnswers {
   }
 
   private serve(hash: string, bytes: Uint8Array, to: string, first: number): void {
-    for (const chunk of assetChunks(hash, bytes, first)) this.ports.send(chunk, to);
+    for (const chunk of assetChunks(hash, bytes, first)) this.ports.send(chunk, to, assetTag(hash));
   }
 
   private refuse(hash: string, to: string): void {

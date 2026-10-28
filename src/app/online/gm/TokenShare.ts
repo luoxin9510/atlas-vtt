@@ -22,7 +22,7 @@ export interface TokenSharePorts {
   tokenSource(): PlayerTokenSource | null;
   /** The image at a vault path, or null when it is missing or of a type players cannot be sent. */
   readImage(path: string): Promise<VaultImage | null>;
-  send(body: GmMessage, to?: string): void;
+  send(body: GmMessage, to?: string, tag?: string): void;
   /** Whether players see token names (Atlas's nameplate setting for the player view). */
   showNames(): boolean;
   /** The map's resource and condition definitions as the GM's token renderer reads them, or null while they cannot be read: then no bar or condition is sent. */

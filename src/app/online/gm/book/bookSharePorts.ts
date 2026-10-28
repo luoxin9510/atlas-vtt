@@ -17,7 +17,7 @@ import type { FileStat, WorldMapTree } from './worldMap.ts';
 
 /** What the players' books (`BookShare`) ask of Atlas and the table: everything that reaches beyond them. */
 export interface BookSharePorts extends Timers {
-  send(body: GmMessage, to: string): void;
+  send(body: GmMessage, to: string, tag?: string): void;
   /** The GM's clock, which notes and items are stamped with. */
   clock(): number;
   /** A new item's id: 24 hex characters from the cryptographic source. */

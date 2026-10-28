@@ -22,7 +22,7 @@ export interface TableBookPorts {
   /** The books kept on this device. */
   readonly shelf: BookShelf;
   readonly ownership: Ownership;
-  send(body: GmMessage, to: string): void;
+  send(body: GmMessage, to: string, tag?: string): void;
   /** The shared scene as the books read it, or null while none is shown. */
   scene(): BookScene | null;
   readImage(path: string): Promise<VaultImage | null>;
@@ -54,7 +54,7 @@ export function tableBook(ports: TableBookPorts): TableBook {
   const { app, ownership } = ports;
   const timers = companionTimers();
   const share = new BookShare({
-    send: (body, to) => ports.send(body, to),
+    send: (body, to, tag) => ports.send(body, to, tag),
     now: () => timers.now(),
     setTimer: (run, ms) => timers.setTimer(run, ms),
     clearTimer: (timer) => timers.clearTimer(timer),

@@ -135,7 +135,7 @@ export class OnlineTable {
       rollInline: (formula) => this.bound()?.share.dice.quietRoll(formula) ?? null,
     }, savedLog);
     this.image = new ImageShare({
-      send: (body, to) => this.connection.send(body, to),
+      send: (body, to, tag) => this.connection.send(body, to, tag),
       now: () => timers.now(),
       randomId: () => randomHex(12),
       scaleImage: scaleInWindow,
@@ -147,13 +147,13 @@ export class OnlineTable {
       forkLevelOf: (player) => this.forkClients.levelOf(player),
     });
     this.found = new FoundShare(this.log, {
-      app, send: (body, to) => this.connection.send(body, to), now: () => timers.now(), nameOf: (player) => ownership.nameOf(player),
+      app, send: (body, to, tag) => this.connection.send(body, to, tag), now: () => timers.now(), nameOf: (player) => ownership.nameOf(player),
       readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow, layers: () => this.bound()?.share.layers ?? null,
       tickets: this.tickets, forkLevelOf: (player) => this.forkClients.levelOf(player),
     });
     this.books = tableBook({
       app, shelf, ownership, randomId: () => randomHex(12),
-      send: (body, to) => this.connection.send(body, to),
+      send: (body, to, tag) => this.connection.send(body, to, tag),
       scene: () => this.bound()?.book() ?? null,
       readImage: (path) => readVaultImage(app, path),
       tokenWrites: () => this.bound()?.resources ?? null,
@@ -179,7 +179,7 @@ export class OnlineTable {
         forkLevelOf: (player) => this.forkClients.levelOf(player),
         tickets: this.tickets,
         paused: () => this.pauseShare.paused,
-        send: (body, to) => this.connection.send(body, to),
+        send: (body, to, tag) => this.connection.send(body, to, tag),
         sendLive: (body, key, to) => this.covers.sendLive(body, key, to),
         readImage: (path) => readVaultImage(app, path),
         isLive: (binding) => this.watch.isLive(binding),

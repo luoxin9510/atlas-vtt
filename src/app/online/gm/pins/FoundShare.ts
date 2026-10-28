@@ -17,7 +17,7 @@ export const FINDS_PER_SECOND = 1;
 
 export interface FoundSharePorts {
   readonly app: App;
-  send(body: GmMessage, to?: string): void;
+  send(body: GmMessage, to?: string, tag?: string): void;
   now(): number;
   /** The name a player goes by at the table, or null when they are not at it. */
   nameOf(player: string): string | null;
@@ -48,7 +48,7 @@ export class FoundShare {
   constructor(private readonly log: TableLog, private readonly ports: FoundSharePorts) {
     this.texts = new FoundTexts(ports.app, log);
     this.answers = new AssetAnswers(
-      { send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 },
+      { send: (body, to, tag) => ports.send(body, to, tag), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 },
       bookPicture((hash, player) => this.assetOf(hash, player)),
     );
   }

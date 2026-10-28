@@ -149,12 +149,17 @@ export class TableConnection {
   }
 
   /** Sends a game message to one player, or to all. */
-  send(body: GmMessage, to: string = ALL_PLAYERS): void {
+  send(body: GmMessage, to: string = ALL_PLAYERS, tag?: string): void {
     if (this.isGone(to)) return;
     for (const part of messageParts(body, partId)) {
       const entry = JSON.stringify({ to, body: part });
-      this.queue.push(sendFrame(entry), to, entry);
+      this.queue.push(sendFrame(entry), to, entry, tag);
     }
+  }
+
+  /** Drops the waiting frames sent with `tag`, for every player. */
+  dropTagged(tag: string): void {
+    this.queue.dropTagged(tag);
   }
 
   /** Whether the relay takes `sends` frames, as its last welcome said. */

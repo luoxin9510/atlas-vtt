@@ -37,6 +37,11 @@ export function messageParts(body: GmMessage, id: () => string): GmMessage[] {
   }));
 }
 
+/** The tag the chunks of the asset with `hash` are queued under, so they can be dropped together. */
+export function assetTag(hash: string): string {
+  return `asset:${hash}`;
+}
+
 /** SHA-256 of bytes, in lowercase hex. */
 export async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
