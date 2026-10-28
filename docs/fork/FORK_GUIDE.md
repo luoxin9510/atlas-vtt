@@ -83,6 +83,13 @@ npm run test:play-e2e   # builds apps/play, then a real Chromium against the rel
 
 Environment variables and the reverse proxy note are in `apps/relay/README.md`.
 
+The relay also keeps the GM's map and token images (`ASSET_DIR`, 2 GiB per table, 10 GiB per
+server, uploads refused with 507 under 2 GiB of free disk) and hands players short-lived download
+tickets; the wire format is in `docs/fork/online-contract.md` section 4. `npm run test:play-e2e`
+needs Chromium from Playwright (`npx playwright install chromium`) and runs the lit scene on
+software GL (swiftshader), so allow a minute or two. Tests that need a GPU:
+`npm run test:gpu -- tests/gpu/play*`.
+
 - `npm run test:gpu` runs browser tests locally only.
 - A unit test needing a DOM starts with `// @vitest-environment jsdom`.
 

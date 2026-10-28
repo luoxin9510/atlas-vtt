@@ -1,4 +1,6 @@
 import { EventEmitter } from 'node:events';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import { Session } from '../../../apps/play/src/app/session.ts';
@@ -19,11 +21,13 @@ import { removeTestState, startTestRelay, TEST_HOST_KEY, TEST_PUBLIC_ORIGIN } fr
 
 const { DiceTool } = (await import(/* @vite-ignore */ DICE_TOOL)) as { DiceTool: DiceToolClass };
 
+const realFetch = globalThis.fetch.bind(globalThis);
+
 interface ObsidianRequest {
   readonly url: string;
   readonly method?: string;
   readonly headers?: Record<string, string>;
-  readonly body?: string;
+  readonly body?: string | ArrayBuffer;
   readonly contentType?: string;
 }
 
@@ -31,20 +35,21 @@ interface ObsidianRequest {
 vi.mock('obsidian', () => ({
   Notice: class {},
   normalizePath: (path: string) => path,
-  requestUrl: async (request: ObsidianRequest): Promise<{ status: number; json: unknown; text: string; headers: Record<string, string> }> => {
-    const response = await fetch(request.url, {
+  requestUrl: async (request: ObsidianRequest): Promise<{ status: number; json: unknown; text: string; arrayBuffer: ArrayBuffer; headers: Record<string, string> }> => {
+    const response = await realFetch(request.url, {
       method: request.method ?? 'GET',
       headers: { ...request.headers, ...(request.contentType === undefined ? {} : { 'content-type': request.contentType }) },
       ...(request.body === undefined ? {} : { body: request.body }),
     });
-    const text = await response.text();
+    const arrayBuffer = await response.arrayBuffer();
+    const text = new TextDecoder().decode(arrayBuffer);
     let json: unknown = null;
     try {
       json = JSON.parse(text);
     } catch {
       json = null;
     }
-    return { status: response.status, json, text, headers: Object.fromEntries(response.headers) };
+    return { status: response.status, json, text, arrayBuffer, headers: Object.fromEntries(response.headers) };
   },
   requireApiVersion: () => true,
   PluginSettingTab: class {},
@@ -81,12 +86,13 @@ class ObsidianWebSocket extends WebSocket {
 
 /** Every frame the GM's socket sent, in order. */
 const gmSent: string[] = [];
-/** The asset messages (`asset-chunk`, `asset-variant`) among them as `[hash, player]`. */
-function assetsServed(from: number): [string, string | undefined][] {
+/** The asset messages among them (`asset-chunk`, `asset-variant`; with `ticket`, `asset-ticket` too) as `[hash, player]`. */
+function assetsServed(from: number, ticket = false): [string, string | undefined][] {
+  const kinds = ticket ? ['asset-chunk', 'asset-variant', 'asset-ticket'] : ['asset-chunk', 'asset-variant'];
   return gmSent.slice(from).flatMap((text) => {
     const frame = JSON.parse(text.startsWith('{') ? text : '{}') as { t?: string; to?: string; body?: { t?: string; hash?: string } };
     const body = frame.body;
-    return frame.t === 'send' && body !== undefined && (body.t === 'asset-chunk' || body.t === 'asset-variant') && body.hash !== undefined ? [[body.hash, frame.to] as [string, string | undefined]] : [];
+    return frame.t === 'send' && body !== undefined && body.t !== undefined && kinds.includes(body.t) && body.hash !== undefined ? [[body.hash, frame.to] as [string, string | undefined]] : [];
   });
 }
 
@@ -127,6 +133,7 @@ const scene = (active: string, lit = false, heroX = 105): SceneState => ({
 const running: Array<{ close(): Promise<void> }> = [];
 const sessions: Session[] = [];
 let online: OnlineControl | null = null;
+let relayOrigin = '';
 
 beforeEach(() => {
   vi.stubGlobal('window', globalThis);
@@ -134,6 +141,8 @@ beforeEach(() => {
   workspace.leaves = [];
   workspace.presented = null;
   gmSent.length = 0;
+  // A ticket url is a path of the relay; the page's own fetch resolves it against its origin.
+  vi.stubGlobal('fetch', (input: string | URL, init?: RequestInit) => realFetch(typeof input === 'string' && input.startsWith('/') ? new URL(input, relayOrigin) : input, init));
 });
 
 afterEach(async () => {
@@ -174,49 +183,94 @@ function atlasPlugin(): void {
   Object.assign(workspace, { dice: services });
 }
 
+interface Booted {
+  readonly relay: Awaited<ReturnType<typeof startTestRelay>>;
+  readonly tab: ReturnType<typeof atlasTab>;
+  readonly table: NonNullable<Awaited<ReturnType<OnlineControl['start']>>>;
+  readonly joinCode: string;
+  readonly frames: Record<string, string[]>;
+  join(name: 'ana' | 'ben'): Session;
+}
+
+/** A relay, a GM with a scene on the real OnlineControl, and a way to let players in. */
+async function boot(relayOverrides: Parameters<typeof startTestRelay>[0] = {}, first: SceneState = scene('ogre')): Promise<Booted> {
+  atlasPlugin();
+  const relay = await startTestRelay(relayOverrides);
+  running.push(relay);
+  relayOrigin = relay.origin;
+  setServerOrigin(relay.origin);
+
+  const nothing = { get: () => null, set: () => undefined, clear: () => undefined };
+  const account = new AccountControl({ http: () => Promise.reject(new Error('no account call')), timers: { now: () => Date.now(), setTimer: () => 0, clearTimer: () => undefined }, tokens: nothing, hostKeys: hostKeyStore(), openUrl: () => undefined, notify: (text) => { throw new Error(text); } });
+  account.setHostKey(TEST_HOST_KEY);
+
+  const tab = atlasTab(first);
+  // The fake tab's store ignores writes; the GM's moves go through `setState(draft => ...)`, so let it apply them.
+  Object.assign(tab.store, {
+    setState: (update: ((draft: SceneState) => void) | Partial<SceneState>): void => {
+      const draft = structuredClone(tab.store.getState());
+      if (typeof update === 'function') update(draft);
+      else Object.assign(draft, update);
+      tab.store.set(draft);
+    },
+  });
+  const services = (workspace as unknown as { dice: object }).dice;
+  Object.assign(tab.view, { viewId: 'view-1' });
+  Object.assign(tab.view.serviceManager, services);
+  Object.assign(tab.view.renderer ?? {}, { lighting: { sightAids: { deps: { rules: GENERIC_SOURCE.rules, measurement: GENERIC_SOURCE.measurement } } } });
+  workspace.leaves = [tab.leaf];
+  present(tab);
+  online = new OnlineControl(app, boundOwnership([]), fakeCampaigns([]), () => undefined, { token: () => account.token(), signedOutByServer: () => undefined, refresh: () => Promise.resolve() });
+  const table = await online.start(tab.leaf, 'c1');
+  if (table === null) throw new Error('no table');
+  await vi.waitFor(() => expect(online?.status()).toBe('online'), { timeout: 5_000 });
+  table.gate.setAskToJoin(false);
+  await vi.waitFor(() => expect(relay.links.peek(FAKE_LINK)?.gate).toEqual({ code: table.gate.settings.code, ask: false }));
+  const { code: joinCode } = table.gate.settings;
+
+  const frames: Record<string, string[]> = { ana: [], ben: [] };
+  const join = (name: 'ana' | 'ben'): Session => {
+    const session = new Session({
+      origin: relay.origin, code: FAKE_LINK, storage: memoryStorage(), indexedDB: null,
+      open: (url) => {
+        const socket = openPlayerSocket(url);
+        const send = socket.send;
+        socket.send = (data) => { frames[name]?.push(data); send(data); };
+        return socket;
+      },
+    });
+    sessions.push(session);
+    session.join({ name: name === 'ana' ? 'Ana' : 'Ben', code: joinCode });
+    return session;
+  };
+  return { relay, tab, table, joinCode, frames, join };
+}
+
+/** Ana is in and owns the hero, with the scene on her screen. */
+async function anaWithHero(game: Booted): Promise<{ ana: Session; anaId: string }> {
+  const ana = game.join('ana');
+  await vi.waitFor(() => expect(ana.store.getState().status.kind).toBe('joined'), { timeout: 10_000 });
+  const anaId = ana.store.getState().self;
+  if (anaId === null) throw new Error('no id');
+  await vi.waitFor(() => expect(game.table.ownership.nameOf(anaId)).toBe('Ana'), { timeout: 5_000 });
+  game.table.ownership.give(['hero'], {}, anaId);
+  await vi.waitFor(() => expect(ana.store.getState().mine.size).toBe(1), { timeout: 10_000 });
+  await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
+  return { ana, anaId };
+}
+
+const mapOf = (session: Session): { hash: string; wanted: NonNullable<ReturnType<typeof mapRequest>> } => {
+  const wanted = mapRequest(session.store.getState(), false, 8192);
+  if (wanted === null) throw new Error('no map wanted');
+  return { hash: wanted.ref.hash, wanted };
+};
+
 describe('a table from the GM through the relay to the player app', () => {
   it('shows the map and tokens, keeps a self roll private, announces the turn, fails closed on a lit scene and survives a relay restart', async () => {
-    atlasPlugin();
-    const relay = await startTestRelay();
-    running.push(relay);
-    setServerOrigin(relay.origin);
-
-    const nothing = { get: () => null, set: () => undefined, clear: () => undefined };
-    const account = new AccountControl({ http: () => Promise.reject(new Error('no account call')), timers: { now: () => Date.now(), setTimer: () => 0, clearTimer: () => undefined }, tokens: nothing, hostKeys: hostKeyStore(), openUrl: () => undefined, notify: (text) => { throw new Error(text); } });
-    account.setHostKey(TEST_HOST_KEY);
-
-    const tab = atlasTab(scene('ogre'));
-    const services = (workspace as unknown as { dice: object }).dice;
-    Object.assign(tab.view, { viewId: 'view-1' });
-    Object.assign(tab.view.serviceManager, services);
-    Object.assign(tab.view.renderer ?? {}, { lighting: { sightAids: { deps: { rules: GENERIC_SOURCE.rules, measurement: GENERIC_SOURCE.measurement } } } });
-    workspace.leaves = [tab.leaf];
-    present(tab);
-    online = new OnlineControl(app, boundOwnership([]), fakeCampaigns([]), () => undefined, { token: () => account.token(), signedOutByServer: () => undefined, refresh: () => Promise.resolve() });
-    const table = await online.start(tab.leaf, 'c1');
-    if (table === null) throw new Error('no table');
-    await vi.waitFor(() => expect(online?.status()).toBe('online'), { timeout: 5_000 });
-    table.gate.setAskToJoin(false);
-    await vi.waitFor(() => expect(relay.links.peek(FAKE_LINK)?.gate).toEqual({ code: table.gate.settings.code, ask: false }));
-    const { code: joinCode } = table.gate.settings;
-
-    const frames: Record<string, string[]> = { ana: [], ben: [] };
-    const join = (name: 'ana' | 'ben'): Session => {
-      const session = new Session({
-        origin: relay.origin, code: FAKE_LINK, storage: memoryStorage(), indexedDB: null,
-        open: (url) => {
-          const socket = openPlayerSocket(url);
-          const send = socket.send;
-          socket.send = (data) => { frames[name]?.push(data); send(data); };
-          return socket;
-        },
-      });
-      sessions.push(session);
-      session.join({ name: name === 'ana' ? 'Ana' : 'Ben', code: joinCode });
-      return session;
-    };
-    const ana = join('ana');
-    const ben = join('ben');
+    const game = await boot();
+    const { relay, tab, table, frames } = game;
+    const ana = game.join('ana');
+    const ben = game.join('ben');
 
     // Both are in; the GM gives Ana the hero.
     await vi.waitFor(() => expect(ana.store.getState().status.kind).toBe('joined'), { timeout: 10_000 });
@@ -257,11 +311,11 @@ describe('a table from the GM through the relay to the player app', () => {
     expect(ben.store.getState().yourTurnAt).toBeNull();
 
     // The GM lights the scene: the player fails closed.
-    // Covered: (a) the GM served this player the map's bytes before (so the check below can fail), (b) after the
+    // Covered: (a) the GM sent this player the map (chunks or a ticket) before (so the check below can fail), (b) after the
     // switch the GM serves no chunk or variant of that hash to anyone and (c) the request path the scene view uses
     // (`mapRequest`) is null for a lit scene. Not covered here: the Pixi view itself (see the browser test).
     const mapHash = ana.store.getState().scene?.map?.hash ?? '';
-    expect(assetsServed(0).some(([hash, to]) => hash === mapHash && to === anaId)).toBe(true);
+    expect(assetsServed(0, true).some(([hash, to]) => hash === mapHash && to === anaId)).toBe(true);
     const servedBefore = gmSent.length;
     ana.store.setLighting('unsupported');
     tab.store.set(scene('hero', true));
@@ -270,7 +324,7 @@ describe('a table from the GM through the relay to the player app', () => {
     expect(mapRequest(ana.store.getState(), false, 8192)).toBeNull();
     await new Promise((done) => setTimeout(done, 1_000));
     expect(gmSent.length).toBeGreaterThan(servedBefore);
-    expect(assetsServed(servedBefore)).toEqual([]);
+    expect(assetsServed(servedBefore, true)).toEqual([]);
 
     // The relay restarts on the same port and state: the player comes back with her key and the table resyncs.
     tab.store.set(scene('hero'));
@@ -298,6 +352,72 @@ describe('a table from the GM through the relay to the player app', () => {
     // A resync is no new turn.
     expect(ana.store.getState().yourTurnAt).toBeNull();
     expect(JSON.parse(hellos()[1] ?? '{}')).toMatchObject({ role: 'player', name: 'Ana', key: expect.any(String) });
-  }, 90_000);
+    }, 90_000);
 });
 
+describe('the image cache, pause and moves between the GM and a player', () => {
+  it('delivers the map by ticket: no chunk for it, and the relay holds its hash', async () => {
+    const game = await boot({ assetDir: join(tmpdir(), `atlas-e2e-assets-${process.pid}`) });
+    const { ana, anaId } = await anaWithHero(game);
+    await vi.waitFor(() => expect(ana.store.getState().mode).toBe('unlit'), { timeout: 10_000 });
+    const { hash, wanted } = mapOf(ana);
+    const before = gmSent.length;
+    const loaded = await ana.assets.load(wanted.ref, wanted.maxSide);
+    expect(loaded?.mime).toBe('image/png');
+    expect(assetsServed(0).filter(([served, to]) => served === hash && to === anaId)).toEqual([]);
+    expect(assetsServed(before, true).some(([served, to]) => served === hash && to === anaId)).toBe(true);
+    const tableCode = game.table.link.split('#')[1] ?? '';
+    expect(game.relay.assets.has(tableCode, hash)).toBe(true);
+    expect(ana.log.snapshot().entries.map((entry) => JSON.stringify(entry)).join('')).not.toContain('直接发送');
+  }, 60_000);
+
+  it('falls back to chunks when the relay cannot store images', async () => {
+    const game = await boot({ maxServerAssetBytes: 0 });
+    const { ana, anaId } = await anaWithHero(game);
+    const { hash, wanted } = mapOf(ana);
+    const loaded = await ana.assets.load(wanted.ref, wanted.maxSide);
+    expect(loaded?.mime).toBe('image/png');
+    expect(assetsServed(0).some(([served, to]) => served === hash && to === anaId)).toBe(true);
+    expect(game.relay.assets.has(game.table.link.split('#')[1] ?? '', hash)).toBe(false);
+  }, 60_000);
+
+  it('shows one fallback line when a ticketed download fails, and gets the map by chunks', async () => {
+    const game = await boot();
+    const { ana, anaId } = await anaWithHero(game);
+    const { hash, wanted } = mapOf(ana);
+    vi.stubGlobal('fetch', (input: string | URL, init?: RequestInit) => (typeof input === 'string' && input.startsWith('/api/assets/') ? Promise.resolve(new Response('no', { status: 500 })) : realFetch(typeof input === 'string' && input.startsWith('/') ? new URL(input, relayOrigin) : input, init)));
+    const loaded = await ana.assets.load(wanted.ref, wanted.maxSide);
+    expect(loaded?.mime).toBe('image/png');
+    expect(assetsServed(0).some(([served, to]) => served === hash && to === anaId)).toBe(true);
+    const lines = (): number => ana.log.snapshot().entries.filter((entry) => JSON.stringify(entry).includes('Image sent by the GM directly') || JSON.stringify(entry).includes('图片改由主持人直接发送')).length;
+    expect(lines()).toBe(1);
+    await ana.assets.load(wanted.ref, wanted.maxSide);
+    expect(lines()).toBe(1);
+  }, 60_000);
+
+  it('pauses: the player is told, a move is refused and the token stays; unpausing lets a move land; a reconnect while paused is paused again', async () => {
+    const game = await boot({}, scene('hero'));
+    const { ana } = await anaWithHero(game);
+    const sceneId = ana.store.getState().scene?.id ?? '';
+    const [heroId = ''] = [...ana.store.getState().mine];
+    const heroAt = (): number | undefined => ana.store.getState().tokens.find((entry) => entry.id === heroId)?.x;
+    expect(heroAt()).toBe(105);
+
+    game.table.pause.set(true);
+    await vi.waitFor(() => expect(ana.store.getState().paused).toBe(true), { timeout: 10_000 });
+    expect(ana.send({ t: 'move', scene: sceneId, id: heroId, x: 245, y: 100 })).toBe(true);
+    await vi.waitFor(() => expect(ana.store.getState().refused).toMatchObject({ id: heroId, reason: 'paused' }), { timeout: 10_000 });
+    expect(heroAt()).toBe(105);
+    expect(game.tab.store.getState().objects.tokens.hero?.x).toBe(105);
+
+    // A second connection (the same player key, a new socket) hears the pause after its client message.
+    const again = game.join('ana');
+    await vi.waitFor(() => expect(again.store.getState().status.kind).toBe('joined'), { timeout: 10_000 });
+    await vi.waitFor(() => expect(again.store.getState().paused).toBe(true), { timeout: 10_000 });
+
+    game.table.pause.set(false);
+    await vi.waitFor(() => expect(ana.store.getState().paused).toBe(false), { timeout: 10_000 });
+    expect(ana.send({ t: 'move', scene: sceneId, id: heroId, x: 245, y: 100 })).toBe(true);
+    await vi.waitFor(() => expect(game.tab.store.getState().objects.tokens.hero?.x).not.toBe(105), { timeout: 10_000 });
+  }, 60_000);
+});
