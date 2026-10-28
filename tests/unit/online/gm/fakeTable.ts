@@ -213,7 +213,12 @@ export const app = {
     },
     offref: (ref: { name: string; listener: (...args: unknown[]) => void }) => void workspaceListeners.get(ref.name)?.delete(ref.listener),
   },
+  // The table follows the vault's notes (`NotesShare`); this vault has none.
+  metadataCache: { on: () => ({}), offref: () => undefined, getFileCache: () => null, resolvedLinks: {} },
   vault: {
+    on: () => ({}),
+    offref: () => undefined,
+    getMarkdownFiles: () => [],
     getFileByPath: (path: string) => {
       const bytes = workspace.files.get(path);
       return bytes === undefined ? null : { path, stat: { mtime: 0, size: bytes.length } };

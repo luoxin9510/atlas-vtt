@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { copyForPlayers, type CopyTargets } from '../../../../src/app/online/gm/notes/playerCopy';
 import { parseNote } from '../../../../src/app/online/gm/notes/parseNote';
 import { seeded } from './seeded.ts';
+import { settled } from './settled.ts';
+import { ANA, makeTable, type Table } from './notes/notesHarness.ts';
 
 const TRIALS = 200;
 const KEPT_KINDS: ReadonlySet<string> = new Set([
@@ -193,3 +195,86 @@ async function check(gen: Trial, note: string): Promise<void> {
   for (const word of gen.publics) expect(markdown, `public ${word} missing in:\n${note}`).toContain(word);
   walk(parseNote(markdown), (node) => expect(KEPT_KINDS.has(node.type), `${node.type} in:\n${markdown}`).toBe(true));
 }
+
+const SHARE_TRIALS = 30;
+const SHARE_STEPS = 14;
+const NOTE_COUNT = 4;
+
+interface Slot {
+  name: string;
+  flagged: boolean;
+  exists: boolean;
+}
+
+/** The text a chunk message carries, decoded. */
+const chunkText = (body: { readonly data: string }): string => Buffer.from(body.data, 'base64').toString('utf8');
+
+describe('the shared notes never send what the GM hides', () => {
+  it.each(Array.from({ length: SHARE_TRIALS }, (_, trial) => trial))('trial %i', async (trial) => {
+    const random = seeded(31_000 + trial);
+    const pick = <T,>(list: readonly T[]): T => list[Math.floor(random() * list.length)] as T;
+    const slots: Slot[] = Array.from({ length: NOTE_COUNT }, (_, index) => ({ name: `nm${index}x0`, flagged: false, exists: false }));
+    const forbidden = new Set<string>();
+    const sharedNames = new Set<string>();
+    const unsharedNames = new Set<string>();
+    let renames = 0;
+    const table: Table = makeTable({});
+    const hashes = new Set<string>();
+    let output = '';
+    /** What a version of a note says: shared or not, with words it must show and words it must not. */
+    const write = (slot: Slot): void => {
+      const gen = new Trial(random);
+      const others = slots.filter((other) => other !== slot && other.exists);
+      const links = others.map((other) => `[[${other.name}]] [[${other.name}|${gen.open()}]]`).join(' ');
+      const group = slot.flagged ? `atlas-share-group: grp${renames++}g\n` : '';
+      const front = `---\natlas-share: ${slot.flagged}\n${group}title: ${gen.secret()}\n---`;
+      table.vault.write(`${slot.name}.md`, [front, `# ${gen.open()}`, links, gen.container(2), gen.definitions()].join('\n\n'));
+      for (const word of gen.secrets) forbidden.add(word);
+      if (!slot.flagged) for (const word of gen.publics) forbidden.add(word);
+      (slot.flagged ? sharedNames : unsharedNames).add(slot.name);
+      if (slot.flagged) sharedNames.add(`grp${renames - 1}g`);
+    };
+    const collect = async (): Promise<void> => {
+      for (const note of table.list()) hashes.add(note.text.hash);
+      table.sent.length = 0;
+      for (const hash of hashes) {
+        table.share.playerLeft(ANA);
+        table.share.receive(ANA, { t: 'asset-request', hash });
+      }
+      await settled();
+      output += JSON.stringify(table.sent.map((entry) => entry.body)) + table.sent.flatMap((entry) => (entry.body.t === 'asset-chunk' ? [chunkText(entry.body)] : [])).join('\n');
+    };
+    table.share.start();
+    for (let step = 0; step < SHARE_STEPS; step++) {
+      const batch = 1 + Math.floor(random() * 3);
+      for (let index = 0; index < batch; index++) {
+        const slot = pick(slots);
+        const op = pick(['share', 'unshare', 'edit', 'rename', 'delete'] as const);
+        if (op === 'delete' && slot.exists) {
+          table.vault.remove(`${slot.name}.md`);
+          slot.exists = false;
+          slot.flagged = false;
+        } else if (op === 'rename' && slot.exists) {
+          const name = `nm${slots.indexOf(slot)}x${++renames}`;
+          await table.vault.move(`${slot.name}.md`, `${name}.md`);
+          slot.name = name;
+          write(slot);
+        } else {
+          slot.exists = true;
+          if (op === 'share') slot.flagged = true;
+          else if (op === 'unshare') slot.flagged = false;
+          write(slot);
+        }
+      }
+      await settled();
+      await collect();
+    }
+    await settled();
+    await collect();
+    for (const name of unsharedNames) if (!sharedNames.has(name)) forbidden.add(name);
+    for (const word of forbidden) expect(output, `${word} reached players`).not.toContain(word);
+    // The list is exactly the notes flagged now, and no listed text names a note that is not.
+    expect(table.list().map((note) => note.title).sort()).toEqual(slots.filter((slot) => slot.exists && slot.flagged).map((slot) => slot.name).sort());
+    table.share.stop();
+  });
+});

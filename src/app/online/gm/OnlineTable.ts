@@ -34,6 +34,8 @@ import { LOST_NOTICES, type OnlineTableEvents } from './tableEvents.ts';
 
 export type { OnlineTableEvents };
 import { FoundShare } from './pins/FoundShare.ts';
+import { tableNotes } from './notes/tableNotes.ts';
+import type { NotesShare } from './notes/NotesShare.ts';
 
 /** How often the presented tab is looked for, and the shared one checked. */
 const WATCH_MS = 1_000;
@@ -74,6 +76,8 @@ export class OnlineTable {
   private readonly books: TableBook;
   /** The readable pins players find, and the notes they found. */
   private readonly found: FoundShare;
+  /** The notes marked `atlas-share`, shared with players of fork level 3. */
+  readonly notes: NotesShare;
   /** The pages whose book covers their map, which the table's activity leaves out. */
   private readonly covers: CoveredPages;
   /** The join link players open. */
@@ -88,7 +92,10 @@ export class OnlineTable {
   constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, paused: boolean, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
     this.app = app;
     this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now());
-    this.forkClients = new ForkClients((player) => this.pauseShare.client(player));
+    this.forkClients = new ForkClients((player) => {
+      this.pauseShare.client(player);
+      this.notes.client(player);
+    });
     const pauseShare = new PauseShare({
       players: () => ownership.onlinePlayers(),
       levelOf: (player) => this.forkClients.levelOf(player),
@@ -150,6 +157,11 @@ export class OnlineTable {
       app, send: (body, to, tag) => this.connection.send(body, to, tag), now: () => timers.now(), nameOf: (player) => ownership.nameOf(player),
       readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow, layers: () => this.bound()?.share.layers ?? null,
       tickets: this.tickets, forkLevelOf: (player) => this.forkClients.levelOf(player),
+    });
+    this.notes = tableNotes({
+      app, players: () => ownership.onlinePlayers(), forkLevelOf: (player) => this.forkClients.levelOf(player),
+      send: (body, to, tag) => this.connection.send(body, to, tag), dropTagged: (tag) => this.connection.dropTagged(tag),
+      randomId: () => randomHex(12), now: () => timers.now(), tickets: this.tickets, readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow,
     });
     this.books = tableBook({
       app, shelf, ownership, randomId: () => randomHex(12),
@@ -223,11 +235,12 @@ export class OnlineTable {
         this.image.playerLeft(player);
         this.books.share.playerLeft(player);
         this.found.playerLeft(player);
+        this.notes.playerLeft(player);
         ownership.left(player);
         this.log.left(player);
       },
       // The log, the shown image and the books are the table's, so they hear players while no scene is shared too.
-      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
+      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.notes.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
       access: (closesAt) => this.setClosing(closesAt),
     }, this.gate);
     this.roster = new TableRoster(seats, this.connection, { kick: (player) => this.kick(player), turnAway: (player) => this.connection.kick(player), joinCode: () => this.gate.settings.code });
@@ -297,6 +310,7 @@ export class OnlineTable {
     this.connection.start();
     this.books.start();
     this.found.start();
+    this.notes.start();
     // Every rest that reaches a character of this table the GM's Atlas takes while it runs is logged: approved requests and the GM's own.
     this.stopLoggingRests = gatedRests.onRested((rest) => {
       const players = this.playersOfCharacter(rest.characterId);
@@ -371,6 +385,7 @@ export class OnlineTable {
   private stopWatch(): void {
     this.stopLoggingRests();
     this.found.stop();
+    this.notes.stop();
     this.stopWatchTimer();
     this.stopFollowingPresented();
     this.watch.stop();
@@ -389,6 +404,7 @@ export class OnlineTable {
     else binding.share.resend(to);
     this.log.resend(to);
     this.image.resend(to);
+    this.notes.resend(to);
     this.books.share.resend(to);
   }
 
