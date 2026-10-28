@@ -20,10 +20,13 @@ export class TokenDrags {
   private readonly overrides = new TokenOverrides();
   private readonly controller: DragController;
   private destroyed = false;
+  private readonly unsubscribe: () => void;
 
   constructor(private readonly options: TokenDragsOptions) {
     const { store, send, toWorld } = options;
     this.controller = new DragController({ send, store, toWorld, now: () => performance.now(), preview: (id, at) => { this.overrides.set(id, at); this.draw(); } });
+    // The pause turning on ends a drag in progress (drag-cancel, preview cleared).
+    this.unsubscribe = store.subscribe((state, before) => { if (state.paused && !before.paused) this.stop(); });
   }
 
   handle(gesture: Gesture): void {
@@ -44,6 +47,7 @@ export class TokenDrags {
 
   destroy(): void {
     this.destroyed = true;
+    this.unsubscribe();
     this.controller.destroy();
   }
 }

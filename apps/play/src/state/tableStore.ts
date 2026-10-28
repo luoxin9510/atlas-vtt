@@ -45,7 +45,7 @@ export interface TableState {
   live: ReadonlyMap<string, Point>;
   /** The last refused move, a new object for each, so a repeat is told from the one before. */
   refused: MoveRefusal | null;
-  /** The table is paused: the GM takes no moves. Nothing sets it yet. */
+  /** The table is paused: the GM takes no moves. Set by `pause`, cleared by a new welcome. */
   paused: boolean;
   /** undefined: not received yet, so nothing of the map is drawn. */
   fog: SharedFog | undefined;
@@ -133,6 +133,7 @@ export function reduceMessage(state: TableState, message: GmMessage, now: number
     return { ...EMPTY_SCENE_LAYER, scene, mode };
   }
   if (message.t === 'roll-refused') return { rollRefusal: message.reason };
+  if (message.t === 'pause') return state.paused === message.paused ? {} : { paused: message.paused };
   if (!('scene' in message) || typeof message.scene !== 'string') return {};
   if (message.scene !== state.scene?.id) return {};
   if (state.mode === 'none') return {};

@@ -11,6 +11,7 @@ import { SceneCanvas } from '../ui/SceneCanvas.tsx';
 import { PanelDock } from '../ui/PanelDock.tsx';
 import { SettingsSheet } from '../ui/SettingsSheet.tsx';
 import { StatusBar } from '../ui/StatusBar.tsx';
+import { PauseBanner } from '../ui/PauseBanner.tsx';
 import { YourTurnBanner } from '../ui/YourTurnBanner.tsx';
 import type { Session } from './session.ts';
 
@@ -50,6 +51,7 @@ function Table({ session, language, lowPower: initialLowPower, storage, reload }
   return (
     <div className="atlas-play-table">
       <StatusBar status={status} ownCode={ownCode} onSettings={() => setSettings(true)} />
+      <PauseBanner store={session.store} />
       {status.kind === 'connecting' && name !== '' ? <p className="atlas-play-welcome">{t('onlinePlay.join.back', { name })}</p> : null}
       <SceneCanvas store={session.store} assets={session.assets} lowPower={lowPower} send={session.send} />
       <YourTurnBanner store={session.store} lowPower={lowPower} />

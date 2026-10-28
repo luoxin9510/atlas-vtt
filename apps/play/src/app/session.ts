@@ -86,6 +86,8 @@ export class Session {
       onGame: (body) => this.feed.receive(body),
       onSeat: (seat) => {
         this.hadKey = true;
+        // A pause seen before a drop may be over; the GM says it again after the client message if it still holds.
+        this.store.setState({ paused: false });
         this.seats.write(this.env.code, { id: seat.id, key: seat.key, name: this.name });
       },
     });
