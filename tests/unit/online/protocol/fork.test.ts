@@ -76,6 +76,11 @@ describe('the fork protocol messages', () => {
       expect(parseGmMessage(msg(Array.from({ length: 501 }, (_, i) => note(i))))).toBeNull();
       expect(parseGmMessage(msg(Array.from({ length: 500 }, (_, i) => note(i))))).not.toBeNull();
       expect(parseGmMessage(msg([note(1, { text: { ...text, mime: 'image/png' } })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: '' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: '   ' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { group: '' })]))).toBeNull();
+      expect(parseGmMessage(msg([null]))).toBeNull();
+      expect(parseGmMessage(msg([{ id: note(1).id, title: 'T' }]))).toBeNull();
       expect(parseGmMessage({ t: 'notes', notes: 'x' })).toBeNull();
     });
   });

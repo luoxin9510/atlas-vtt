@@ -47,8 +47,15 @@ function isTypeCharacter(character: string): boolean {
   return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character === '-' || character === '_';
 }
 
+/** What a callout's first line says. */
+export interface CalloutHead {
+  readonly type: string;
+  readonly fold: '' | '+' | '-';
+  readonly title: string;
+}
+
 /** The head line of a callout (`[!type]+ title`), or null when the line is none. */
-export function calloutHead(line: string): { type: string; fold: '' | '+' | '-'; title: string } | null {
+export function calloutHead(line: string): CalloutHead | null {
   if (!line.startsWith('[!')) return null;
   let i = 2;
   while (i < line.length && isTypeCharacter(line[i]!)) i++;
