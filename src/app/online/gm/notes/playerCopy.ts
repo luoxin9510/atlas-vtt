@@ -1,7 +1,7 @@
 import type { BlockContent, List, ListItem, Nodes, PhrasingContent, Root, RootContent, Table, TableCell, TableRow } from 'mdast';
 import { gfmToMarkdown } from 'mdast-util-gfm';
 import { toMarkdown } from 'mdast-util-to-markdown';
-import { assetImageHref, isHttpsUrl, noteHref, CALLOUT_TYPES } from '../../protocol/noteLinks.ts';
+import { assetImageHref, assetImageOf, isHttpsUrl, noteHref, CALLOUT_TYPES } from '../../protocol/noteLinks.ts';
 import { htmlEnd, isBlank, stripBlockId, trimEdges } from './copyText';
 import { calloutOf, plainText, splitAtLine } from './copyCallouts';
 import { hasScheme, imageCaption, resolveWikiLink, vaultPath, type CopyTargets } from './copyLinks';
@@ -17,6 +17,7 @@ export interface PlayerCopy {
 
 interface Copy {
 	readonly targets: CopyTargets;
+	/** Every image resolved on the way (hash to linkpath); only those the output holds are handed out. */
 	readonly images: Map<string, string>;
 	/** Set by an unclosed comment: nothing after it, in document order, is copied. */
 	cut: boolean;
@@ -44,8 +45,10 @@ function drop(node: Nodes, copy: Copy): [] {
 
 async function inline(node: PhrasingContent, copy: Copy, inLink: boolean): Promise<PhrasingContent[]> {
 	switch (node.type) {
-		case 'text':
-			return safe(node.value, copy) ? [{ type: 'text', value: node.value }] : [];
+		case 'text': {
+			const value = withoutBrokenWikiLinks(node.value);
+			return value !== '' && safe(value, copy) ? [{ type: 'text', value }] : [];
+		}
 		case 'inlineCode':
 			return [{ type: 'inlineCode', value: node.value }];
 		case 'break':
@@ -59,7 +62,7 @@ async function inline(node: PhrasingContent, copy: Copy, inLink: boolean): Promi
 		case 'linkReference':
 			return phrasing(node.children, copy, inLink);
 		case 'link':
-			return markdownLink(node.url, await phrasing(node.children, copy, true), copy, inLink);
+			return markdownLink(node.url, plainText(node.children), await phrasing(node.children, copy, true), copy, inLink);
 		case 'image':
 			return markdownImage(node.url, node.alt ?? '', copy);
 		case 'wikiLink':
@@ -94,8 +97,16 @@ function noteLink(id: string, text: string, copy: Copy, inLink: boolean): Phrasi
 	return inLink ? [label] : [{ type: 'link', url: noteHref(id), title: null, children: [label] }];
 }
 
-async function markdownLink(url: string, children: PhrasingContent[], copy: Copy, inLink: boolean): Promise<PhrasingContent[]> {
+/** Whether a link shows its own address: an autolink, a literal one, a bare email or a `www.` address (GFM adds `http://` or `mailto:`). */
+function showsItsUrl(text: string, url: string): boolean {
+	const shown = text.trim().toLowerCase();
+	const target = url.trim().toLowerCase();
+	return shown === target || `mailto:${shown}` === target || `http://${shown}` === target || `https://${shown}` === target;
+}
+
+async function markdownLink(url: string, text: string, children: PhrasingContent[], copy: Copy, inLink: boolean): Promise<PhrasingContent[]> {
 	if (hasScheme(url)) {
+		if (!isHttpsUrl(url) && showsItsUrl(text, url)) return [];
 		if (isHttpsUrl(url) && !safe(url, copy)) return [];
 		if (inLink || children.length === 0 || !isHttpsUrl(url)) return children;
 		return [{ type: 'link', url, title: null, children }];
@@ -107,7 +118,27 @@ async function markdownLink(url: string, children: PhrasingContent[], copy: Copy
 	return children.length > 0 ? children : noteLink(note.id, note.title, copy, inLink);
 }
 
-function imageNode(ref: Parameters<typeof assetImageHref>[0], path: string, caption: string, copy: Copy): PhrasingContent[] {
+/** A caption that is only the file's name tells players the name: spaces, `_` and `-` count alike, the extension is optional. */
+function namesTheFile(caption: string, path: string): boolean {
+	const normal = (text: string): string => text.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+	const name = path.slice(path.lastIndexOf('/') + 1);
+	const dot = name.lastIndexOf('.');
+	const shown = normal(caption);
+	return shown === normal(name) || (dot > 0 && shown === normal(name.slice(0, dot)));
+}
+
+/** Drops each `[[` up to its `]]` (or the end of the text): a wikilink the parser did not take must not show its typed target. */
+function withoutBrokenWikiLinks(value: string): string {
+	let out = value;
+	for (let start = out.indexOf('[['); start >= 0; start = out.indexOf('[[')) {
+		const end = out.indexOf(']]', start + 2);
+		out = out.slice(0, start) + (end < 0 ? '' : out.slice(end + 2));
+	}
+	return out;
+}
+
+function imageNode(ref: Parameters<typeof assetImageHref>[0], path: string, written: string, copy: Copy): PhrasingContent[] {
+	const caption = namesTheFile(written, path) ? '' : written;
 	if (!safe(caption, copy)) return [];
 	if (!copy.images.has(ref.hash)) copy.images.set(ref.hash, path);
 	return [{ type: 'image', url: assetImageHref(ref), alt: caption, title: null }];
@@ -235,6 +266,21 @@ async function table(node: Table, copy: Copy): Promise<BlockContent[]> {
 	return [{ type: 'table', align, children: rows }];
 }
 
+/** The images the output tree holds, found by the hashes of its image nodes. */
+function imagesIn(node: Nodes, found: ReadonlyMap<string, string>): Map<string, string> {
+	const used = new Map<string, string>();
+	const visit = (current: Nodes): void => {
+		if (current.type === 'image') {
+			const hash = assetImageOf(current.url)?.hash;
+			const path = hash === undefined ? undefined : found.get(hash);
+			if (hash !== undefined && path !== undefined) used.set(hash, path);
+		}
+		if ('children' in current) for (const child of current.children) visit(child);
+	};
+	visit(node);
+	return used;
+}
+
 /**
  * The copy of a parsed note that players get: a new tree built from the allowed nodes only
  * (anything else is dropped with its content), serialised to Markdown. The parsed tree is not touched.
@@ -242,6 +288,7 @@ async function table(node: Table, copy: Copy): Promise<BlockContent[]> {
 export async function copyForPlayers(tree: Root, targets: CopyTargets): Promise<PlayerCopy> {
 	const copy: Copy = { targets, images: new Map(), cut: false };
 	const children = await blocks(tree.children, copy);
-	const markdown = children.length === 0 ? '' : toMarkdown({ type: 'root', children }, { extensions: [gfmToMarkdown()] });
-	return { markdown, images: copy.images };
+	const root: Root = { type: 'root', children };
+	const markdown = children.length === 0 ? '' : toMarkdown(root, { extensions: [gfmToMarkdown()] });
+	return { markdown, images: imagesIn(root, copy.images) };
 }

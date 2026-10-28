@@ -71,6 +71,8 @@ class Trial {
 
   /** Images carry their caption into a paragraph but not into a callout's plain title. */
   private readonly imageMakers: Array<() => string> = [
+    () => { const name = this.secret(); return `![${name}.png](${name}.png)`; },
+    () => { const name = this.secret(); return `![[${name}.png|${name}]]`; },
     () => `![[${this.secret()}.png]]`,
     () => `![[${this.secret()}.png|${this.open()}|300]]`,
     () => `![${this.secret()}](https://cdn.example/${this.secret()}.png)`,
@@ -88,6 +90,14 @@ class Trial {
     () => `$${this.secret()}$`,
     () => `[^${this.label('^')}]`,
     () => `[${this.open()}][${this.label('')}]`,
+    () => `<obsidian://open?file=${this.secret()}>`,
+    () => `<file:///${this.secret()}>`,
+    () => `<mailto:${this.secret()}@y.z>`,
+    () => `www.${this.secret()}.com`,
+    () => `http://${this.secret()}.org`,
+    () => `[[${this.secret()}|a]b]]`,
+    () => `[[${this.secret()}#h]b]]`,
+    () => `[${this.open()}](obsidian://open?file=${this.secret()})`,
     () => `[[${this.open()}]]`,
     () => `[[${this.open()}#${this.open()}]]`,
     () => `*${this.open()}* **${this.open()}**`,

@@ -73,7 +73,7 @@ describe('links', () => {
 		expect(await copy('[x](http://a.b)')).toBe('x\n');
 		expect(await copy('[x](javascript:alert(1))')).toBe('x\n');
 		expect(await copy('[x](obsidian://open?vault=v)')).toBe('x\n');
-		expect(await copy('see www.a.b now')).toBe('see www\\.a.b now\n');
+		expect(await copy('see www.a.b now')).toBe('see  now\n');
 	});
 
 	it('turns reference links into their text', async () => {
@@ -167,5 +167,41 @@ describe('unclosed comments cut the copy globally', () => {
 		expect(await copy('keep\n\n[[Shared|a %% b]] more\n\nlater')).toBe('keep\n');
 		expect(await copy('keep\n\n![[map.png|a \\%% b]] more\n\nlater')).toBe('keep\n');
 		expect(await copy('keep\n\n> [!info] a \\%% b\n\nlater')).toBe('keep\n\n> [!info]\n');
+	});
+});
+
+describe('tightening', () => {
+	it('drops a non-https autolink whole but keeps the text of a written link', async () => {
+		expect(await copy('a <obsidian://open?file=Secret> b')).toBe('a  b\n');
+		expect(await copy('a <file:///etc/passwd> b')).toBe('a  b\n');
+		expect(await copy('a <mailto:x@y.z> b')).toBe('a  b\n');
+		expect(await copy('a x@y.z b')).toBe('a  b\n');
+		expect(await copy('a http://a.b/Secret b')).toBe('a  b\n');
+		expect(await copy('a www.a.b b')).toBe('a  b\n');
+		expect(await copy('[text](obsidian://open?file=Secret)')).toBe('text\n');
+		expect(await copy('<https://a.b>')).toBe('<https://a.b>\n');
+	});
+
+	it('drops an image caption that is the file name', async () => {
+		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]']) {
+			expect(await copy(text), text).toMatch(/^!\[\]\(atlas-asset:/);
+		}
+		expect(await copy('![[Secret.png|The Secret]]')).toMatch(/^!\[The Secret\]/);
+	});
+
+	it('lists only images the output holds', async () => {
+		const held = async (text: string): Promise<string[]> => [...(await copyForPlayers(parseNote(text), targets)).images.values()];
+		expect(await held('![[A.png]]')).toEqual(['A.png']);
+		expect(await held('> [!info] t ![[A.png]]\n> body')).toEqual([]);
+		expect(await held('[![[A.png]]](https://x.y/%%)')).toEqual([]);
+		expect(await held('[![[A.png]]](https://x.y/ok)')).toEqual(['A.png']);
+		expect(await held('[![[A.png]]](http://x.y)')).toEqual(['A.png']);
+		expect(await held('[x ![[A.png]]](Shared.md)')).toEqual(['A.png']);
+	});
+
+	it('drops a broken wikilink from text', async () => {
+		expect(await copy('a [[Secret|a]b]] c')).toBe('a  c\n');
+		expect(await copy('a [[Secret#h]b]] c')).toBe('a  c\n');
+		expect(await copy('a [[Secret never closed')).toBe('a\n');
 	});
 });
