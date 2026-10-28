@@ -56,13 +56,14 @@ Plan 2; pick them up when touching the code nearby.
 What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - A slow phone whose `cache.put` runs past the 10 s stall window after a good ticket can show the "Image sent by the GM directly" line and fetch the image twice (`AssetLoader`).
 - The fallback line is a local log entry ordered by the phone's clock, so it can sit slightly out of order among the GM's entries.
-- Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status, and a part retried while another `PUT` of the same index is running shares a temp name (`apps/relay/src/assets`); the GM then sends chunks.
+- Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status (`apps/relay/src/assets`); the GM then sends chunks.
 - A relay that is full or has under 2 GiB of disk (`507`) sends everything over the socket instead; a `429` or `507` mint is not remembered as a failure, so each new player asks again.
 - Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.
-- A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If the engine cannot start the page stays on "preparing lighting" until the probe or the crash guard decides; after a crash loop the lighting stays blocked for 10 minutes.
+- A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
 - The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
 - A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
 - `OnlineTable` has 11 positional constructor parameters and is about 390 lines; the pause wiring there is tested only through `PauseShare`.
+- A failed GM-side upload to the image cache writes no log line, so the GM cannot see why images arrive over the socket, and the player cannot tell either (Task 11 ruling).
