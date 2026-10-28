@@ -10,6 +10,7 @@ import type { SharedGrid } from '../../../../src/app/online/protocol/mapLayers.t
 import type { AssetLoader, LoadedAsset } from '../assets/AssetLoader.ts';
 import { canRunLighting } from '../lighting/lightingProbe.ts';
 import type { TableState, TableStoreApi } from '../state/tableStore.ts';
+import type { PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import { CanvasInput } from './canvasInput.ts';
 import { CoverageMemo } from './coverageMemo.ts';
 import { AnnotationLayer } from './annotationLayer.ts';
@@ -23,6 +24,7 @@ import { mapRequest } from './mapRequest.ts';
 import { MapSprite } from './mapSprite.ts';
 import { PinLayer } from './PinLayer.ts';
 import { gridOptions, maxTextureSize } from './sceneHelpers.ts';
+import { TokenDrags } from './TokenDrags.ts';
 import { TokenLayer } from './TokenLayer.ts';
 
 export { mapRequest } from './mapRequest.ts';
@@ -52,6 +54,7 @@ export class SceneView {
   private readonly fogSlot = new Container({ label: 'fog-slot', eventMode: 'none' });
   private viewport: Viewport | null = null;
   private input: CanvasInput | null = null;
+  private drags: TokenDrags | null = null;
   private unsubscribe: (() => void) | null = null;
   private grid: GridSystem | null = null;
   private shownGrid: SharedGrid | null = null;
@@ -78,6 +81,7 @@ export class SceneView {
     private readonly lowPower: boolean,
     private readonly onGesture: (g: Gesture) => void = () => undefined,
     private readonly onDrawn: (drawn: boolean) => void = () => undefined,
+    private readonly send: (body: PlayerMessage) => boolean = () => false,
   ) {
     this.tokenLayer = new TokenLayer(assets, lowPower);
     this.download = new MapDownload({
@@ -128,6 +132,7 @@ export class SceneView {
       if (this.map.worldRect) this.applyZoomRange(this.map.worldRect);
     });
     this.viewport = viewport;
+    this.drags = new TokenDrags({ store: this.store, tokens: this.tokenLayer, send: this.send, toWorld: (x, y) => viewport.toWorld(x, y), shown: () => this.drawn });
     this.input = new CanvasInput({
       host: canvasHost, canvas: app.canvas, now: () => performance.now(),
       tokenAt: (x, y) => this.tokenAt(x, y), isMine: (id) => this.store.getState().mine.has(id),
@@ -141,6 +146,7 @@ export class SceneView {
 
   private gesture(g: Gesture): void {
     if (g.kind === 'tap' || g.kind === 'long-press') this.store.select(this.tokenAt(g.x, g.y));
+    this.drags?.handle(g);
     this.onGesture(g);
   }
 
@@ -235,7 +241,7 @@ export class SceneView {
     }
     this.annotationLayer.sync(state.annotations);
     this.pinLayer.sync(state.pins, state.cell);
-    this.tokenLayer.sync(state.tokens, state.mine, state.selected, state.cell);
+    this.drags?.draw();
   }
 
   /** Whether the scene may be drawn: loaded, its fog known and, if lit, the lighting ready over it. */
@@ -291,6 +297,7 @@ export class SceneView {
     this.unsubscribe?.();
     if (this.viewport) this.app.ticker.remove(this.gate);
     this.lit.drop();
+    this.drags?.destroy();
     this.input?.destroy();
     this.dropFogAndGrid();
     this.tokenLayer.destroy();

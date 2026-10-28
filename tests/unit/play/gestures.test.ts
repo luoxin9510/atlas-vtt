@@ -66,7 +66,7 @@ describe('GestureRecognizer', () => {
   it('a moving finger on an own token drags it', () => {
     recognizer.down(p(1, 10, 10));
     recognizer.move(p(1, 40, 10));
-    expect(seen).toEqual([{ kind: 'drag-token', id: 'mine' }]);
+    expect(seen).toEqual([{ kind: 'drag-token', id: 'mine' }, { kind: 'drag-move', id: 'mine', x: 40, y: 10 }]);
   });
 
   it('a moving finger on another player\'s token pans', () => {
@@ -85,5 +85,45 @@ describe('GestureRecognizer', () => {
     recognizer.cancel(1);
     recognizer.up(p(1, 200, 200));
     expect(seen).toEqual([]);
+  });
+  describe('dragging an own token', () => {
+    const drag = (): void => {
+      recognizer.down(p(1, 10, 10));
+      recognizer.move(p(1, 30, 10));
+    };
+
+    it('streams drag-token, drag-moves and drag-end in screen coordinates', () => {
+      drag();
+      recognizer.move(p(1, 40, 12));
+      recognizer.up(p(1, 45, 14));
+      expect(seen).toEqual([
+        { kind: 'drag-token', id: 'mine' }, { kind: 'drag-move', id: 'mine', x: 30, y: 10 },
+        { kind: 'drag-move', id: 'mine', x: 40, y: 12 }, { kind: 'drag-end', id: 'mine', x: 45, y: 14 },
+      ]);
+    });
+
+    it('a second finger mid-drag cancels the drag, then pinches', () => {
+      drag();
+      seen.length = 0;
+      recognizer.down(p(2, 200, 200));
+      recognizer.move(p(1, 50, 10));
+      recognizer.up(p(1, 50, 10));
+      expect(seen).toEqual([{ kind: 'drag-cancel', id: 'mine' }, { kind: 'pinch' }]);
+    });
+
+    it('pointercancel yields drag-cancel and no drag-end', () => {
+      drag();
+      seen.length = 0;
+      recognizer.cancel(1);
+      recognizer.up(p(1, 50, 10));
+      expect(seen).toEqual([{ kind: 'drag-cancel', id: 'mine' }]);
+    });
+
+    it('a pan or another player token streams nothing', () => {
+      recognizer.down(p(1, 120, 10));
+      recognizer.move(p(1, 160, 10));
+      recognizer.up(p(1, 160, 10));
+      expect(seen).toEqual([{ kind: 'pan' }]);
+    });
   });
 });

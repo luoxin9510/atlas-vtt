@@ -113,9 +113,9 @@ export class Session {
     this.view.setState({ screen: 'form', reason, name: this.name }, true);
   }
 
-  send(body: PlayerMessage): boolean {
+  readonly send = (body: PlayerMessage): boolean => {
     return this.socket?.send(body) ?? false;
-  }
+  };
 
   private onStatus(status: SocketStatus): void {
     this.assets.setConnected(status.kind === 'joined' && status.gmOnline);
@@ -128,9 +128,18 @@ export class Session {
     this.store.setStatus(status);
   }
 
+  /** A refused move says why when the GM gave a reason (as a line in the log, like the other local notes). */
+  private tellRefusal(reason: 'turn' | 'paused' | undefined): void {
+    if (reason === 'turn') this.log.addLocal(t('onlinePlay.move.notYourTurn'), Date.now());
+    else if (reason === 'paused') this.log.addLocal(t('onlinePlay.move.paused'), Date.now());
+  }
+
   private apply(message: GmMessage): void {
     if (this.assets.receive(message)) return;
     if (isLogMessage(message)) this.log.receive(message);
-    else this.store.applyMessage(message, Date.now());
+    else {
+      this.store.applyMessage(message, Date.now());
+      if (message.t === 'move-refused' && message.scene === this.store.getState().scene?.id) this.tellRefusal(message.reason);
+    }
   }
 }

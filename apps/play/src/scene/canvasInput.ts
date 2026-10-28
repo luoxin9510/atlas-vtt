@@ -37,6 +37,7 @@ export class CanvasInput {
     host.addEventListener('pointermove', this.onMove, true);
     host.addEventListener('pointerup', this.onUp, true);
     host.addEventListener('pointercancel', this.onCancel, true);
+    host.addEventListener('lostpointercapture', this.onCancel, true);
     host.addEventListener('contextmenu', this.onMenu, true);
     // A mouse released outside the host never reaches it (only touch is captured implicitly): the window hears it.
     window.addEventListener('pointerup', this.onUp, true);
@@ -90,6 +91,7 @@ export class CanvasInput {
     host.removeEventListener('pointermove', this.onMove, true);
     host.removeEventListener('pointerup', this.onUp, true);
     host.removeEventListener('pointercancel', this.onCancel, true);
+    host.removeEventListener('lostpointercapture', this.onCancel, true);
     host.removeEventListener('contextmenu', this.onMenu, true);
     window.removeEventListener('pointerup', this.onUp, true);
     window.removeEventListener('pointercancel', this.onCancel, true);

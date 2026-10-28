@@ -38,6 +38,8 @@ export const onlinePlay = {
   'onlinePlay.join.submit': 'Join',
   'onlinePlay.join.back': 'Welcome back, {name}',
   'onlinePlay.assets.socketFallback': 'Image sent by the GM directly',
+  'onlinePlay.move.notYourTurn': 'Not your turn',
+  'onlinePlay.move.paused': 'Game paused',
   'onlinePlay.send.failed': 'Could not send, try again',
   'onlinePlay.join.waiting': 'Waiting for the GM…',
   'onlinePlay.join.retry': 'Try again',

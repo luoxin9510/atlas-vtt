@@ -38,6 +38,8 @@ export const onlinePlay: Translation = {
   'onlinePlay.join.submit': '加入',
   'onlinePlay.join.back': '欢迎回来，{name}',
   'onlinePlay.assets.socketFallback': '图片改由主持人直接发送',
+  'onlinePlay.move.notYourTurn': '还没轮到你',
+  'onlinePlay.move.paused': '游戏已暂停',
   'onlinePlay.send.failed': '未能发送，请重试',
   'onlinePlay.join.waiting': '等待主持人同意…',
   'onlinePlay.join.retry': '重试',

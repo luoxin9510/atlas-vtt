@@ -1,4 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import type { Point } from '../../../../src/app/grid/hexGeometry.ts';
+import type { SnapGrid } from '../../../../src/app/online/protocol/moves.ts';
+import { reduceLive } from '../scene/liveTokens.ts';
 import type { RollRefusal } from '../../../../src/app/online/protocol/dice.ts';
 import type { SharedFog } from '../../../../src/app/online/protocol/fog.ts';
 import type { GmMessage, SharedScene } from '../../../../src/app/online/protocol/game.ts';
@@ -20,6 +23,12 @@ export interface LitInputs {
   sensed: readonly SensedMark[];
 }
 
+/** The GM did not take a move of the player's: the token it concerns and why (none: no reason given). */
+export interface MoveRefusal {
+  readonly id: string;
+  readonly reason?: 'turn' | 'paused';
+}
+
 export interface TableState {
   status: SocketStatus;
   self: string | null;
@@ -30,6 +39,14 @@ export interface TableState {
   lighting: LightingSupport;
   tokens: readonly SharedToken[];
   cell: number;
+  /** The grid a dropped token snaps to; null: no snapping. */
+  snap: SnapGrid | null;
+  /** Where the tokens being dragged are now (by the GM or any player); the latest wins, the end of a drag removes it. */
+  live: ReadonlyMap<string, Point>;
+  /** The last refused move, a new object for each, so a repeat is told from the one before. */
+  refused: MoveRefusal | null;
+  /** The table is paused: the GM takes no moves. Nothing sets it yet. */
+  paused: boolean;
   /** undefined: not received yet, so nothing of the map is drawn. */
   fog: SharedFog | undefined;
   grid: SharedGrid | null;
@@ -64,6 +81,9 @@ const NO_ANNOTATIONS: SharedAnnotations = { drawings: [], texts: [] };
 const EMPTY_SCENE_LAYER = {
   tokens: [] as readonly SharedToken[],
   cell: 0,
+  snap: null,
+  live: new Map<string, Point>() as ReadonlyMap<string, Point>,
+  refused: null,
   fog: undefined,
   grid: null,
   pins: [] as readonly SharedPin[],
@@ -77,7 +97,7 @@ const EMPTY_SCENE_LAYER = {
 } satisfies Partial<TableState>;
 
 export function initialTableState(): TableState {
-  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, ...EMPTY_SCENE_LAYER };
+  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, paused: false, ...EMPTY_SCENE_LAYER };
 }
 
 /** What a lit scene keeps of the messages its lighting is worked out from; nothing is drawn from them here. */
@@ -127,8 +147,15 @@ function reduceLayers(state: TableState, message: GmMessage, now: number): Parti
   switch (message.t) {
     case 'tokens': {
       const selected = state.selected !== null && message.tokens.some((token) => token.id === state.selected) ? state.selected : null;
-      return { tokens: message.tokens, cell: message.cell, selected };
+      const live = reduceLive(state.live, [], message.tokens);
+      return { tokens: message.tokens, cell: message.cell, snap: message.snap, selected, ...(live !== state.live && { live }) };
     }
+    case 'live': {
+      const live = reduceLive(state.live, message.tokens, state.tokens);
+      return live === state.live ? {} : { live };
+    }
+    case 'move-refused':
+      return { refused: { id: message.id, ...(message.reason !== undefined && { reason: message.reason }) } };
     case 'mine':
       return { mine: new Set(message.tokens) };
     case 'fog':
