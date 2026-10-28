@@ -65,13 +65,16 @@ export class AssetTickets {
 
   /** Runs `job` once fewer than `MAX_UPLOADS` are running; the others wait in the order they came. */
   private async queued<T>(job: () => Promise<T>): Promise<T> {
+    // A waiter is handed the finished job's slot directly (`running` stays), so a job starting
+    // at that very moment can never make a third.
     if (this.running >= MAX_UPLOADS) await new Promise<void>((resolve) => this.waiting.push(resolve));
-    this.running += 1;
+    else this.running += 1;
     try {
       return await job();
     } finally {
-      this.running -= 1;
-      this.waiting.shift()?.();
+      const next = this.waiting.shift();
+      if (next === undefined) this.running -= 1;
+      else next();
     }
   }
 

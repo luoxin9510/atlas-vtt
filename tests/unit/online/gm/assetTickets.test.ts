@@ -130,6 +130,39 @@ describe('AssetTickets against the relay\'s limits', () => {
     expect(done.size).toBe(5);
   });
 
+  it('hands a finished upload\'s slot to the waiting one, even when a new upload starts at that moment', async () => {
+    const tickets = new AssetTickets(async () => ({ status: 200, json: {} }), TABLE, () => 0);
+    const queued = <T>(job: () => Promise<T>): Promise<T> => (tickets as unknown as { queued<R>(run: () => Promise<R>): Promise<R> }).queued(job);
+    let running = 0;
+    let most = 0;
+    const gates: Array<() => void> = [];
+    const job = (): Promise<void> => {
+      running += 1;
+      most = Math.max(most, running);
+      return new Promise<void>((resolve) => gates.push(() => { running -= 1; resolve(); }));
+    };
+    const first = queued(job);
+    const second = queued(job);
+    const third = queued(job);
+    await Promise.resolve();
+    expect(gates).toHaveLength(2);
+    // The first finishes and, in the same microtask drain, a fourth upload asks to start.
+    gates[0]!();
+    const fourth = Promise.resolve().then(() => queued(job));
+    await first;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(most).toBe(2);
+    const rest = Promise.all([second, third, fourth]);
+    let settled = false;
+    void rest.then(() => { settled = true; });
+    let released = 1;
+    while (!settled) {
+      while (released < gates.length) gates[released++]!();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(most).toBe(2);
+  });
+
   it('does not retry a part after 429, answers null, and tries again after 10 s', async () => {
     const puts: number[] = [];
     let busy = true;
