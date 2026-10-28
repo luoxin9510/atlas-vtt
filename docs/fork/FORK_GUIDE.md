@@ -81,7 +81,12 @@ npx vitest run --project unit tests/unit/play
 npm run test:play-e2e   # builds apps/play, then a real Chromium against the relay (project `play-e2e`, not part of `unit`)
 ```
 
-Environment variables and the reverse proxy note are in `apps/relay/README.md`.
+```sh
+npm run bundle:relay                                  # dist/relay-bundle(.tgz): relay + protocol files + player build
+HOST_KEY=... npm run probe:relay -- https://play.example.com   # remote checks (--quick skips the 110 s idle wait)
+```
+
+Environment variables and the reverse proxy note are in `apps/relay/README.md`; deploying is in `docs/fork/deployment.md`.
 
 The relay also keeps the GM's map and token images (`ASSET_DIR`, 2 GiB per table, 10 GiB per
 server, uploads refused with 507 under 2 GiB of free disk) and hands players short-lived download

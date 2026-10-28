@@ -6,6 +6,8 @@
   "scripts": {
     "relay": "node apps/relay/src/main.ts",
     "check:relay": "tsc -p apps/relay",
+    "bundle:relay": "node scripts/bundle-relay.mjs",
+    "probe:relay": "node scripts/relay-probe.mjs",
     "dev:play": "vite --config apps/play/vite.config.mts",
     "build:play": "vite build --config apps/play/vite.config.mts",
     "check:play": "tsc -p apps/play",

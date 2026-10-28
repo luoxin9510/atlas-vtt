@@ -34,6 +34,11 @@ const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 
+/** Vite names files under `assets/` by content hash, so they never change; everything else (index.html first) is checked again each time. */
+function cacheControl(relative: string): string {
+  return /^[\\/]assets[\\/]/.test(relative) ? 'public, max-age=31536000, immutable' : 'no-cache';
+}
+
 function notFound(res: ServerResponse): void {
   res.writeHead(404, SECURITY_HEADERS).end();
 }
@@ -52,7 +57,7 @@ export async function serveStatic(root: string, urlPath: string, method: string,
   if (file !== root && !file.startsWith(root.endsWith(sep) ? root : root + sep)) return notFound(res);
   const info = await stat(file).catch(() => null);
   if (info === null || !info.isFile()) return notFound(res);
-  res.writeHead(200, { ...SECURITY_HEADERS, 'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': info.size });
+  res.writeHead(200, { ...SECURITY_HEADERS, 'cache-control': cacheControl(relative), 'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': info.size });
   if (method === 'HEAD') {
     res.end();
     return;

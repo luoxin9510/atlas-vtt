@@ -1,0 +1,28 @@
+# /etc/systemd/system/atlas-relay.service
+# Template: see docs/fork/deployment.md. The bundle lives in /opt/atlas-relay/releases/<commit>, `current` points at one.
+[Unit]
+Description=Atlas VTT relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=atlas-relay
+Group=atlas-relay
+WorkingDirectory=/opt/atlas-relay/current
+EnvironmentFile=/etc/atlas-relay.env
+ExecStart=/usr/bin/node apps/relay/src/main.ts
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Hardening: the relay writes only below /var/lib/atlas-relay.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/atlas-relay
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

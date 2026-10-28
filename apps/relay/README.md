@@ -6,6 +6,8 @@ fork-owned (see `docs/fork/FORK_GUIDE.md`).
 - Requires Node >= 22.18 (runs TypeScript natively, no build step).
 - `npm run relay` starts it; `npm run check:relay` type checks it.
 
+Deploying it on a server (bundle, systemd unit, Cloudflare Tunnel, probe): `docs/fork/deployment.md`.
+
 ## How to run
 
 ```sh

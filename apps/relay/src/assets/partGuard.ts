@@ -6,8 +6,11 @@ export type StoreFailure = 400 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 507;
 
 /** Why a part or an image is refused; the store maps it to an HTTP status. */
 export class StoreError extends Error {
-  constructor(readonly status: StoreFailure) {
+  readonly status: StoreFailure;
+
+  constructor(status: StoreFailure) {
     super(`asset store: ${status}`);
+    this.status = status;
   }
 }
 
