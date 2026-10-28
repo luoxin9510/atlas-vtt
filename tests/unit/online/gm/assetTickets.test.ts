@@ -3,6 +3,7 @@ import { ASSET_CHUNK_BYTES, ASSET_TICKET_LEVEL, type AssetTicketMessage, type Gm
 import { sha256Hex } from '../../../../src/app/online/gm/assetServe.ts';
 import { AssetTickets } from '../../../../src/app/online/gm/assetUpload/AssetTickets.ts';
 import type { BinaryHttp } from '../../../../src/app/online/gm/assetUpload/binaryHttp.ts';
+import { png } from './fakeTable.ts';
 import { sceneState, shareHarness } from './shareHarness.ts';
 
 const TABLE = { origin: 'https://play.example.com', code: 'a'.repeat(26), secret: 's3cret' };
@@ -208,9 +209,10 @@ describe('asset answers with tickets', () => {
     expect(mine.asked).toEqual([`${hash}>alice`]);
   });
 
-  it.each([['an image that needs no scaling', true], ['a table that cannot scale', false]])('tickets the original for a request with maxSide when there is no variant: %s', async (_name, hasScaler) => {
+  it.each([['an image that needs no scaling', true], ['a table that cannot scale', false]])('tickets the original for a request with maxSide when the image fits: %s', async (_name, hasScaler) => {
+    const small = png(100, 100);
     const asked: string[] = [];
-    const mine = shareHarness(sceneState(), new Map([['maps/cave.webp', MAP]]), undefined, undefined, {
+    const mine = shareHarness(sceneState(), new Map([['maps/cave.webp', small]]), undefined, undefined, {
       tickets: { ticket: (hash, _bytes, player) => (asked.push(`${hash}>${player}`), Promise.resolve(ticketFor(hash))) },
       ...(hasScaler ? { scaleImage: () => Promise.resolve(null) } : {}),
     });
@@ -218,10 +220,28 @@ describe('asset answers with tickets', () => {
     mine.share.start();
     await mine.set(sceneState());
     mine.sent.length = 0;
-    const hash = await sha256Hex(MAP);
+    const hash = await sha256Hex(small);
     mine.share.receive('alice', { t: 'asset-request', hash, maxSide: 8192 });
     await vi.waitFor(() => expect(kinds(mine.sent)).toEqual(['asset-ticket']));
     expect(asked).toEqual([`${hash}>alice`]);
+  });
+
+  it.each([['a scaler that fails', true], ['a table that cannot scale', false]])('sends chunks, not a ticket, for an image larger than maxSide: %s', async (_name, hasScaler) => {
+    const large = png(5000, 5000);
+    const asked: string[] = [];
+    const mine = shareHarness(sceneState(), new Map([['maps/cave.webp', large]]), undefined, undefined, {
+      tickets: { ticket: (hash, _bytes, player) => (asked.push(`${hash}>${player}`), Promise.resolve(ticketFor(hash))) },
+      ...(hasScaler ? { scaleImage: () => Promise.reject(new Error('no decoder')) } : {}),
+    });
+    mine.forkLevels = new Map([['alice', ASSET_TICKET_LEVEL]]);
+    mine.share.start();
+    await mine.set(sceneState());
+    mine.sent.length = 0;
+    mine.share.receive('alice', { t: 'asset-request', hash: await sha256Hex(large), maxSide: 1024 });
+    await mine.advance(0);
+    await vi.waitFor(() => expect(kinds(mine.sent).length).toBeGreaterThan(0));
+    expect(new Set(kinds(mine.sent))).toEqual(new Set(['asset-chunk']));
+    expect(asked).toEqual([]);
   });
 
   it('sends chunks to a level 1 player and never asks for a ticket', async () => {

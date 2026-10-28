@@ -1,7 +1,7 @@
 import { ASSET_TICKET_LEVEL, type GmMessage, type PlayerAssetRequest } from '../protocol/index.ts';
 import { assetChunks, ServedAssets, sha256Hex } from './assetServe.ts';
 import type { AssetTickets } from './assetUpload/AssetTickets.ts';
-import { AssetVariants, type ScaleImage } from './assetVariants.ts';
+import { AssetVariants, fitsWithin, type ScaleImage } from './assetVariants.ts';
 import type { VaultImage } from './TokenShare.ts';
 
 export interface AssetAnswerPorts {
@@ -78,11 +78,12 @@ export class AssetAnswers {
 
   /** The image itself, or its scaled copy for `maxSide`, while it is still in the picture once the copy is made. */
   private async serveImage(hash: string, bytes: Uint8Array, mime: string, to: string, first: number, maxSide: number | undefined, via: 'socket' | undefined): Promise<void> {
-    // The original is ticketed whenever no scaled copy is made: no longest side asked, no scaler, or nothing to scale.
-    if (maxSide === undefined || this.variants === null) return this.deliver(hash, hash, bytes, to, first, via);
+    if (maxSide === undefined) return this.deliver(hash, hash, bytes, to, first, via);
+    // With a longest side asked, the original is ticketed only where it already fits: a failed scaling keeps the chunk path.
+    if (this.variants === null) return (await fitsWithin(bytes, mime, maxSide)) ? this.deliver(hash, hash, bytes, to, first, via) : this.serve(hash, bytes, to, first);
     const variant = await this.variants.get(hash, bytes, mime, maxSide);
     if (!this.inPicture(hash, to)) return this.refuse(hash, to);
-    if (variant === null) return this.deliver(hash, hash, bytes, to, first, via);
+    if (variant === null) return (await fitsWithin(bytes, mime, maxSide)) ? this.deliver(hash, hash, bytes, to, first, via) : this.serve(hash, bytes, to, first);
     this.ports.send({ t: 'asset-variant', hash, maxSide, variant: variant.ref, width: variant.width, height: variant.height }, to);
     await this.deliver(hash, variant.ref.hash, variant.bytes, to, first, via);
   }

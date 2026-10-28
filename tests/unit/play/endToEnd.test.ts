@@ -352,7 +352,7 @@ describe('a table from the GM through the relay to the player app', () => {
     // A resync is no new turn.
     expect(ana.store.getState().yourTurnAt).toBeNull();
     expect(JSON.parse(hellos()[1] ?? '{}')).toMatchObject({ role: 'player', name: 'Ana', key: expect.any(String) });
-    }, 90_000);
+  }, 90_000);
 });
 
 describe('the image cache, pause and moves between the GM and a player', () => {

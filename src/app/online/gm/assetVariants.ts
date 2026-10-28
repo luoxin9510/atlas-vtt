@@ -21,6 +21,12 @@ export interface AssetVariantOf {
   readonly height: number;
 }
 
+/** True only when the image's header says its longest side is at most `maxSide`; unreadable counts as not fitting. */
+export async function fitsWithin(bytes: Uint8Array, mime: string, maxSide: number): Promise<boolean> {
+  const size = await imageDimensions(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mime })).catch(() => null);
+  return size !== null && Math.max(size.width, size.height) <= maxSide;
+}
+
 /** Copies kept at once: an 8,192 px map makes one of a few megabytes, and a table shows one map. */
 export const VARIANT_CAPACITY = 3;
 /** WebP quality of a scaled copy: maps and art stay sharp, a tenth or less of the original's bytes. */
@@ -56,8 +62,7 @@ export class AssetVariants {
   }
 
   private async make(bytes: Uint8Array, mime: string, maxSide: number): Promise<AssetVariantOf | null> {
-    const size = await imageDimensions(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mime })).catch(() => null);
-    if (size !== null && Math.max(size.width, size.height) <= maxSide) return null;
+    if (await fitsWithin(bytes, mime, maxSide)) return null;
     const scaled = await this.scale(bytes, mime, maxSide).catch(() => null);
     // What a phone holds is the decoded image, so a larger image comes scaled even where its copy has more bytes.
     if (scaled === null) return null;
