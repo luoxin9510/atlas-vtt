@@ -114,6 +114,15 @@ describe('callouts', () => {
 		expect(await copy('> [!info] Open\n> shown\n>\n> > [!gm]\n> > secret\n>\n> still\n')).toBe('> [!info] Open\n>\n> shown\n>\n> still\n');
 	});
 
+	it('drops gm callouts that carry metadata or padding in the head', async () => {
+		expect(await copy('> [!gm|wide] SECRET\n> more\n\nafter')).toBe('after\n');
+		expect(await copy('> [!gm ] SECRET\n\nafter')).toBe('after\n');
+		expect(await copy('> [!GM|wide]-\n> SECRET\n\nafter')).toBe('after\n');
+		expect(await copy('- > [!gm|x] SECRET\n\nafter')).not.toContain('SECRET');
+		expect(await copy('> [!info] Open\n>\n> > [!gm|x] SECRET\n\nafter')).not.toContain('SECRET');
+		expect(await copy('> [!info|meta]+ Title\n> shown')).toBe('> [!info] Title\n>\n> shown\n');
+	});
+
 	it('rebuilds known callouts with a plain title and unknown ones as quotes', async () => {
 		expect(await copy('> [!info]+ Title with [[Secret|alias]]\n> body')).toBe('> [!info] Title with alias\n>\n> body\n');
 		expect(await copy('> [!warning]\n> careful')).toBe('> [!warning]\n>\n> careful\n');

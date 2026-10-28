@@ -131,7 +131,7 @@ class Trial {
   /** A hidden block, in every spelling of a gm callout. */
   hidden(depth: number): string {
     const known = this.publics.length;
-    const head = this.pick(['[!gm]', '[!GM]', '[!gm]-', '[!Gm]+ title', '[!gm] ' + this.secret()]);
+    const head = this.pick(['[!gm]', '[!GM]', '[!gm]-', '[!Gm]+ title', '[!gm] ' + this.secret(), '[!gm|x] ' + this.secret(), '[!gm ]', '[!GM|wide]-', '[!gm foo]+']);
     const inner = [this.secret(), depth > 0 ? this.container(depth - 1) : this.block(), this.block()].join('\n\n');
     // Words written inside a hidden block are hidden too, whatever their prefix says.
     for (const word of this.publics.splice(known)) this.secrets.push(word);

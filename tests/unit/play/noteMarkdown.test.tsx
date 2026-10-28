@@ -94,6 +94,10 @@ describe('NoteMarkdown', () => {
     expect(unknown.querySelector('.atlas-play-callout')).toBeNull();
     expect(unknown.querySelector('blockquote')!.textContent).toContain('Hello');
     expect(unknown.textContent).not.toContain('madeup');
+
+    const meta = draw('> [!warning|wide] Mind\n> the step');
+    expect(meta.querySelector('.atlas-play-callout-warning')).not.toBeNull();
+    expect(meta.textContent).not.toContain('wide');
   });
 
   it('renders lists, task items, code and rules, and drops math-like and html text', () => {

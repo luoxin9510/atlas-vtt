@@ -43,10 +43,6 @@ export const CALLOUT_TYPES: ReadonlySet<string> = new Set([
   'example', 'quote', 'cite',
 ]);
 
-function isTypeCharacter(character: string): boolean {
-  return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character === '-' || character === '_';
-}
-
 /** What a callout's first line says. */
 export interface CalloutHead {
   readonly type: string;
@@ -57,11 +53,14 @@ export interface CalloutHead {
 /** The head line of a callout (`[!type]+ title`), or null when the line is none. */
 export function calloutHead(line: string): CalloutHead | null {
   if (!line.startsWith('[!')) return null;
-  let i = 2;
-  while (i < line.length && isTypeCharacter(line[i]!)) i++;
-  if (i === 2 || line[i] !== ']') return null;
-  const type = line.slice(2, i).toLowerCase();
-  i++;
+  const close = line.indexOf(']');
+  if (close < 0) return null;
+  const bar = line.indexOf('|');
+  let type = line.slice(2, bar >= 0 && bar < close ? bar : close).trim().toLowerCase();
+  if (type === '') return null;
+  // Fail closed: `[!gm anything]` is still a gm callout.
+  if (/^gm\s/.test(type)) type = 'gm';
+  let i = close + 1;
   let fold: '' | '+' | '-' = '';
   if (line[i] === '+' || line[i] === '-') {
     fold = line[i] as '+' | '-';

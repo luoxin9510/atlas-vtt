@@ -33,6 +33,13 @@ describe('note links', () => {
     expect(calloutHead('[ !info]')).toBeNull();
     expect(calloutHead('[!]')).toBeNull();
     expect(calloutHead('[!info')).toBeNull();
+    expect(calloutHead('[!gm|wide] Secret')).toEqual({ type: 'gm', fold: '', title: 'Secret' });
+    expect(calloutHead('[!gm ] Secret')?.type).toBe('gm');
+    expect(calloutHead('[!GM|wide]-')).toEqual({ type: 'gm', fold: '-', title: '' });
+    expect(calloutHead('[!gm foo] x')?.type).toBe('gm');
+    expect(calloutHead('[!info|meta]+ T')).toEqual({ type: 'info', fold: '+', title: 'T' });
+    expect(calloutHead('[! ] x')).toBeNull();
+    expect(calloutHead('[!|x] y')).toBeNull();
     expect(CALLOUT_TYPES.has('warning')).toBe(true);
     expect(CALLOUT_TYPES.has('gm')).toBe(false);
   });
