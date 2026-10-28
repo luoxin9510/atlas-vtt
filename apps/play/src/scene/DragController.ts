@@ -29,7 +29,6 @@ interface Active {
   /** Token centre minus pointer, in world pixels, from the first move: the token keeps the grab. */
   grab: Point | null;
   at: Point;
-  sentAt: number;
   unsent: boolean;
   timer: ReturnType<typeof setTimeout> | null;
 }
@@ -44,6 +43,8 @@ interface Dropped { id: string; at: Point; timer: ReturnType<typeof setTimeout> 
 export class DragController {
   private active: Active | null = null;
   private dropped: Dropped | null = null;
+  /** When the last `drag` frame went out, over all drags: the spacing holds across a drop and a new grab. */
+  private lastDragAt = Number.NEGATIVE_INFINITY;
   private readonly unsubscribe: () => void;
 
   constructor(private readonly ports: DragPorts) {
@@ -85,7 +86,7 @@ export class DragController {
     const token = state.tokens.find((t) => t.id === id);
     if (!token || !state.mine.has(id) || token.held === true || state.paused || state.scene === null) return;
     this.forgetDrop();
-    this.active = { id, scene: state.scene.id, grab: null, at: { x: token.x, y: token.y }, sentAt: Number.NEGATIVE_INFINITY, unsent: false, timer: null };
+    this.active = { id, scene: state.scene.id, grab: null, at: { x: token.x, y: token.y }, unsent: false, timer: null };
   }
 
   private move(active: Active, x: number, y: number): void {
@@ -96,7 +97,7 @@ export class DragController {
     active.at = { x: world.x + active.grab.x, y: world.y + active.grab.y };
     this.ports.preview(active.id, active.at);
     active.unsent = true;
-    const wait = active.sentAt + DRAG_INTERVAL_MS - this.ports.now();
+    const wait = this.lastDragAt + DRAG_INTERVAL_MS - this.ports.now();
     if (wait <= 0) this.sendDrag(active);
     else active.timer ??= setTimeout(() => { active.timer = null; if (this.active === active) this.sendDrag(active); }, wait);
   }
@@ -105,7 +106,7 @@ export class DragController {
     if (active.timer !== null) clearTimeout(active.timer);
     active.timer = null;
     active.unsent = false;
-    active.sentAt = this.ports.now();
+    this.lastDragAt = this.ports.now();
     const { id, scene, at } = active;
     if (!this.ports.send({ t: 'drag', scene, id, x: at.x, y: at.y })) this.abandon();
   }

@@ -30,6 +30,11 @@ export class TokenDrags {
     this.controller.handle(gesture);
   }
 
+  /** Ends a drag in progress as a cancel (the table paused). */
+  stop(): void {
+    this.controller.stop();
+  }
+
   /** Draws the tokens where they belong now; nothing while the scene is not drawn. */
   draw(): void {
     const { store, tokens, shown } = this.options;

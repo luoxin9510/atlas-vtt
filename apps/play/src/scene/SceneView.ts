@@ -6,11 +6,11 @@ import { Viewport } from 'pixi-viewport';
 import type { MapBounds } from '../../../../src/app/vision/visibility.ts';
 import { GridSystem } from '../../../../src/app/grid/GridSystem.ts';
 import type { SharedFog } from '../../../../src/app/online/protocol/fog.ts';
+import type { PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import type { SharedGrid } from '../../../../src/app/online/protocol/mapLayers.ts';
 import type { AssetLoader, LoadedAsset } from '../assets/AssetLoader.ts';
 import { canRunLighting } from '../lighting/lightingProbe.ts';
 import type { TableState, TableStoreApi } from '../state/tableStore.ts';
-import type { PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import { CanvasInput } from './canvasInput.ts';
 import { CoverageMemo } from './coverageMemo.ts';
 import { AnnotationLayer } from './annotationLayer.ts';
@@ -23,14 +23,13 @@ import { MapDownload } from './MapDownload.ts';
 import { mapRequest } from './mapRequest.ts';
 import { MapSprite } from './mapSprite.ts';
 import { PinLayer } from './PinLayer.ts';
-import { gridOptions, maxTextureSize } from './sceneHelpers.ts';
+import { applyZoomRange, gridOptions, maxTextureSize, MAX_ZOOM, MIN_ZOOM } from './sceneHelpers.ts';
 import { TokenDrags } from './TokenDrags.ts';
 import { TokenLayer } from './TokenLayer.ts';
 
 export { mapRequest } from './mapRequest.ts';
 
-export const MIN_ZOOM = 0.1;
-export const MAX_ZOOM = 4;
+export { MAX_ZOOM, MIN_ZOOM };
 const CLEAR_COLOUR = 0x1b1b1f;
 
 /**
@@ -129,7 +128,7 @@ export class SceneView {
     app.stage.addChild(viewport);
     app.renderer.on('resize', (width: number, height: number) => {
       viewport.resize(width, height, viewport.worldWidth, viewport.worldHeight);
-      if (this.map.worldRect) this.applyZoomRange(this.map.worldRect);
+      if (this.map.worldRect && this.viewport) applyZoomRange(this.viewport, this.map.worldRect);
     });
     this.viewport = viewport;
     this.drags = new TokenDrags({ store: this.store, tokens: this.tokenLayer, send: this.send, toWorld: (x, y) => viewport.toWorld(x, y), shown: () => this.drawn });
@@ -197,20 +196,12 @@ export class SceneView {
     const rect = this.map.worldRect!;
     this.bounds = { width: rect.width, height: rect.height };
     this.viewport.resize(this.viewport.screenWidth, this.viewport.screenHeight, rect.width, rect.height);
-    this.applyZoomRange(rect);
+    applyZoomRange(this.viewport, rect);
     this.viewport.fit(true, rect.width, rect.height);
     this.viewport.moveCenter(rect.width / 2, rect.height / 2);
     this.loaded = true;
     this.lit.mapChanged();
     this.drawLayers(this.store.getState());
-  }
-
-  /** The camera can always zoom out far enough to show the whole map, however large its world. */
-  private applyZoomRange(rect: { width: number; height: number }): void {
-    const { viewport } = this;
-    if (!viewport) return;
-    const fitScale = Math.min(viewport.screenWidth / rect.width, viewport.screenHeight / rect.height);
-    viewport.clampZoom({ minScale: Math.min(MIN_ZOOM, fitScale), maxScale: MAX_ZOOM });
   }
 
   /** Grid and fog follow the store; the map and grid show only once the fog is known. */
@@ -226,7 +217,10 @@ export class SceneView {
     }
     const rect = this.map.worldRect!;
     if (state.fog !== this.shownFog || this.fog === null) {
-      this.fog ??= this.makeFog(rect);
+      if (this.fog === null) {
+        this.fog = new FogLayer(rect);
+        this.fogSlot.addChild(this.fog.sprite);
+      }
       this.fog.set(state.fog!);
       this.shownFog = state.fog;
     }
@@ -261,12 +255,6 @@ export class SceneView {
     this.annotationLayer.sync({ drawings: [], texts: [] });
     this.pinLayer.sync([]);
     this.tokenLayer.sync([], new Set(), null);
-  }
-
-  private makeFog(rect: { x: number; y: number; width: number; height: number }): FogLayer {
-    const fog = new FogLayer(rect);
-    this.fogSlot.addChild(fog.sprite);
-    return fog;
   }
 
   private dropFogAndGrid(): void {

@@ -10,6 +10,7 @@ const SQUARE = { type: 'square' as const, size: 70, offsetX: 0, offsetY: 0 };
 
 let clock = 0;
 let sent: PlayerMessage[];
+let dragTimes: number[];
 let previews: Array<[string, { x: number; y: number } | null]>;
 let connected: boolean;
 let store: TableStoreApi;
@@ -25,11 +26,12 @@ beforeEach(() => {
   vi.useFakeTimers();
   clock = 0;
   sent = [];
+  dragTimes = [];
   previews = [];
   connected = true;
   store = createTableStore();
   controller = new DragController({
-    send: (body) => { if (connected) sent.push(body); return connected; },
+    send: (body) => { if (connected) { sent.push(body); if (body.t === 'drag') dragTimes.push(clock); } return connected; },
     store, toWorld: (x, y) => ({ x, y }), now: () => clock,
     preview: (id, at) => previews.push([id, at]),
   });
@@ -54,6 +56,27 @@ describe('DragController', () => {
     const drags = sentOf('drag') as Array<{ x: number; y: number }>;
     expect(drags).toHaveLength(10);
     expect(drags.at(-1)).toMatchObject({ t: 'drag', scene: 's1', id: 'a', x: 189, y: 100 });
+  });
+
+  it('keeps consecutive drag frames at least 100 ms apart, also across a drop and a new grab', () => {
+    load([token('a')]);
+    const wiggle = (steps: number, from: number): void => {
+      for (let i = 1; i <= steps; i++) {
+        clock += 10;
+        vi.advanceTimersByTime(10);
+        controller.handle({ kind: 'drag-move', id: 'a', x: from + i, y: 100 });
+      }
+    };
+    start();
+    wiggle(25, 100);
+    controller.handle({ kind: 'drag-end', id: 'a', x: 125, y: 100 });
+    clock += 20;
+    vi.advanceTimersByTime(20);
+    start('a', 125, 100);
+    wiggle(40, 125);
+    controller.stop();
+    expect(dragTimes.length).toBeGreaterThan(4);
+    dragTimes.slice(1).forEach((time, i) => expect(time - dragTimes[i]!).toBeGreaterThanOrEqual(100));
   });
 
   it('sends the latest point a moment later when the pointer stops inside the 100 ms', () => {
