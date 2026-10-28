@@ -16,17 +16,18 @@ export interface SceneLayers {
  * (95) and the door badges (96) are the lit scene's own and keep those places.
  *
  * Unlit: map, grid, annotations, pins, tokens, fog (fog covers tokens).
- * Lit: map, grid, tokens (whole, under the lighting), lighting, fog, sensed outlines, door
- * badges, annotations, pins, selection outlines (z 99).
+ * Lit: map, grid, tokens (whole, under the lighting), lighting, sensed outlines, door badges,
+ * annotations, pins, selection outlines, then the fog (z 100) on top of all of them. The GM sends a
+ * drawing or text unless committed fog covers all of it, and relies on the fog to hide the fogged part.
  */
 export function orderLayers(lit: boolean, layers: SceneLayers): void {
   layers.map.zIndex = -1;
   if (lit) {
     layers.tokens.zIndex = 10;
-    layers.fog.zIndex = 92;
     layers.annotations.zIndex = 97;
     layers.pins.zIndex = 98;
     layers.selection.zIndex = 99;
+    layers.fog.zIndex = 100;
   } else {
     layers.annotations.zIndex = 10;
     layers.pins.zIndex = 20;

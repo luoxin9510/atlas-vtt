@@ -220,6 +220,19 @@ describe('player lit scenes across updates', () => {
     expect(tokenView(view, HERO.id)).toBe(before.token);
   });
 
+  it('draws the fog over drawings, texts and pins in a lit scene', async () => {
+    const store = createTableStore();
+    const { view } = await open(store);
+    lit(store);
+    // A red stroke across the lit room; committed fog covers its right half.
+    store.applyMessage({ t: 'annotations', scene: 's1', drawings: [{ type: 'pen', points: [60, 150, 240, 150], colour: '#ff0000', width: 30, opacity: 1 }], texts: [] }, 0);
+    store.applyMessage({ t: 'fog', scene: 's1', fog: [{ type: 'rectangle', erase: false, x: 150, y: 0, width: 362, height: 512 }] }, 0);
+    await vi.waitFor(() => expect(mapVisible(view)).toBe(true), { timeout: 10_000 });
+    const red = (x: number): boolean => { const [r, g, b] = pixelAt(view, x * SCALE, 150 * SCALE); return r! > 150 && g! < 90 && b! < 90; };
+    await vi.waitFor(() => expect(red(100)).toBe(true), { timeout: 10_000 });
+    expect(isBlack(pixelAt(view, 200 * SCALE, 150 * SCALE))).toBe(true);
+  });
+
   it('draws the selection outline over the lighting', async () => {
     const store = createTableStore();
     const { view } = await open(store);
