@@ -67,3 +67,18 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
 - `OnlineTable` has 11 positional constructor parameters and is about 390 lines; the pause wiring there is tested only through `PauseShare`.
 - A failed GM-side upload to the image cache writes no log line, so the GM cannot see why images arrive over the socket, and the player cannot tell either (Task 11 ruling).
+
+## Plan 3 residuals (shared notes)
+Deferred minors from the notes work; none lets hidden text reach a player.
+- `obsidianSyntax.ts` is 323 lines and has duplicated comment loops.
+- `parseNote` adversarial cases are not pinned by tests.
+- An image's alt text is compared raw against the decoded path.
+- The broken-`[[` drop works per text node.
+- `ref.hash` is not checked as hex at the copy boundary.
+- No test covers batching together with `dropTagged`.
+- Dependents are withdrawn on any link-key change, so a linked note can flicker out of the list.
+- Failed markers are kept until the next edit, and a transient read error keeps a note withdrawn until its next edit.
+- `NotesShare.ts` is 319 lines and `OnlineTable.ts` about 417.
+- `leave()` clearing the notes is not pinned by a test.
+- An empty-title known callout shows no title.
+- The settings row name "How notes are shared" was chosen without spec text.
