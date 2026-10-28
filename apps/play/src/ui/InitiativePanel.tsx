@@ -1,38 +1,14 @@
-import { Fragment, useEffect, useState, type ReactElement } from 'react';
+import { Fragment, type ReactElement } from 'react';
 import { t } from '../../../../src/app/i18n/index.ts';
 import type { SharedCombatant, SharedInitiative } from '../../../../src/app/online/protocol/initiative.ts';
-import type { AssetLoader } from '../assets/AssetLoader.ts';
+import { useAssetUrl, type Loader } from '../assets/useAssetUrl.ts';
 import { TokenPortrait } from '../../../../src/app/packages/components/shared/TokenPortrait.tsx';
 
 /** Longest side of the art asked for (the same as the map's tokens). */
 export const ART_SIDE = 512;
 
-type Loader = Pick<AssetLoader, 'load'>;
-
-/** An object URL of a combatant's art, revoked when it changes or the row goes. */
-function useArt(assets: Loader, ref: SharedCombatant['art']): string | null {
-  const [src, setSrc] = useState<string | null>(null);
-  const hash = ref?.hash;
-  useEffect(() => {
-    if (ref === null) return undefined;
-    let url: string | null = null;
-    let cancelled = false;
-    void assets.load(ref, ART_SIDE).then((loaded) => {
-      if (cancelled || loaded === null) return;
-      url = URL.createObjectURL(new Blob([loaded.bytes as BlobPart], { type: loaded.mime }));
-      setSrc(url);
-    }).catch(() => undefined); // No art: the portrait stays pending.
-    return () => {
-      cancelled = true;
-      if (url !== null) URL.revokeObjectURL(url);
-      setSrc(null);
-    };
-  }, [assets, hash]);
-  return src;
-}
-
 function Combatant({ combatant, assets }: { combatant: SharedCombatant; assets: Loader }): ReactElement {
-  const src = useArt(assets, combatant.art);
+  const src = useAssetUrl(assets, combatant.art, ART_SIDE);
   const name = combatant.name ?? t('onlinePlay.initiative.unknown');
   const classes = ['atlas-play-combatant', combatant.turn && 'atlas-play-turn', combatant.defeated && 'atlas-play-defeated', combatant.sitsOut && 'atlas-play-dim'];
   return (

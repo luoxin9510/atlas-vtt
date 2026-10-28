@@ -176,3 +176,19 @@ describe('table store', () => {
     expect(store.getState()).toMatchObject({ self: 'p1', ownCode: 'ABC' });
   });
 });
+
+describe('notes', () => {
+  const note = { id: 'a'.repeat(24), title: 'T', text: { hash: 'c'.repeat(64), size: 1, mime: 'text/markdown' } } as unknown as import('../../../src/app/online/protocol/fork.ts').SharedNote;
+  it('replaces the list on a notes message and keeps it across scenes, a status change and an empty reset', () => {
+    const store = createTableStore();
+    expect(store.getState().notes).toEqual([]);
+    store.applyMessage({ t: 'notes', notes: [note] } as GmMessage, 0);
+    expect(store.getState().notes).toEqual([note]);
+    store.applyMessage({ t: 'scene', scene: scene('s1', false) }, 0);
+    store.applyMessage({ t: 'scene', scene: null }, 0);
+    store.setStatus({ kind: 'connecting' });
+    expect(store.getState().notes).toEqual([note]);
+    store.applyMessage({ t: 'notes', notes: [] } as GmMessage, 0);
+    expect(store.getState().notes).toEqual([]);
+  });
+});

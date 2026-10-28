@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore, type ReactElement } from 'react';
 import { useStore } from 'zustand';
 import { t, type MessageKey } from '../../../../src/app/i18n/index.ts';
 import type { Session } from '../app/session.ts';
@@ -9,12 +9,16 @@ import { LogPanel } from './LogPanel.tsx';
 import { PlayersPanel } from './PlayersPanel.tsx';
 import './panels.scss';
 
-type Tab = 'log' | 'dice' | 'initiative' | 'players';
+// The Markdown code is only needed once a player opens the Notes tab.
+const NotesPanel = lazy(() => import('./NotesPanel.tsx').then((module) => ({ default: module.NotesPanel })));
+
+type Tab = 'log' | 'dice' | 'initiative' | 'players' | 'notes';
 const TABS: readonly { tab: Tab; label: MessageKey }[] = [
   { tab: 'log', label: 'onlinePlay.tab.log' },
   { tab: 'dice', label: 'onlinePlay.tab.dice' },
   { tab: 'initiative', label: 'onlinePlay.tab.initiative' },
   { tab: 'players', label: 'onlinePlay.tab.players' },
+  { tab: 'notes', label: 'onlinePlay.tab.notes' },
 ];
 
 export interface PanelDockProps {
@@ -30,6 +34,7 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
   const initiative = useStore(store, (state) => state.initiative);
   const refusal = useStore(store, (state) => state.rollRefusal);
   const self = useStore(store, (state) => state.self);
+  const notes = useStore(store, (state) => state.notes);
   const [sendFailed, setSendFailed] = useState(false);
   const actions = useMemo(() => sessionActions(session, (ok) => setSendFailed(!ok)), [session]);
   const unread = useSyncExternalStore(log.subscribe, () => log.snapshot().unread);
@@ -63,6 +68,7 @@ export function PanelDock({ session }: PanelDockProps): ReactElement {
             />
           ) : null}
           {open === 'initiative' ? <InitiativePanel initiative={initiative} assets={session.assets} /> : null}
+          {open === 'notes' ? <Suspense fallback={<p className="atlas-play-empty">{t('onlinePlay.notes.loading')}</p>}><NotesPanel notes={notes} assets={session.assets} /></Suspense> : null}
           {open === 'players' ? <PlayersPanel log={log} self={self} gmOnline={gmOnline} /> : null}
         </div>
       ) : null}

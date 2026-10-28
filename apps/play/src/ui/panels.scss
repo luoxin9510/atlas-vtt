@@ -120,3 +120,57 @@
   font-weight: 600;
   text-align: center;
 }
+
+// Notes: the list by group, and a note drawn from the GM's Markdown (elements only; see NoteMarkdown).
+.atlas-play-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  h2, h3 { margin: 0; font-size: var(--font-ui-medium); }
+  h3 { color: var(--text-muted); }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  li button { width: 100%; text-align: left; }
+}
+.atlas-play-note-back { align-self: flex-start; }
+
+.atlas-play-note {
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+  img { max-width: 100%; height: auto; }
+  pre { overflow-x: auto; padding: 8px; background: var(--background-secondary); border-radius: 8px; }
+  code { font-family: var(--font-monospace); }
+  blockquote { margin: 8px 0; padding-left: 8px; border-left: 2px solid var(--background-modifier-border); color: var(--text-muted); }
+  table { border-collapse: collapse; }
+  th, td { padding: 4px 8px; border: 1px solid var(--background-modifier-border); }
+  .atlas-play-align-left { text-align: left; }
+  .atlas-play-align-right { text-align: right; }
+  .atlas-play-align-center { text-align: center; }
+  ul, ol { padding-left: 24px; }
+  li > input[type='checkbox'] { margin-right: 4px; }
+  hr { border: 0; border-top: 1px solid var(--background-modifier-border); }
+}
+.atlas-play-note-link {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-accent);
+  text-decoration: underline;
+}
+
+.atlas-play-callout {
+  --atlas-play-callout-color: var(--callout-default, var(--interactive-accent));
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 8px;
+  border-left: 4px solid var(--atlas-play-callout-color);
+  background: var(--background-secondary);
+  &-title { font-weight: 600; color: var(--atlas-play-callout-color); }
+  &-warning, &-caution, &-attention { --atlas-play-callout-color: var(--callout-warning, orange); }
+  &-danger, &-error, &-failure, &-fail, &-missing, &-bug { --atlas-play-callout-color: var(--callout-error, red); }
+  &-tip, &-hint, &-important { --atlas-play-callout-color: var(--callout-tip, cyan); }
+  &-success, &-check, &-done { --atlas-play-callout-color: var(--callout-success, green); }
+  &-question, &-help, &-faq { --atlas-play-callout-color: var(--callout-question, gold); }
+}
