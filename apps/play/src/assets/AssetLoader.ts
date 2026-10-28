@@ -45,6 +45,8 @@ interface Download {
   retried: boolean;
   /** A ticket is being downloaded: no re-ask meanwhile. */
   ticketing: boolean;
+  /** Aborts the ticket's fetch; set while one runs. */
+  abort: AbortController | null;
   /** Fallen back to chunks: every later request says so, or the GM answers with a ticket again. */
   viaSocket: boolean;
   readonly settle: (asset: LoadedAsset | null) => void;
@@ -94,7 +96,7 @@ export class AssetLoader {
     return new Promise((resolve) => {
       const download: Download = {
         ref, maxSide, expected: ref, variant: null, chunks: new Map(), count: null,
-        lastProgress: this.ports.now(), reasks: 0, retried: false, ticketing: false, viaSocket: this.fallenBack.has(ref.hash), settle: resolve,
+        lastProgress: this.ports.now(), reasks: 0, retried: false, ticketing: false, abort: null, viaSocket: this.fallenBack.has(ref.hash), settle: resolve,
       };
       this.downloads.set(ref.hash, download);
       this.request(download, 0);
@@ -116,9 +118,11 @@ export class AssetLoader {
     download.ticketing = true;
     download.lastProgress = this.ports.now();
     const { expected } = download;
+    const abort = new AbortController();
+    download.abort = abort;
     const fetcher = this.ports.fetch ?? globalThis.fetch.bind(globalThis);
     void (async (): Promise<void> => {
-      const bytes = await fetchTicket(fetcher, url, expected.size);
+      const bytes = await fetchTicket(fetcher, url, expected.size, () => { download.lastProgress = this.ports.now(); }, abort.signal);
       const good = bytes !== null && bytes.length === expected.size && (await sha256Hex(bytes).catch(() => null)) === expected.hash;
       if (this.downloads.get(download.ref.hash) !== download || !download.ticketing) return;
       if (!good) return this.fallBack(download);
@@ -135,6 +139,8 @@ export class AssetLoader {
     if (download.viaSocket) return;
     download.viaSocket = true;
     download.ticketing = false;
+    download.abort?.abort();
+    download.abort = null;
     download.chunks = new Map();
     download.count = null;
     download.lastProgress = this.ports.now();
@@ -240,6 +246,8 @@ export class AssetLoader {
     const download = this.downloads.get(hash) ?? this.find(hash);
     if (download === undefined) return;
     this.downloads.delete(download.ref.hash);
+    download.abort?.abort();
+    download.abort = null;
     download.settle(asset);
   }
 
@@ -249,7 +257,7 @@ export class AssetLoader {
     const now = this.ports.now();
     for (const download of [...this.downloads.values()]) {
       if (now - download.lastProgress < STALL_MS) continue;
-      // A ticket download that hangs is a failed ticket.
+      // A ticket download that delivers no bytes for STALL_MS is a failed ticket (its fetch is aborted).
       if (download.ticketing) {
         this.fallBack(download);
         continue;

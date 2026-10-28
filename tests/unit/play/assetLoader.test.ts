@@ -27,6 +27,7 @@ const TICKET_PATH = (h: string): string => `/api/assets/${h}?t=${'a'.repeat(26)}
 const ticketOf = (h: string): GmMessage => ({ t: 'asset-ticket', hash: h, url: TICKET_PATH(h), expires: 9_999_999_999_999 });
 const okFetch = (bytes: Uint8Array): ReturnType<typeof vi.fn<typeof fetch>> => vi.fn<typeof fetch>(async () => new Response(bytes.slice(), { status: 200 }));
 
+const noProgress = (): void => undefined;
 const feed = (loader: AssetLoader, messages: readonly GmMessage[]): void => {
   for (const message of messages) expect(loader.receive(message)).toBe(true);
 };
@@ -269,7 +270,7 @@ describe('AssetLoader', () => {
       feed(loader, [ticketOf(hash)]);
       await result;
       expect(fetcher).toHaveBeenCalledTimes(1);
-      expect(fetcher).toHaveBeenCalledWith(TICKET_PATH(hash), { credentials: 'omit', cache: 'no-store' });
+      expect(fetcher).toHaveBeenCalledWith(TICKET_PATH(hash), { credentials: 'omit', cache: 'no-store', signal: expect.any(AbortSignal) });
     });
 
     it('loads a variant by ticket at the variant world size', async () => {
@@ -376,6 +377,52 @@ describe('AssetLoader', () => {
       expect((await result)?.bytes).toEqual(png);
     });
 
+    it('falls back and aborts the fetch when the ticket download stalls', async () => {
+      let signal: AbortSignal | undefined;
+      const fetcher = vi.fn<typeof fetch>((_url, init) => new Promise<Response>((_resolve, reject) => {
+        signal = init?.signal ?? undefined;
+        signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      }));
+      const { loader, sent, fallbacks, clock } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      clock.now += STALL_MS - 1;
+      loader.tick();
+      expect(signal?.aborted).toBe(false);
+      clock.now += 1;
+      loader.tick();
+      expect(signal?.aborted).toBe(true);
+      expect(sent.at(-1)).toEqual({ t: 'asset-request', hash, via: 'socket' });
+      expect(fallbacks).toEqual([hash]);
+      feed(loader, assetChunks(hash, png));
+      expect((await result)?.bytes).toEqual(png);
+    });
+
+    it('does not fall back while bytes keep arriving, however long the total', async () => {
+      const third = Math.ceil(png.length / 3);
+      let body!: ReadableStreamDefaultController<Uint8Array>;
+      const fetcher = vi.fn<typeof fetch>(async () => new Response(new ReadableStream<Uint8Array>({ start: (c) => { body = c; } }), { status: 200 }));
+      const { loader, sent, fallbacks, clock } = setup(memoryCache(), fetcher);
+      const result = loader.load(ref, null);
+      await flush();
+      feed(loader, [ticketOf(hash)]);
+      await flush();
+      for (let i = 0; i < 3; i += 1) {
+        clock.now += STALL_MS * 0.6;
+        body.enqueue(png.slice(i * third, (i + 1) * third));
+        await flush();
+        loader.tick();
+      }
+      expect(clock.now).toBeGreaterThan(STALL_MS);
+      expect(fallbacks).toEqual([]);
+      expect(sent).toHaveLength(1);
+      body.close();
+      expect((await result)?.bytes).toEqual(png);
+      expect(sent).toHaveLength(1);
+    });
+
     it('ignores a ticket for a hash with no pending download', async () => {
       const fetcher = okFetch(png);
       const { loader, sent } = setup(memoryCache(), fetcher);
@@ -388,12 +435,12 @@ describe('AssetLoader', () => {
 
   describe('fetchTicket', () => {
     it('returns the bytes of a 200', async () => {
-      expect(await fetchTicket(okFetch(png), '/x', png.length)).toEqual(png);
+      expect(await fetchTicket(okFetch(png), '/x', png.length, noProgress, new AbortController().signal)).toEqual(png);
     });
     it('is null on a non-200, a network error and an oversize body', async () => {
-      expect(await fetchTicket(vi.fn<typeof fetch>(async () => new Response('', { status: 404 })), '/x', 10)).toBeNull();
-      expect(await fetchTicket(vi.fn<typeof fetch>(async () => { throw new Error('net'); }), '/x', 10)).toBeNull();
-      expect(await fetchTicket(okFetch(png), '/x', png.length - 1)).toBeNull();
+      expect(await fetchTicket(vi.fn<typeof fetch>(async () => new Response('', { status: 404 })), '/x', 10, noProgress, new AbortController().signal)).toBeNull();
+      expect(await fetchTicket(vi.fn<typeof fetch>(async () => { throw new Error('net'); }), '/x', 10, noProgress, new AbortController().signal)).toBeNull();
+      expect(await fetchTicket(okFetch(png), '/x', png.length - 1, noProgress, new AbortController().signal)).toBeNull();
     });
   });
 });
