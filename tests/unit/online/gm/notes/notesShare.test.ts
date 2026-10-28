@@ -154,6 +154,17 @@ describe('NotesShare', () => {
     expect(titles(table)[499]).toBe('N499');
   });
 
+  it('tells the table when the shared set changes, so the dock can show the count', async () => {
+    let changes = 0;
+    table = await started({ 'A.md': shared('a'), 'B.md': 'b' }, { changed: () => void (changes += 1) });
+    expect(changes).toBeGreaterThan(0);
+    const before = changes;
+    table.vault.write('B.md', shared('b'));
+    await settled();
+    expect(changes).toBeGreaterThan(before);
+    expect(table.share.count).toBe(2);
+  });
+
   it('never logs titles', async () => {
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((name) => vi.spyOn(console, name).mockImplementation(() => undefined));
     try {

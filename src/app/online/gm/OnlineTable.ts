@@ -161,7 +161,7 @@ export class OnlineTable {
     this.notes = tableNotes({
       app, players: () => ownership.onlinePlayers(), forkLevelOf: (player) => this.forkClients.levelOf(player),
       send: (body, to, tag) => this.connection.send(body, to, tag), dropTagged: (tag) => this.connection.dropTagged(tag),
-      randomId: () => randomHex(12), now: () => timers.now(), tickets: this.tickets, readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow,
+      randomId: () => randomHex(12), now: () => timers.now(), tickets: this.tickets, readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow, changed: () => events.changed(),
     });
     this.books = tableBook({
       app, shelf, ownership, randomId: () => randomHex(12),

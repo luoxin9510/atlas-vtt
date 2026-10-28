@@ -71,10 +71,17 @@ describe('online play\'s settings', () => {
 
   const buttonsOf = (setting: Setting): string[] => [...setting.controlEl.querySelectorAll('button')].map((button) => button.textContent ?? '');
 
+  it('explain how notes are shared, with the literal tokens', () => {
+    const drawn = draw(host({ status: 200, json: { account: MARA, access: null, reason: 'no-access' } }));
+    expect(drawn.headings).toContain('Shared notes');
+    const desc = drawn.row('How notes are shared').descEl.textContent;
+    expect(desc).toBe('A note is shared with players when its frontmatter has `atlas-share: true`; `atlas-share-group` sets the group players see. Players never see `[!gm]` callouts, `%%comments%%`, links to notes that are not shared, or file names. Headings and other conventions hide nothing.');
+  });
+
   it('have the account and error reports, and neither a key that creates tables nor the relay\'s account data', () => {
     const drawn = draw(host({ status: 200, json: { account: MARA, access: null, reason: 'no-access' } }));
-    expect(drawn.headings).toEqual(['Online server', 'Online account', 'Online diagnostics']);
-    expect(drawn.names).toEqual(['Online server address', 'Host key', 'Atlas account', 'Send error reports']);
+    expect(drawn.headings).toEqual(['Online server', 'Online account', 'Shared notes', 'Online diagnostics']);
+    expect(drawn.names).toEqual(['Online server address', 'Host key', 'Atlas account', 'How notes are shared', 'Send error reports']);
   });
 
   it('say in the account row why the account may not host, with the way to the account page', async () => {

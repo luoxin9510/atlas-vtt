@@ -57,6 +57,10 @@ export interface OnlineSnapshot {
   readonly cardOrder: readonly string[];
   /** Players are shown an image over the map ("Display on player view"); absent while they are shown none. */
   readonly imageShown?: boolean;
+  /** How many notes players can read; absent while none are shared. */
+  readonly sharedNotes?: number;
+  /** More notes are flagged than are shared (the list is capped); absent otherwise. */
+  readonly notesCapped?: true;
   /** How the last table ended, when the server ended it; absent once another was started. */
   readonly lost?: LostTable;
   /** When the relay closes the running table because its account may no longer host; absent while it does not. */
@@ -66,6 +70,9 @@ export interface OnlineSnapshot {
   /** The running table's relay needs a newer Atlas, and let this one in because players sit at the table. */
   readonly updateAfter?: true;
 }
+
+/** The snapshot's count of shared notes: absent while none are shared. */
+const sharedNotesOf = (count: number): { sharedNotes?: number } => (count > 0 ? { sharedNotes: count } : {});
 
 /** A player the GM added to the campaign, with the code they join by. */
 export interface AddedPlayer {
@@ -126,6 +133,7 @@ export type ControlSource = Pick<OnlineControl, 'onChange' | 'status' | 'link' |
     readonly rests: RestActions & { cards(): readonly RestCard[] };
     cardOrder(): readonly string[];
     readonly image: { readonly isShown: boolean };
+    readonly notes?: { readonly count: number; readonly capped: boolean };
     readonly closesAt: number | null;
   } | null;
 };
@@ -161,6 +169,8 @@ export function onlineApi(control: ControlSource, hideImage: () => void): Online
       rests: control.table?.rests.cards() ?? [],
       cardOrder: control.table?.cardOrder() ?? [],
       ...(control.table?.image.isShown === true && { imageShown: true }),
+      ...sharedNotesOf(control.table?.notes?.count ?? 0),
+      ...(control.table?.notes?.capped === true && { notesCapped: true as const }),
     }),
     start: (leaf, campaignId) => void control.start(leaf, campaignId),
     stop: () => control.stop(),
@@ -283,7 +293,7 @@ export interface SceneFacts {
 
 export type MenuModel =
   | { readonly kind: 'start'; readonly account: AccountView; readonly starting: boolean; readonly lost: LostTable | null; readonly outdated: boolean; readonly campaigns: CampaignPick }
-  | { readonly kind: 'waiting'; readonly title: string; readonly link: string | null; readonly status: { readonly text: string; readonly tone: Tone }; readonly isShared: boolean; readonly gate: GateRows | null; readonly qr: boolean; readonly imageShown: boolean; readonly closing: string | null; readonly updateAfter: boolean };
+  | { readonly kind: 'waiting'; readonly title: string; readonly link: string | null; readonly status: { readonly text: string; readonly tone: Tone }; readonly isShared: boolean; readonly gate: GateRows | null; readonly qr: boolean; readonly imageShown: boolean; readonly sharedNotes: number; readonly notesCapped: boolean; readonly closing: string | null; readonly updateAfter: boolean };
 
 /** No campaigns read yet. */
 export const NO_CAMPAIGNS: CampaignPick = { list: null, chosen: null, query: '' };
@@ -301,7 +311,7 @@ export function menuModel(snapshot: OnlineSnapshot, scene: SceneFacts, account: 
   if (!isRunning(snapshot.status) || snapshot.status === 'starting') {
     return { kind: 'start', account, starting: snapshot.status === 'starting', lost: snapshot.status === 'refused' ? snapshot.lost ?? 'refused' : null, outdated: snapshot.outdated === true, campaigns };
   }
-  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), qr, imageShown: snapshot.imageShown === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
+  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), qr, imageShown: snapshot.imageShown === true, sharedNotes: snapshot.sharedNotes ?? 0, notesCapped: snapshot.notesCapped === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
 }
 
 export interface GroupPlayer extends OnlinePlayer {

@@ -94,6 +94,8 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 | spawn | 放置 / 放到…上 | am.menu.spawn | |
 | freeze (player camera) | 冻结玩家镜头 | player.* | |
 | shortcut / hotkey | 快捷键 | hotkey.title | |
+| shared notes | 共享笔记 | onlineGm.notes.heading | notes the GM shares with players (`atlas-share`) |
+| group (of shared notes) | 分组 | onlineGm.notes.desc | `atlas-share-group`; the heading players see notes under |
 
 ### Inconsistencies found
 - GM vs DM: 主持人视图 (hotkey.gmView, toolbar.gmView, 2) vs DM 屏 (hotkey.dashboard, 1). Recommend: 主持人 for "GM" (neutral, matches TTRPG zh community usage 主持人/GM), keep 「DM」 only where English source says DM.

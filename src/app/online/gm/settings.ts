@@ -40,6 +40,10 @@ export function onlineSettingsSections(host: OnlineSettingsHost): AtlasSettingSe
     ...serverSections(host),
     ...accountSections(host.account),
     {
+      heading: t('onlineGm.notes.heading'),
+      rows: [{ name: t('onlineGm.notes.name'), desc: t('onlineGm.notes.desc'), render: () => undefined }],
+    },
+    {
       heading: t('onlineGm.diagnostics.heading'),
       rows: [{
         name: t('onlineGm.diagnostics.sendReports'),

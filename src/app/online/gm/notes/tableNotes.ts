@@ -18,6 +18,8 @@ export interface TableNotesDeps {
   tickets?: AssetAnswerPorts['tickets'];
   readImage(path: string): Promise<VaultImage | null>;
   scaleImage?: ScaleImage;
+  /** The share's count or cap changed. */
+  changed?(): void;
 }
 
 /** The table's shared notes, built on its connection, seats and fork levels. */
@@ -34,5 +36,6 @@ export function tableNotes(deps: TableNotesDeps): NotesShare {
     images: new QuestImages(deps.app),
     readImage: (path) => deps.readImage(path),
     scaleImage: deps.scaleImage,
+    changed: () => deps.changed?.(),
   });
 }

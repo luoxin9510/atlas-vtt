@@ -29,6 +29,8 @@ export interface NotesSharePorts {
   scaleImage?: ScaleImage | undefined;
   /** The most bytes a copy may take (`MAX_ASSET_BYTES` when unset); a larger note is not shared. */
   maxBytes?: number;
+  /** Called after each publish: the count or the cap may have changed. */
+  changed?: () => void;
 }
 
 const EMPTY_LIST = JSON.stringify({ t: 'notes', notes: [] });
@@ -287,6 +289,7 @@ export class NotesShare {
   private publish(): void {
     const message = this.message();
     const json = JSON.stringify(message);
+    this.ports.changed?.();
     if (json === this.lastList) return;
     this.lastList = json;
     for (const player of this.ports.players()) if (this.ports.levelOf(player) >= NOTES_LEVEL) this.ports.send(message, player);
