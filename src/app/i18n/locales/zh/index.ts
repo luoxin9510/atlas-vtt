@@ -104,6 +104,7 @@ import { onlineGm } from './onlineGm';
 import { onlineDock } from './onlineDock';
 import { onlineLog } from './onlineLog';
 import { uvttImport } from './uvttImport';
+import { onlinePlay } from './onlinePlay';
 
 /** Simplified Chinese. Missing keys fall back to English. */
 export const zh: Translation = {
@@ -214,4 +215,5 @@ export const zh: Translation = {
   ...onlineDock,
   ...onlineLog,
   ...uvttImport,
+  ...onlinePlay,
 };

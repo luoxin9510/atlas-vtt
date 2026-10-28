@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "types": [],
+    "paths": { "obsidian": ["../../scripts/boundaries/no-obsidian.d.ts"] }
+  },
+  "include": ["src/**/*", "../../src/assets.d.ts", "../../src/app/types/**/*.ts", "../../src/app/host/**/*.ts", "../../src/app/i18n/**/*.ts", "../../src/app/online/protocol/**/*.ts", "../../src/app/online/tableLog/**/*.ts", "../../src/app/online/tableLog/**/*.tsx", "../../src/app/online/marks/**/*.ts"],
+  "exclude": ["**/*.test.*", "**/*.spec.*", "**/__tests__/**"]
+}

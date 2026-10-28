@@ -2,6 +2,7 @@ import { ASSET_CHUNK_BYTES, isCount, isHash, isMaxSide, MAX_ASSET_BYTES, parseAs
 import { isBookType, isPlayerBookType, parseBookCover, parseBookMessage, parseBookTokenMessage, parsePlayerBookMessage, type BookMessage, type BookTokenMessage, type PlayerBookCover, type PlayerBookMessage, type PlayerBookParts } from './book.ts';
 import { parseBookRestMessage, type BookRestMessage } from './bookRest.ts';
 import { isDeltaOf, parseDelta, parseSeq, type DeltaMessage, type DeltaOf } from './delta.ts';
+import { parsePlayerClient, parseYourTurn, type PlayerClient, type YourTurnMessage } from './fork.ts';
 import { parseFog, type SharedFog } from './fog.ts';
 import { parseImageMessage, type ImageMessage } from './image.ts';
 import { parseInitiative, type SharedInitiative } from './initiative.ts';
@@ -51,6 +52,8 @@ export type GmMessage =
   | { readonly t: 'asset-chunk'; readonly hash: string; readonly index: number; readonly count: number; readonly data: string }
   | { readonly t: 'asset-refused'; readonly hash: string }
   | AssetVariant
+  /** Sent to one player (fork protocol): a token of theirs has just been given the turn. */
+  | YourTurnMessage
   /** The committed fog of the scene `scene`; `seq` numbers it for the deltas that follow. */
   | { readonly t: 'fog'; readonly scene: string; readonly seq?: number; readonly fog: SharedFog }
   | ({ readonly t: 'lighting'; readonly scene: string } & SharedLightingScene)
@@ -110,7 +113,7 @@ export interface PlayerAssetRequest {
   readonly maxSide?: number;
 }
 
-export type PlayerMessage = PlayerAssetRequest | PlayerResync | PlayerMove | PlayerDrag | PlayerDragCancel | PlayerRoll | PlayerLaser | PlayerMeasure | PlayerCursor | PlayerLogMessage | PlayerBookMessage | PlayerBookParts | PlayerBookCover | BookTokenMessage | BookRestMessage | PlayerPinFound;
+export type PlayerMessage = PlayerAssetRequest | PlayerResync | PlayerMove | PlayerDrag | PlayerDragCancel | PlayerRoll | PlayerLaser | PlayerMeasure | PlayerCursor | PlayerLogMessage | PlayerBookMessage | PlayerBookParts | PlayerBookCover | BookTokenMessage | BookRestMessage | PlayerPinFound | PlayerClient;
 
 const MAX_CHUNKS = Math.ceil(MAX_ASSET_BYTES / ASSET_CHUNK_BYTES);
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
@@ -227,6 +230,8 @@ export function parseGmMessage(value: unknown): GmMessage | null {
     case 'part':
       if (!isSceneId(value.id) || !isCount(value.count, MAX_PARTS) || value.count < 1 || !isCount(value.index, value.count - 1) || !isBase64Chunk(value.data)) return null;
       return { t: 'part', id: value.id, index: value.index, count: value.count, data: value.data };
+    case 'your-turn':
+      return parseYourTurn(value);
     case 'move-refused':
       return parseMoveRefused(value);
     case 'rules':
@@ -267,6 +272,7 @@ export function parsePlayerMessage(value: unknown): PlayerMessage | null {
   if (value.t === 'book-rest') return parseBookRestMessage(value);
   if (value.t === 'book-parts') return { t: 'book-parts' };
   if (value.t === 'book-cover') return parseBookCover(value);
+  if (value.t === 'client') return parsePlayerClient(value);
   if (value.t === 'resync') return isSceneId(value.scene) && isDeltaOf(value.of) ? { t: 'resync', scene: value.scene, of: value.of } : null;
   return value.t === 'asset-request' ? parseAssetRequest(value) : null;
 }

@@ -158,6 +158,15 @@ export const BOUNDARIES = {
       "zustand",
       "immer"
     ]
+  },
+  play: {
+    include: ["apps/play/src/**/*.ts", "apps/play/src/**/*.tsx"],
+    exclude: ["**/*.test.*", "**/*.spec.*", "**/__tests__/**"],
+    mayImport: ["shared", "play"],
+    packages: [
+      "clipper2-ts", "pixi.js", "pixi-filters", "pixi-viewport", "react", "react-dom",
+      "framer-motion", "three", "lucide-react", "@radix-ui/*", "clsx", "tailwind-merge", "zustand", "immer"
+    ]
   }
 };
 

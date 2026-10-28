@@ -43,6 +43,8 @@ export interface ShareHarness {
   readonly notices: string[];
   /** The players' frame's perception of each token (the lighting with fog); unset sees all that are not hidden. */
   perception: TokenPerception | undefined;
+  /** The fork level each player's app declared, by player; absent means 0. */
+  forkLevels: ReadonlyMap<string, number>;
   /** Whether the tab has a renderer. */
   rendered: boolean;
   /** Where the GM's lighting reads its rules, or null while it cannot be read. */
@@ -96,6 +98,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
     sent: [],
     notices: [],
     perception: undefined,
+    forkLevels: new Map(),
     rendered: true,
     lighting: GENERIC_SOURCE,
     settings: PLAYER_SETTINGS,
@@ -137,6 +140,7 @@ export function shareHarness(initial: SceneState, images: ReadonlyMap<string, Ui
       },
       clearTimer: (timer) => void timers.delete(timer),
       seats,
+      forkLevelOf: (player) => harness.forkLevels.get(player) ?? 0,
     }),
     set: async (next) => {
       current = next;

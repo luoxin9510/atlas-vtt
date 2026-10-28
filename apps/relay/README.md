@@ -22,7 +22,7 @@ Configuration is by environment variables:
 | `PORT` | `8787` | The port to listen on (0-65535). |
 | `MAX_PLAYERS` | `8` | Seats per table, 1-12. |
 | `STATE_PATH` | `./relay-state.json` | Where tables are kept across restarts. |
-| `STATIC_DIR` | none | A folder of static files (the player page) to serve. |
+| `STATIC_DIR` | none | A folder of static files (the player page) to serve: `apps/play/dist` after `npm run build:play`. |
 | `TRUST_PROXY` | `none` | `none`, `xff` or `cf`: where the client address comes from. |
 
 In the Atlas plugin's online settings, set the server address to the relay's

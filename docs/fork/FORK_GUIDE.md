@@ -71,6 +71,16 @@ npm run check:relay                                                # type check 
 npx vitest run --project unit tests/unit/relay                     # its tests
 ```
 
+The player web app is the `apps/play` workspace (`@atlas-fork/play`, React + Pixi):
+
+```sh
+npm run dev:play     # vite dev server, proxies /api to PLAY_RELAY (default http://127.0.0.1:8787)
+npm run build:play   # builds apps/play/dist, the relay's STATIC_DIR
+npm run check:play   # type check it; imports are limited by the `play` group (npm run check:boundaries)
+npx vitest run --project unit tests/unit/play
+npm run test:play-e2e   # builds apps/play, then a real Chromium against the relay (project `play-e2e`, not part of `unit`)
+```
+
 Environment variables and the reverse proxy note are in `apps/relay/README.md`.
 
 - `npm run test:gpu` runs browser tests locally only.

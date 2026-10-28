@@ -33,6 +33,8 @@ export interface TokenSharePorts {
   atlasSettings?(): Pick<AtlasPlayerSettings, 'showInitiative' | 'movesOnTurn'>;
   /** The players' look-alike numbers changed (`badgeOf`): what shows them besides the token list is worked out again. */
   numbersChanged?(): void;
+  /** The GM ids of the listed tokens holding the turn, each time a new list goes out: the set that marks `SharedToken.turn`. */
+  turnChanged?(scene: string, turn: ReadonlySet<string>): void;
   /** Until when the live lane carries a held token's place, by the id players know it by (`LiveShare.carriedUntil`); without it every place goes in the list. */
   liveCarriedUntil?(alias: string): number | undefined;
   randomId(): string;
@@ -205,7 +207,7 @@ export class TokenShare {
     const scene = this.scene;
     const built = this.build();
     if (scene === null || built === null) return;
-    const { tokens, cell, snap, art, aliases } = built;
+    const { tokens, cell, snap, art, aliases, turn } = built;
     const text = JSON.stringify([tokens, cell, snap]);
     if (this.last?.scene === scene && this.last.text === text) return;
     this.last = { scene, text };
@@ -216,13 +218,14 @@ export class TokenShare {
     this.listedPlaces = new Map(tokens.map((token) => [token.id, { x: token.x, y: token.y }]));
     this.list.publish(scene, { tokens, cell, snap });
     this.listed({ scene, aliases });
+    this.ports.turnChanged?.(scene, turn);
   }
 
   /**
    * The list now with the vault paths of its artwork by hash and the players' ids of its tokens by
    * GM id, or null while the scene loads or the tab has no renderer.
    */
-  private build(): { readonly tokens: SharedToken[]; readonly cell: number; readonly snap: SnapGrid | null; readonly art: Map<string, string>; readonly aliases: Map<string, string> } | null {
+  private build(): { readonly tokens: SharedToken[]; readonly cell: number; readonly snap: SnapGrid | null; readonly art: Map<string, string>; readonly aliases: Map<string, string>; readonly turn: ReadonlySet<string> } | null {
     const state = this.store.getState();
     const source = this.ports.tokenSource();
     if (!state.mapLoaded || state.isMapLoading || state.mapPath === null || source === null) return null;
@@ -275,7 +278,7 @@ export class TokenShare {
       const id = gmIds.get(token.id);
       return id === undefined ? [] : [[id, token.id]];
     }));
-    return { tokens: this.heldWhereListed(tokens, state.heldTokens), cell: gridSize, snap: snapGridOf(state.grid), art, aliases };
+    return { tokens: this.heldWhereListed(tokens, state.heldTokens), cell: gridSize, snap: snapGridOf(state.grid), art, aliases, turn: new Set([...turn].filter((id) => aliases.has(id))) };
   }
 
   /**

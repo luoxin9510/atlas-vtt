@@ -10,6 +10,7 @@ export * from './diagnostics.ts';
 export * from './dice.ts';
 export * from './errorReporter.ts';
 export * from './fog.ts';
+export * from './fork.ts';
 export * from './game.ts';
 export * from './image.ts';
 export * from './initiative.ts';

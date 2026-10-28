@@ -1,0 +1,263 @@
+// Defines the Obsidian variables the shared table log and marks styles read, outside Obsidian.
+@use '../../../src/app/online/tableLog/styles/table-log';
+@use '../../../src/app/online/marks/styles/marks';
+
+:root {
+  color-scheme: light dark;
+  /* The dock: a tab bar under the table on a phone, a side panel of this width from 768 px. */
+  --atlas-play-dock-width: 360px;
+  --atlas-play-tabs-height: 45px;
+  --text-normal: #222;
+  --text-muted: #5c5c5c;
+  --text-faint: #8a8a8a;
+  --text-error: #d1242f;
+  --text-accent: #6c31e3;
+  --text-on-accent: #fff;
+  --interactive-accent: #7b6cd9;
+  --interactive-accent-hover: #6a5bc8;
+  --interactive-normal: #f2f3f5;
+  --interactive-hover: #e9e9ec;
+  --background-primary: #fff;
+  --background-secondary: #f6f6f6;
+  --background-modifier-hover: rgb(0 0 0 / 6%);
+  --background-modifier-active-hover: rgb(0 0 0 / 10%);
+  --background-modifier-border: #e0e0e0;
+  --background-modifier-border-hover: #d0d0d0;
+  --background-modifier-border-focus: #bbb;
+  --background-modifier-form-field: #fff;
+  --divider-color: #e0e0e0;
+  --color-red: #e93147;
+  --color-orange: #ec7500;
+  --color-yellow: #e0ac00;
+  --color-green: #08b94e;
+  --color-cyan: #00bfbc;
+  --color-blue: #086ddd;
+  --color-purple: #7852ee;
+  --color-pink: #d53984;
+  --mono-0: #fff;
+  --mono-100: #000;
+  --font-interface: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-monospace: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-ui-smaller: 12px;
+  --font-ui-small: 13px;
+  --font-ui-medium: 15px;
+  --font-ui-large: 20px;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --line-height-normal: 1.5;
+  --line-height-tight: 1.3;
+  --input-height: 32px;
+  --radius-s: 4px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+  --radius-xl: 16px;
+  --shadow-s: 0 1px 2px rgb(0 0 0 / 12%);
+  --shadow-l: 0 8px 24px rgb(0 0 0 / 20%);
+  --menu-background: var(--background-secondary);
+  --menu-border-color: var(--background-modifier-border);
+  --menu-border-width: 1px;
+  --menu-shadow: var(--shadow-l);
+  --modal-radius: var(--radius-xl);
+  --modal-border-width: 1px;
+  --scrollbar-thumb-bg: rgb(0 0 0 / 15%);
+  --scrollbar-active-thumb-bg: rgb(0 0 0 / 30%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-normal: #dadada;
+    --text-muted: #b3b3b3;
+    --text-faint: #7f7f7f;
+    --text-error: #fb464c;
+    --text-accent: #a58cf2;
+    --interactive-accent: #7b6cd9;
+    --interactive-accent-hover: #8b7de6;
+    --interactive-normal: #2a2a2a;
+    --interactive-hover: #313131;
+    --background-primary: #1e1e1e;
+    --background-secondary: #262626;
+    --background-modifier-hover: rgb(255 255 255 / 7%);
+    --background-modifier-active-hover: rgb(255 255 255 / 12%);
+    --background-modifier-border: #363636;
+    --background-modifier-border-hover: #404040;
+    --background-modifier-border-focus: #5a5a5a;
+    --background-modifier-form-field: #1b1b1b;
+    --divider-color: #363636;
+    --mono-0: #000;
+    --mono-100: #fff;
+    --shadow-s: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-l: 0 8px 24px rgb(0 0 0 / 55%);
+    --scrollbar-thumb-bg: rgb(255 255 255 / 12%);
+    --scrollbar-active-thumb-bg: rgb(255 255 255 / 25%);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-medium);
+  line-height: var(--line-height-normal);
+}
+
+.atlas-play-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+
+  h1 { margin: 0; font-size: var(--font-ui-large); }
+}
+
+.atlas-play-legal {
+  display: flex;
+  gap: 16px;
+  font-size: var(--font-ui-small);
+
+  a { color: var(--text-accent); }
+}
+
+.atlas-play-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.atlas-play-scene {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.atlas-play-token-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  max-width: 360px;
+  max-height: 60%;
+  overflow: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h2, h3 { margin: 0; font-size: var(--font-ui-medium); }
+  h3 { margin-top: 12px; font-size: var(--font-ui-small); color: var(--text-muted); }
+  button { min-width: 44px; min-height: 44px; font-size: var(--font-ui-large); }
+  ul { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+  li { display: flex; align-items: center; gap: 8px; }
+  p { margin: 8px 0 0; color: var(--text-muted); }
+}
+
+.atlas-play-swatch { width: 12px; height: 12px; border-radius: 50%; }
+.atlas-play-meter { flex: 1; height: 6px; border-radius: 3px; background: var(--background-modifier-border); overflow: hidden; span { display: block; height: 100%; } }
+.atlas-play-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 11px; color: #fff; font-size: var(--font-ui-smaller); font-weight: 700; }
+
+.atlas-play-join {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+  margin: auto;
+  padding: 16px;
+
+  h1 { margin: 0; font-size: var(--font-ui-large); }
+  label { display: flex; flex-direction: column; gap: 4px; }
+  input, button { min-height: 44px; font-size: var(--font-ui-medium); }
+  .atlas-play-reason { margin: 0; color: var(--text-error); }
+}
+
+.atlas-play-welcome {
+  margin: 0;
+  padding: 4px 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.atlas-play-table {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  /* Room for the fixed dock, so the map, the status bar and its settings button are never under it. */
+  padding-bottom: calc(var(--atlas-play-tabs-height) + env(safe-area-inset-bottom));
+
+  @media (min-width: 768px) {
+    padding-bottom: 0;
+    padding-right: var(--atlas-play-dock-width);
+  }
+
+  .atlas-play-stage, .atlas-play-lit { flex: 1; min-height: 0; }
+}
+
+.atlas-play-status {
+  padding: 4px 12px;
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+
+  p { margin: 4px 0; }
+  .atlas-play-banner { color: var(--text-error); font-weight: 600; }
+  .atlas-play-own-code { color: var(--text-muted); }
+}
+
+.atlas-play-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  button { margin-left: auto; min-width: 44px; min-height: 44px; }
+}
+
+.atlas-play-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+
+  &.atlas-play-dot-joined { background: var(--color-green); }
+}
+
+.atlas-play-sheet {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 80%;
+  overflow: auto;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+
+  header { display: flex; align-items: center; justify-content: space-between; }
+  h2 { margin: 0; font-size: var(--font-ui-medium); }
+  label { display: flex; flex-direction: column; gap: 4px; }
+  .atlas-play-switch { flex-direction: row; align-items: center; min-height: 44px; }
+  button, select { min-width: 44px; min-height: 44px; }
+
+  @media (min-width: 768px) {
+    left: auto;
+    top: 0;
+    width: 360px;
+    max-height: none;
+    border-left: 1px solid var(--background-modifier-border);
+    border-top: 0;
+  }
+}

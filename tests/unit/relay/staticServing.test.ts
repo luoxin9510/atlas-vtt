@@ -53,7 +53,7 @@ describe('static player page', () => {
     const index = await get(origin, '/');
     expect(index.status).toBe(200);
     expect(index.body).toBe('<h1>player</h1>');
-    expect(index.headers['content-security-policy']).toBe("default-src 'self'; script-src 'self'");
+    expect(index.headers['content-security-policy']).toBe("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     expect(index.headers['x-content-type-options']).toBe('nosniff');
     const script = await get(origin, '/assets/app.js');
     expect(script.status).toBe(200);

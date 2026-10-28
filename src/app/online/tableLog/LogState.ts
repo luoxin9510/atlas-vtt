@@ -133,6 +133,14 @@ export class LogState {
     this.set({ entries: kept });
   }
 
+  /** Forgets entries, people, refusal and unread (the viewer left the table): the next whole log is the first again. */
+  clear(): void {
+    this.filled = false;
+    this.unread = new Set();
+    this.view = EMPTY;
+    this.notify();
+  }
+
   /** Tells the log whether its panel shows: an open panel has nothing unread, and nothing becomes unread. */
   setOpen(open: boolean): void {
     this.open = open;

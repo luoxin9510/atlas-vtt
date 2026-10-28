@@ -27,6 +27,21 @@ describe('the log a viewer holds', () => {
     expect(log.snapshot().entries.map((entry) => entry.id)).toEqual([id(2), id(3), id(4)]);
   });
 
+  it('clear forgets entries, people and unread, and takes the next whole log as the first (no news)', () => {
+    const log = state();
+    log.replace([chat(1, MIRA)]);
+    log.receive({ t: 'log-entry', entry: chat(2, MIRA) });
+    log.setPeople([{ id: MIRA, name: 'Mira' }]);
+    expect(log.snapshot().unread).toBe(1);
+    let notified = 0;
+    log.subscribe(() => { notified += 1; });
+    log.clear();
+    expect(notified).toBe(1);
+    expect(log.snapshot()).toEqual({ entries: [], unread: 0, refusal: null, people: [] });
+    log.replace([chat(1, MIRA), chat(2, MIRA)]);
+    expect(log.snapshot().unread).toBe(0);
+  });
+
   it('puts a changed entry it was never sent where it belongs, as no news', () => {
     const log = state();
     log.receive({ t: 'log', entries: [chat(5, MIRA), chat(6, MIRA)] });

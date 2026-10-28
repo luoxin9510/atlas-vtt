@@ -6,6 +6,10 @@
   "scripts": {
     "relay": "node apps/relay/src/main.ts",
     "check:relay": "tsc -p apps/relay",
+    "dev:play": "vite --config apps/play/vite.config.mts",
+    "build:play": "vite build --config apps/play/vite.config.mts",
+    "check:play": "tsc -p apps/play",
+    "test:play-e2e": "npm run build:play && vitest run --project play-e2e",
     "dev": "cross-env COPY_ON_CHANGE=true vite build --watch",
     "obsidian": "node scripts/obsidian-cli.js",
     "obsidian:help": "node scripts/obsidian-cli.js help",
@@ -83,6 +87,7 @@
     "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.4.2",
+    "fake-indexeddb": "6.2.6",
     "fast-check": "4.10.2",
     "jsdom": "^26.1.0",
     "obsidian": "^1.14.4",

@@ -19,6 +19,7 @@ import { restChangeOwners, restRecordOf } from './log/restEntry.ts';
 import { TableLog } from './log/TableLog.ts';
 import type { Ownership } from './ownership.ts';
 import { presentedScene, presentedSceneSource } from './presentedScene.ts';
+import { ForkClients } from './forkClients.ts';
 import { bindScene, type SceneBinding } from './sceneBinding.ts';
 import { TabWatch } from './sharedTab.ts';
 import { CoveredPages } from './coveredPages.ts';
@@ -73,6 +74,8 @@ export class OnlineTable {
   /** The join link players open. */
   readonly link: string;
   private readonly stopOwnership: () => void;
+  /** The fork level each player's app declared. */
+  private readonly forkClients = new ForkClients();
 
   constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
     this.app = app;
@@ -142,6 +145,7 @@ export class OnlineTable {
       bind: (tab, presented) => bindScene({
         app,
         seats: ownership,
+        forkLevelOf: (player) => this.forkClients.levelOf(player),
         send: (body, to) => this.connection.send(body, to),
         sendLive: (body, key, to) => this.covers.sendLive(body, key, to),
         readImage: (path) => readVaultImage(app, path),
@@ -180,6 +184,7 @@ export class OnlineTable {
         this.log.joined(player);
       },
       left: (player) => {
+        this.forkClients.forget(player);
         this.covers.playerLeft(player);
         this.bound()?.share.playerLeft(player);
         this.image.playerLeft(player);
@@ -189,7 +194,7 @@ export class OnlineTable {
         this.log.left(player);
       },
       // The log, the shown image and the books are the table's, so they hear players while no scene is shared too.
-      message: (from, body) => void (this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
+      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.bound()?.share.receive(from, body)),
       access: (closesAt) => this.setClosing(closesAt),
     }, this.gate);
     this.roster = new TableRoster(seats, this.connection, { kick: (player) => this.kick(player), turnAway: (player) => this.connection.kick(player), joinCode: () => this.gate.settings.code });
