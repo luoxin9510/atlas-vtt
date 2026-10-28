@@ -9,8 +9,8 @@ Date: 2026-10-26. Fork: `luoxin9510/atlas-vtt` (public), branch `fork/work`
 
 The user runs tabletop RPG games as GM in Obsidian with Atlas VTT and wants an experience like
 Foundry VTT: the GM hosts, players join from a web browser on their phone or computer, with no
-Obsidian, no install and no account. The server is the user's own (an Alibaba Cloud server for
-production, the existing Hetzner VPS for development), not upstream's hosted Atlas Online (`play.atlas-vtt.dev`, closed beta, account and invite
+Obsidian, no install and no account. The server is the user's own (the existing Hetzner VPS,
+since 2026-10-28 for production too, 6.5), not upstream's hosted Atlas Online (`play.atlas-vtt.dev`, closed beta, account and invite
 needed). The fork becomes the user's own product, developed independently of upstream from here
 on, and Simplified Chinese is the default language. The GM and all players are in mainland China,
 on home broadband and mobile networks, without a VPN.
@@ -272,16 +272,17 @@ it). Plugin changes stay in `src/`.
   links in tables and callouts, image file names, and a note unshared mid-download.
 
 ### 6.5 Deployment, M6
-- Production: an Alibaba Cloud server chosen in M6 (a mainland region needs an ICP filing of the
-  domain before ports 80/443 serve it; Hong Kong needs none). The relay listens on localhost
-  behind a reverse proxy (Caddy or nginx) that terminates TLS for a public hostname, passes
-  WebSocket upgrades with frames of 512 KiB, and accepts request bodies of at least 9 MiB (image
-  upload parts, 6.7).
-- Development and early tests: the Hetzner VPS, published as `https://play.xinsawi.com` through
-  Cloudflare Tunnel as `pod.xinsawi.com` already is. Before relying on it, M2 checks Cloudflare's
-  WebSocket message size against 320 KiB frames and its idle timeout against the 30 s ping
-  (request bodies up to 100 MB pass). Reachability from mainland China is known to be poor; it is
-  not the production path.
+- Production (amended 2026-10-28, user decision): the existing Hetzner VPS, published as
+  `https://play.xinsawi.com` through the Cloudflare Tunnel that already serves `pod.xinsawi.com`.
+  The relay listens on localhost (`127.0.0.1:8787`) and runs as a systemd service; the tunnel
+  terminates TLS, passes WebSocket upgrades and accepts request bodies up to 100 MB (image upload
+  parts need at least 9 MiB, 6.7). Nothing else on the VPS changes (xray holds TCP 443).
+  Reachability from mainland China is weaker than from a mainland or Hong Kong server; M6 checks
+  it with a real game on phones on mobile data, and the earlier Alibaba Cloud plan (a mainland
+  region needs an ICP filing before ports 80/443 serve; Hong Kong needs none; Caddy or nginx in
+  front with WebSocket frames of 512 KiB) stays the documented fallback if that test fails.
+- Before relying on the tunnel, M6 checks Cloudflare's WebSocket message size against 320 KiB
+  frames and its idle timeout against the 30 s ping.
 - The client address for limits comes from `TRUST_PROXY=none|xff|cf` (default `none`: the TCP
   peer): `xff` reads `X-Forwarded-For` from the configured reverse proxy, `cf` reads
   `CF-Connecting-IP` behind the tunnel.
@@ -349,8 +350,8 @@ One design, three implementation plans:
   `OnlineControl` against the real relay and a headless player client.
 - Plan 2: M3 (player app: join, scene without lighting, log/chat, dice, initiative), M4 (lighting
   and vision, moving own tokens, image cache of 6.7).
-- Plan 3: M5 (shared notes), M6 (deployment on Alibaba Cloud and a real test game on phones in
-  mainland China).
+- Plan 3: M5 (shared notes), M6 (deployment on the Hetzner VPS behind Cloudflare Tunnel, amended
+  2026-10-28, and a real test game on phones in mainland China).
 
 ## 8. Testing
 
@@ -379,6 +380,6 @@ phone-first rule, Markdown and sanitiser libraries, systemd vs container.
 
 ## 10. Open points for the user
 
-- Settled: GM and players are in mainland China (hence 6.5 and 6.7); production on Alibaba Cloud.
-- Decided in M6, not now: the Alibaba Cloud region (mainland with ICP filing, or Hong Kong) and
-  the public hostname.
+- Settled: GM and players are in mainland China (hence 6.5 and 6.7). Production: the Hetzner VPS
+  at `play.xinsawi.com` behind Cloudflare Tunnel (user decision 2026-10-28, replacing Alibaba
+  Cloud); Alibaba Cloud only if the M6 phone test shows the tunnel unusable from the mainland.
