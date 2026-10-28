@@ -139,6 +139,8 @@ export class LitScene {
       this.setExplored(null);
       return;
     }
+    // The old mask may hold areas the GM has erased: show none while the new one loads.
+    this.setExplored(null);
     void this.deps.assets.load(ref, null).then((asset) => {
       if (this.exploredRef !== ref || this.failed || this.destroyed) return;
       this.setExplored(asset === null ? null : dataUrlOfPng(asset.bytes));

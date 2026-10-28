@@ -247,6 +247,31 @@ describe('player lit scenes across updates', () => {
   });
 });
 
+describe('player explored memory', () => {
+  it('clears the old mask while a new one loads', async () => {
+    const store = createTableStore();
+    const { view, load } = await open(store);
+    const png = (await whiteMap()).bytes;
+    const refA = { hash: 'c'.repeat(64), size: png.length, mime: 'image/png' } as SharedScene['map'];
+    const refB = { hash: 'd'.repeat(64), size: png.length, mime: 'image/png' } as SharedScene['map'];
+    const mapAsset = await whiteMap();
+    let release: (asset: LoadedAsset) => void = () => undefined;
+    load.mockImplementation(async (ref: { hash: string }) => {
+      if (ref.hash === refB.hash) return new Promise<LoadedAsset>((resolve) => { release = resolve; });
+      return ref.hash === refA.hash ? { ...mapAsset } : mapAsset;
+    });
+    lit(store);
+    store.applyMessage({ t: 'explored', scene: 's1', mask: refA }, 0);
+    const maskOf = (): string | null => (view as unknown as { lit: { scene: { lighting: { getState(): { exploredMask: string | null } } } } }).lit.scene.lighting.getState().exploredMask;
+    await vi.waitFor(() => expect(maskOf()).not.toBeNull(), { timeout: 10_000 });
+    store.applyMessage({ t: 'explored', scene: 's1', mask: refB }, 0);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledWith(refB, null));
+    expect(maskOf()).toBeNull();
+    release(mapAsset);
+    await vi.waitFor(() => expect(maskOf()).not.toBeNull());
+  });
+});
+
 describe('the lighting probe', () => {
   it('passes on a renderer with float render targets, once, and fails without the extensions', async () => {
     const good = new Application();
