@@ -177,6 +177,71 @@ describe('closing', () => {
   });
 });
 
+describe('open timeout', () => {
+  it('replaces a socket that sends no frame within 10 s', () => {
+    const { sockets, statuses } = setup();
+    vi.advanceTimersByTime(9_999);
+    expect(sockets[0]!.closed).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(sockets[0]!.closed).toBe(true);
+    expect(statuses.at(-1)).toEqual({ kind: 'retrying', inMs: 250 });
+    vi.advanceTimersByTime(250);
+    expect(sockets).toHaveLength(2);
+  });
+  it('is disarmed by the first frame', () => {
+    const { sockets } = setup();
+    sockets[0]!.receive({ v: 1, t: 'waiting' });
+    vi.advanceTimersByTime(60_000);
+    expect(sockets[0]!.closed).toBe(false);
+  });
+});
+
+describe('wake', () => {
+  it('reconnects at once during a long backoff', () => {
+    const { sockets, socket } = setup();
+    sockets[0]!.serverClose(1006);
+    vi.advanceTimersByTime(250);
+    for (let i = 1; i < 6; i += 1) { sockets[i]!.serverClose(1006); vi.advanceTimersByTime(30_000); }
+    const before = sockets.length;
+    sockets.at(-1)!.serverClose(1006);
+    socket.wake();
+    expect(sockets).toHaveLength(before + 1);
+    expect(sockets.at(-1)!.closed).toBe(false);
+  });
+  it('pings an open socket and replaces it when nothing answers', () => {
+    const { sockets, socket } = setup();
+    sockets[0]!.receive(welcome);
+    socket.wake();
+    expect(sockets[0]!.sent.filter((s) => s === 'ping')).toHaveLength(1);
+    vi.advanceTimersByTime(19_999);
+    expect(sockets[0]!.closed).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(sockets[0]!.closed).toBe(true);
+    vi.advanceTimersByTime(250);
+    expect(sockets).toHaveLength(2);
+  });
+  it('keeps an open socket that answers', () => {
+    const { sockets, socket } = setup();
+    sockets[0]!.receive(welcome);
+    socket.wake();
+    sockets[0]!.receive('pong');
+    vi.advanceTimersByTime(25_000);
+    expect(sockets[0]!.closed).toBe(false);
+  });
+  it('does nothing after stop or a final close', () => {
+    const a = setup();
+    a.sockets[0]!.receive(welcome);
+    a.socket.stop();
+    a.socket.wake();
+    expect(a.sockets).toHaveLength(1);
+    const b = setup();
+    b.sockets[0]!.serverClose(4010);
+    b.socket.wake();
+    vi.advanceTimersByTime(60_000);
+    expect(b.sockets).toHaveLength(1);
+  });
+});
+
 describe('helpers', () => {
   it('backoff doubles to 30 s and is halved at most', () => {
     const low = [0, 1, 2, 3, 4, 5, 6].map((n) => backoffMs(n, () => 0));

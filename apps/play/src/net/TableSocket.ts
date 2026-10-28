@@ -35,6 +35,8 @@ export interface TableSocketOptions {
 
 /** How long after a ping some frame (a `pong` counts) must arrive before the socket is taken for dead. */
 const DEAD_AFTER_MS = 20_000;
+/** How long a new socket may take to send its first frame before it is replaced. */
+export const OPEN_TIMEOUT_MS = 10_000;
 const OPEN = 1;
 const encoder = new TextEncoder();
 
@@ -45,19 +47,21 @@ export function socketUrl(origin: string, code: string): string {
   return url.toString();
 }
 
-type TimerName = 'pingTimer' | 'deadTimer' | 'retryTimer';
+type TimerName = 'pingTimer' | 'deadTimer' | 'retryTimer' | 'openTimer';
 
 /** A player's socket to the relay: hello, keep-alive, reconnect with backoff, and the final close codes. */
 export class TableSocket {
   private socket: SocketLike | null = null;
   private stopped = true;
   private joined = false;
+  /** True once the current socket has sent any frame (the relay's answer to our hello counts as open). */
+  private live = false;
   private attempt = 0;
   private seatId = '';
   private key: string | undefined;
   private code: string | undefined;
   private wait: string | undefined;
-  private timers: Record<TimerName, ReturnType<typeof setTimeout> | null> = { pingTimer: null, deadTimer: null, retryTimer: null };
+  private timers: Record<TimerName, ReturnType<typeof setTimeout> | null> = { pingTimer: null, deadTimer: null, retryTimer: null, openTimer: null };
 
   constructor(private readonly options: TableSocketOptions) {
     this.key = options.join.key;
@@ -80,6 +84,25 @@ export class TableSocket {
     return true;
   }
 
+  /** The page is awake again or the network is back: reconnect now, or check at once that the socket still answers. */
+  wake(): void {
+    if (this.stopped) return;
+    const socket = this.socket;
+    if (socket === null) {
+      this.clearTimer('retryTimer');
+      this.connect();
+      return;
+    }
+    if (!this.live) return; // still connecting: the open timeout decides
+    if (socket.readyState !== OPEN) {
+      this.teardown();
+      this.connect();
+      return;
+    }
+    socket.send(KEEPALIVE_PING);
+    this.armDead();
+  }
+
   stop(): void {
     this.stopped = true;
     this.teardown();
@@ -90,6 +113,7 @@ export class TableSocket {
     this.options.onStatus({ kind: 'connecting' });
     const socket = this.options.open(this.options.url);
     this.socket = socket;
+    this.timers.openTimer = setTimeout(() => { this.timers.openTimer = null; this.teardown(); this.retry(); }, OPEN_TIMEOUT_MS);
     socket.onopen = () => socket.send(JSON.stringify(this.hello()));
     socket.onmessage = (event) => this.onFrame(socket, event.data);
     socket.onclose = (event) => this.onClose(event.code);
@@ -109,6 +133,8 @@ export class TableSocket {
 
   private onFrame(socket: SocketLike, data: unknown): void {
     this.clearTimer('deadTimer');
+    this.clearTimer('openTimer');
+    this.live = true;
     if (typeof data !== 'string') return;
     const frame = parseRelayFrame(data);
     if (frame === null) return;
@@ -165,9 +191,13 @@ export class TableSocket {
       const socket = this.socket;
       if (socket === null || socket.readyState !== OPEN) return;
       socket.send(KEEPALIVE_PING);
-      this.clearTimer('deadTimer');
-      this.timers.deadTimer = setTimeout(() => { this.teardown(); this.retry(); }, DEAD_AFTER_MS);
+      this.armDead();
     }, KEEPALIVE_MS);
+  }
+
+  private armDead(): void {
+    this.clearTimer('deadTimer');
+    this.timers.deadTimer = setTimeout(() => { this.teardown(); this.retry(); }, DEAD_AFTER_MS);
   }
 
   private retry(): void {
@@ -184,6 +214,8 @@ export class TableSocket {
   /** Let go of the current socket and stop hearing from it. */
   private teardown(): void {
     this.joined = false;
+    this.live = false;
+    this.clearTimer('openTimer');
     this.clearTimer('pingTimer');
     this.clearTimer('deadTimer');
     const socket = this.socket;

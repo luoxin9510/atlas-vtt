@@ -31,13 +31,15 @@ function memoryStorage(): Storage {
   } as unknown as Storage;
 }
 
-function setup(storage: Storage = memoryStorage()): { session: Session; sockets: FakeSocket[]; storage: Storage } {
+function setup(storage: Storage = memoryStorage()): { session: Session; sockets: FakeSocket[]; storage: Storage; wakers: Set<() => void> } {
   const sockets: FakeSocket[] = [];
+  const wakers = new Set<() => void>();
   const session = new Session({
+    onWake: (wake) => { wakers.add(wake); return () => void wakers.delete(wake); },
     origin: 'https://table.example', code: CODE, storage, indexedDB: null,
     open: () => { const s = new FakeSocket(); sockets.push(s); return s as unknown as SocketLike; },
   });
-  return { session, sockets, storage };
+  return { session, sockets, storage, wakers };
 }
 
 beforeEach(() => { vi.useFakeTimers(); });
@@ -53,6 +55,19 @@ describe('tableCodeOf', () => {
     expect(tableCodeOf(`#${CODE.slice(1)}`)).toBeNull();
     expect(tableCodeOf(CODE)).toBeNull();
     expect(tableCodeOf('')).toBeNull();
+  });
+});
+
+describe('Session wake', () => {
+  it('wakes the socket from the page hook and lets go of the hook on leave', () => {
+    const { session, sockets, wakers } = setup();
+    session.join({ name: 'Ann', key: KEY });
+    expect(wakers.size).toBe(1);
+    sockets[0]!.onclose?.({ code: 1006 });
+    [...wakers][0]!();
+    expect(sockets).toHaveLength(2);
+    session.leave();
+    expect(wakers.size).toBe(0);
   });
 });
 
@@ -137,7 +152,7 @@ describe('Session', () => {
     expect(requests(sockets[0]!)).toBe(1);
     sockets[0]!.onclose?.({ code: 1006 });
     expect(await first).toBeNull();
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(9_000); // past the backoff, inside the 10 s open timeout
     expect(requests(sockets[0]!)).toBe(1);
     await vi.advanceTimersByTimeAsync(0);
     sockets[1]!.onopen?.();
@@ -171,7 +186,7 @@ describe('Session', () => {
     expect(sockets[1]!.closed).toBe(false);
     expect(await pending).toBeNull();
     expect(session.log.snapshot()).toEqual({ entries: [], unread: 0, refusal: null, people: [] });
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(2); // the asset ticker and the new socket's open timeout
     session.backToForm();
     expect(sockets[1]!.closed).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
