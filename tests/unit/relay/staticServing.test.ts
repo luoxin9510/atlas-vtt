@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,6 +26,8 @@ beforeEach(() => {
   mkdirSync(join(root, '.git'));
   writeFileSync(join(root, '.git', 'config'), 'git secret');
   symlinkSync(root, join(base, 'link-site'));
+  symlinkSync(join(root, '.env'), join(root, 'x'));
+  symlinkSync(join(root, '.git'), join(root, 'pub'));
 });
 
 afterEach(async () => {
@@ -130,7 +132,14 @@ describe('static player page', () => {
     expect(response.body).not.toContain('git secret');
   });
 
-  it('releases the file when the client aborts mid-download', async () => {
+  it.each(['/x', '/pub/config'])('answers 404 for %s, a visible name that resolves to a dotfile', async (path) => {
+    const response = await get(await relay(), path);
+    expect(response.status).toBe(404);
+    expect(response.body).not.toContain('SECRET');
+    expect(response.body).not.toContain('git secret');
+  });
+
+  it.skipIf(!existsSync('/dev/fd'))('releases the file when the client aborts mid-download', async () => {
     writeFileSync(join(root, 'big.bin'), Buffer.alloc(64 * 1024 * 1024));
     const origin = await relay();
     const open = (): number => readdirSync('/dev/fd').length;

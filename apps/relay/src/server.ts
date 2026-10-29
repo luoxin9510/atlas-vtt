@@ -20,13 +20,13 @@ export interface RunningRelay {
   close(): Promise<void>;
 }
 
-/** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). */
 /** The folder's real path; a missing one keeps its plain absolute path (every request then answers 404). */
 async function realRoot(dir: string): Promise<string> {
   const absolute = resolve(dir);
   return realpath(absolute).catch(() => absolute);
 }
 
+/** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). */
 export async function startRelay(config: RelayConfig, log?: (line: string) => void): Promise<RunningRelay> {
   const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
   tables.ensureTicketKey();

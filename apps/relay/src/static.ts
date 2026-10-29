@@ -60,6 +60,8 @@ export async function serveStatic(root: string, urlPath: string, method: string,
   // One realpath per request: a link (file or directory) may only lead to somewhere still inside the root.
   const real = await realpath(file).catch(() => null);
   if (real === null || !real.startsWith(root.endsWith(sep) ? root : root + sep)) return notFound(res);
+  // A link with a plain name may still lead to a dotfile or a dot-directory inside the root.
+  if (real.slice(root.length).split(sep).some((part) => part.startsWith('.'))) return notFound(res);
   const info = await stat(real).catch(() => null);
   if (info === null || !info.isFile()) return notFound(res);
   res.writeHead(200, { ...SECURITY_HEADERS, 'cache-control': cacheControl(relative), 'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': info.size });

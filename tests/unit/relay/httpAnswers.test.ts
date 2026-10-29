@@ -13,18 +13,31 @@ function post(origin: string, code: string): Promise<Response> {
   return fetch(`${origin}/api/tables`, { method: 'POST', headers, body: JSON.stringify({ code }) });
 }
 
-/** Streams `size` bytes chunked (no Content-Length) and resolves with the status and body, or rejects on a reset. */
+/**
+ * Streams `size` bytes chunked (no Content-Length) and resolves with the status and body. The relay may close the
+ * socket right after its 413, so once a response has arrived a later reset or error is ignored. It rejects only if
+ * the reset beats the response itself (the relay answers on the first oversize chunk, so that is a real failure).
+ */
 function chunked(origin: string, size: number): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
+    let answer: { status: number; body: string } | null = null;
     const req = request(`${origin}/api/tables`, { method: 'POST', headers: { authorization: `Bearer ${TEST_HOST_KEY}`, origin: TEST_PUBLIC_ORIGIN, 'transfer-encoding': 'chunked' } }, (res) => {
-      let body = '';
-      res.on('data', (part: Buffer) => (body += part.toString()));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
-      res.on('error', reject);
+      const seen = { status: res.statusCode ?? 0, body: '' };
+      answer = seen;
+      res.on('data', (part: Buffer) => (seen.body += part.toString()));
+      res.on('end', () => resolve(seen));
+      res.on('error', () => resolve(seen));
+      res.on('close', () => resolve(seen));
     });
-    req.on('error', reject);
-    req.write(Buffer.alloc(size, 0x20));
-    req.end();
+    req.on('error', (error) => (answer === null ? reject(error) : resolve(answer)));
+    // 16 KiB pieces, each waiting for the previous one: the relay answers on the first piece past 4 KiB, and the client stops sending once it has read the answer.
+    void (async (): Promise<void> => {
+      for (let sent = 0; sent < size && answer === null && !req.destroyed; sent += 16 * 1024) {
+        await new Promise<void>((next) => req.write(Buffer.alloc(Math.min(16 * 1024, size - sent), 0x20), () => next()));
+        await new Promise<void>((next) => setImmediate(next));
+      }
+      req.end();
+    })();
   });
 }
 
