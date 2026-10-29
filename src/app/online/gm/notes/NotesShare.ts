@@ -1,16 +1,20 @@
 import { TFile, type App, type TAbstractFile } from 'obsidian';
 import { QuestImages } from '../../../plugin/questImages';
 import { isRecord, MAX_ASSET_BYTES, parsePlayerMessage, TEXT_MIME_TYPE, type GmMessage, type PlayerMessage } from '../../protocol/index.ts';
-import { NOTES_LEVEL, type NotesMessage, type SharedNote } from '../../protocol/fork.ts';
+import { NOTES_LEVEL } from '../../protocol/fork.ts';
 import { AssetAnswers, type AssetAnswerPorts } from '../assetAnswers.ts';
+import { companionTimers, type Timers } from '../companionTimers.ts';
 import { sha256Hex } from '../assetServe.ts';
 import type { ScaleImage } from '../assetVariants.ts';
 import type { VaultImage } from '../TokenShare.ts';
 import { copyNote } from './noteCopy.ts';
+import { imagePath, listMessage, textBytes, type Listed } from './noteList.ts';
 import { HeldHashes } from './heldHashes.ts';
 import { NOTES_TAG_PREFIX, notesTag } from './notesTag.ts';
 import { watchVault } from './notesWatch.ts';
-import { readFlag, SharedSet, type Entry } from './sharedNotes.ts';
+import { FailedReads } from './failedReads.ts';
+import { linkState, type LinkState } from './linkKey.ts';
+import { moveKeys, readFlag, SharedSet, type Entry } from './sharedNotes.ts';
 
 export interface NotesSharePorts {
   app: App;
@@ -29,6 +33,8 @@ export interface NotesSharePorts {
   scaleImage?: ScaleImage | undefined;
   /** The most bytes a copy may take (`MAX_ASSET_BYTES` when unset); a larger note is not shared. */
   maxBytes?: number;
+  /** Schedules the retries of a failed read (`companionTimers()` when unset). */
+  timers?: Timers | undefined;
   /** Called after each publish: the count or the cap may have changed. */
   changed?: () => void;
 }
@@ -47,9 +53,9 @@ export class NotesShare {
   private readonly set: SharedSet;
   private readonly answers: AssetAnswers;
   private readonly entries = new Map<string, Entry>();
+  /** Notes that could not be copied, by the state of their source: the same state is not read again at once. */
+  private readonly failed: FailedReads;
   /** Reads under way by note, with the links they began from; the last to start wins. */
-  /** Notes that could not be copied, by the state of their source: the same state is not read again. */
-  private readonly failed = new Map<string, string>();
   private readonly building = new Map<string, string>();
   private readonly turns = new Map<string, number>();
   private pending = 0;
@@ -61,13 +67,14 @@ export class NotesShare {
   constructor(ports: NotesSharePorts) {
     this.ports = ports;
     this.set = new SharedSet(() => ports.randomId());
+    this.failed = new FailedReads(ports.timers ?? companionTimers(), () => this.sync(new Set()));
     this.answers = new AssetAnswers(
       { send: (body, to, tag) => ports.send(body, to, tag), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.levelOf(player) },
       {
         map: () => null,
         explored: () => undefined,
-        artPath: (hash) => this.imagePath(hash),
-        text: (hash) => this.textBytes(hash),
+        artPath: (hash) => imagePath(this.listEntries(), hash),
+        text: (hash) => textBytes(this.listEntries(), hash),
       },
       NOTES_TAG_PREFIX,
     );
@@ -104,7 +111,7 @@ export class NotesShare {
     this.unwatch = () => undefined;
     this.entries.clear();
     this.building.clear();
-    this.failed.clear();
+    this.failed.clearAll();
     this.hashes.clear();
     this.lastList = EMPTY_LIST;
     this.ports.images.retain(new Set());
@@ -117,7 +124,7 @@ export class NotesShare {
 
   /** A player's app declared its level: it is sent the list when it can read it. */
   client(player: string): void {
-    if (this.ports.levelOf(player) >= NOTES_LEVEL) this.ports.send(this.message(), player);
+    if (this.ports.levelOf(player) >= NOTES_LEVEL) this.ports.send(listMessage(this.listEntries()), player);
   }
 
   /** A player's message: a request for a hash this share holds now (answered); false for any other, which the other shares read. */
@@ -138,7 +145,7 @@ export class NotesShare {
 
   private requestOf(from: string, body: unknown): Extract<PlayerMessage, { t: 'asset-request' }> | null {
     if (!isRecord(body) || body.t !== 'asset-request' || this.ports.levelOf(from) < NOTES_LEVEL) return null;
-    const message: PlayerMessage | null = parsePlayerMessage(body);
+    const message = parsePlayerMessage(body);
     return message?.t === 'asset-request' ? message : null;
   }
 
@@ -164,13 +171,7 @@ export class NotesShare {
     this.set.move(oldPath, file.path);
     // A new name is a new title.
     if (file instanceof TFile && file.extension === 'md') this.set.set(file.path, readFlag(this.ports.app, file));
-    for (const map of [this.entries, this.building, this.turns] as ReadonlyArray<Map<string, unknown>>) {
-      for (const [path, value] of [...map]) {
-        if (path !== oldPath && !path.startsWith(`${oldPath}/`)) continue;
-        map.delete(path);
-        map.set(file.path + path.slice(oldPath.length), value);
-      }
-    }
+    moveKeys([this.entries, this.building, this.turns], oldPath, file.path);
     const moved = this.set.flagged().filter((path) => path === file.path || path.startsWith(`${file.path}/`));
     this.sync(new Set(moved));
     this.imageChanged(file);
@@ -193,20 +194,20 @@ export class NotesShare {
       this.building.delete(path);
       this.turns.set(path, (this.turns.get(path) ?? 0) + 1);
     }
-    const links = this.ports.app.metadataCache.resolvedLinks;
-    const reads: Array<readonly [string, string]> = [];
+    this.failed.retain(listed);
+    const reads: Array<readonly [string, LinkState]> = [];
     for (const path of shared) {
-      const key = this.linkKey(links[path] ?? {});
-      if (dirty.has(path)) this.failed.delete(path);
-      else if (this.failed.get(path) === this.stamp(path, key)) continue;
+      const state = linkState(this.ports.app.metadataCache.resolvedLinks[path] ?? {}, (target) => this.set.info(target));
+      if (dirty.has(path)) this.failed.clear(path);
+      else if (this.failed.skip(path, this.stamp(path, state.key))) continue;
       const entry = this.entries.get(path);
       const reading = this.building.get(path);
-      // A note that links to one whose state changed may still name it: its copy is withdrawn until it is read again.
-      if (entry !== undefined && entry.linkKey !== key) removed = this.entries.delete(path) || removed;
-      if (dirty.has(path) || (reading !== undefined ? reading !== key : entry?.linkKey !== key)) reads.push([path, key]);
+      // A title the copy may show that is gone or changed withdraws it now; a link that only appeared leaves it listed until it is read again.
+      if (entry !== undefined && ![...entry.shown].every((pair) => state.shown.has(pair))) removed = this.entries.delete(path) || removed;
+      if (dirty.has(path) || (reading !== undefined ? reading !== state.key : entry?.linkKey !== state.key)) reads.push([path, state]);
     }
     if (removed) this.settle();
-    for (const [path, key] of reads) void this.build(path, key);
+    for (const [path, state] of reads) void this.build(path, state);
     if (removed) this.publish();
   }
 
@@ -216,24 +217,17 @@ export class NotesShare {
     return `${file?.stat.mtime}\n${file?.stat.size}\n${key}`;
   }
 
-  /** A note that cannot be copied is not shared until a later read succeeds: what it had is withdrawn at once. */
-  private fail(path: string, turn: number, epoch: number, key: string): void {
+  /** A note that cannot be copied is not shared until a later read succeeds: what it had is withdrawn at once. A transient failure is read again later. */
+  private fail(path: string, turn: number, epoch: number, key: string, transient: boolean): void {
     if (this.turns.get(path) !== turn || this.epoch !== epoch) return;
-    this.failed.set(path, this.stamp(path, key));
+    this.failed.mark(path, this.stamp(path, key), transient);
     if (!this.entries.delete(path)) return;
     this.settle();
     this.publish();
   }
 
-  /** What the note's resolved links lead to now, as shared notes: a change reads the note again. */
-  private linkKey(links: Readonly<Record<string, number>>): string {
-    return Object.keys(links).sort().map((target) => {
-      const info = this.set.info(target);
-      return info === undefined ? `${target}:-` : `${target}:${info.id}:${info.title}`;
-    }).join('\n');
-  }
-
-  private async build(path: string, key: string): Promise<void> {
+  private async build(path: string, state: LinkState): Promise<void> {
+    const key = state.key;
     const turn = (this.turns.get(path) ?? 0) + 1;
     const epoch = this.epoch;
     this.turns.set(path, turn);
@@ -247,14 +241,14 @@ export class NotesShare {
       const source = await app.vault.read(file);
       const copy = await copyNote(source, path, this.ports.images, (linkpath) => this.noteTarget(linkpath, path));
       const bytes = new TextEncoder().encode(copy.markdown).slice();
-      if (bytes.length > (this.ports.maxBytes ?? MAX_ASSET_BYTES)) return this.fail(path, turn, epoch, key);
+      if (bytes.length > (this.ports.maxBytes ?? MAX_ASSET_BYTES)) return this.fail(path, turn, epoch, key, false);
       const ref = { hash: await sha256Hex(bytes), size: bytes.length, mime: TEXT_MIME_TYPE };
       if (this.turns.get(path) !== turn || this.epoch !== epoch || this.set.info(path)?.id !== info.id) return;
-      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, embeds: source.includes('![') });
+      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, shown: state.shown, embeds: source.includes('![') });
       this.settle();
     } catch {
       // Nothing is logged: it would name the note.
-      this.fail(path, turn, epoch, key);
+      this.fail(path, turn, epoch, key, true);
     } finally {
       if (this.turns.get(path) === turn) this.building.delete(path);
       if (this.epoch === epoch && --this.pending === 0) this.publish();
@@ -267,23 +261,16 @@ export class NotesShare {
     return info === undefined ? null : { id: info.id, title: info.title };
   }
 
-  private listEntries(): Array<{ readonly path: string; readonly entry: Entry }> {
+  private listEntries(): Listed {
     return this.set.paths().flatMap((path) => {
       const entry = this.entries.get(path);
       return entry === undefined ? [] : [{ path, entry }];
     });
   }
 
-  private message(): NotesMessage {
-    const notes: SharedNote[] = this.listEntries().map(({ entry }) => ({
-      id: entry.id, title: entry.title, ...(entry.group === null ? {} : { group: entry.group }), text: entry.ref,
-    }));
-    return { t: 'notes', notes };
-  }
-
   /** Sends the list to the players who can read it when it differs from the one sent last. */
   private publish(): void {
-    const message = this.message();
+    const message = listMessage(this.listEntries());
     const json = JSON.stringify(message);
     this.ports.changed?.();
     if (json === this.lastList) return;
@@ -302,17 +289,5 @@ export class NotesShare {
     for (const hash of left) this.ports.dropTagged(notesTag(hash));
     if (left.length > 0) this.answers.forget();
     this.ports.images.retain(new Set(this.listEntries().flatMap(({ entry }) => [...entry.images.values()])));
-  }
-
-  private textBytes(hash: string): Uint8Array | undefined {
-    return this.listEntries().find(({ entry }) => entry.ref.hash === hash)?.entry.bytes;
-  }
-
-  private imagePath(hash: string): string | undefined {
-    for (const { entry } of this.listEntries()) {
-      const path = entry.images.get(hash);
-      if (path !== undefined) return path;
-    }
-    return undefined;
   }
 }

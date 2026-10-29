@@ -1,6 +1,7 @@
 import type { App } from 'obsidian';
 import { QuestImages } from '../../../plugin/questImages';
 import type { GmMessage } from '../../protocol/index.ts';
+import type { Timers } from '../companionTimers.ts';
 import type { ScaleImage } from '../assetVariants.ts';
 import type { AssetAnswerPorts } from '../assetAnswers.ts';
 import type { VaultImage } from '../TokenShare.ts';
@@ -18,6 +19,8 @@ export interface TableNotesDeps {
   tickets?: AssetAnswerPorts['tickets'];
   readImage(path: string): Promise<VaultImage | null>;
   scaleImage?: ScaleImage;
+  /** Schedules the retries of a failed read. */
+  readonly timers?: Timers | undefined;
   /** The share's count or cap changed. */
   changed?(): void;
 }
@@ -36,6 +39,7 @@ export function tableNotes(deps: TableNotesDeps): NotesShare {
     images: new QuestImages(deps.app),
     readImage: (path) => deps.readImage(path),
     scaleImage: deps.scaleImage,
+    timers: deps.timers,
     changed: (): void => deps.changed?.(),
   });
 }

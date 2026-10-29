@@ -4,6 +4,7 @@ import { readVaultImage } from '../../../../../src/app/online/gm/vaultImage.ts';
 import { QuestImages } from '../../../../../src/app/plugin/questImages';
 import { randomHex } from '../../../../../src/app/utils/randomHex';
 import { questVault, type QuestVault } from '../../../../mocks/questVault';
+import type { Timers } from '../../../../../src/app/online/gm/companionTimers.ts';
 import { settled } from '../settled.ts';
 
 export const ANA = 'a'.repeat(20);
@@ -53,6 +54,7 @@ export function makeTable(files: Record<string, string>, extra: Partial<NotesSha
     now: () => Date.now(),
     images: new QuestImages(vault.app),
     readImage: (path) => readVaultImage(vault.app, path),
+    timers: clock(),
     ...extra,
   });
   const lists = (to?: string): NotesMessage[] => sent.flatMap((entry) => (entry.body.t === 'notes' && (to === undefined || entry.to === to) ? [entry.body] : []));
@@ -105,6 +107,32 @@ export function holdReads(table: Table): { release(index?: number): Promise<void
       const [release] = held.splice(index, 1);
       release?.();
       await settled();
+    },
+  };
+}
+
+/** Timers that run only when advanced, like the clock of the send queue tests. */
+export function clock(): Timers & { advance(ms: number): void; readonly pending: number } {
+  let now = 0;
+  let timers: Array<{ at: number; run: () => void; id: number }> = [];
+  let ids = 0;
+  return {
+    now: () => now,
+    setTimer: (run, ms) => (timers.push({ at: now + ms, run, id: (ids += 1) }), ids),
+    clearTimer: (id) => void (timers = timers.filter((timer) => timer.id !== id)),
+    get pending() {
+      return timers.length;
+    },
+    advance: (ms) => {
+      const end = now + ms;
+      for (;;) {
+        const next = timers.filter((timer) => timer.at <= end).sort((a, b) => a.at - b.at)[0];
+        if (next === undefined) break;
+        now = next.at;
+        timers = timers.filter((timer) => timer !== next);
+        next.run();
+      }
+      now = end;
     },
   };
 }

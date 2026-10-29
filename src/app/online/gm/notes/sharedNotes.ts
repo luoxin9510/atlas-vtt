@@ -41,12 +41,25 @@ export interface Entry {
   readonly images: ReadonlyMap<string, string>;
   /** What the note's links resolved to when it was read: a change reads it again. */
   readonly linkKey: string;
+  /** The `${id}:${title}` of the shared notes its links named: one gone or retitled withdraws the copy. */
+  readonly shown: ReadonlySet<string>;
   /** Whether the note embeds images, which a change of the vault's images may affect. */
   readonly embeds: boolean;
 }
 
 /** Whether `path` is `folder` or lies inside it. */
 const isWithin = (path: string, folder: string): boolean => path === folder || path.startsWith(`${folder}/`);
+
+/** Moves the keys at or inside `from` to `to` in each map. */
+export function moveKeys(maps: ReadonlyArray<Map<string, unknown>>, from: string, to: string): void {
+  for (const map of maps) {
+    for (const [path, value] of [...map]) {
+      if (!isWithin(path, from)) continue;
+      map.delete(path);
+      map.set(to + path.slice(from.length), value);
+    }
+  }
+}
 
 /**
  * The notes flagged for sharing, and which of them are shared: the first `MAX_SHARED_NOTES` by title
@@ -78,13 +91,7 @@ export class SharedSet {
 
   /** A note or a folder moved: the notes in it keep their ids and flags under their new paths. */
   move(from: string, to: string): void {
-    for (const map of [this.flags, this.ids] as ReadonlyArray<Map<string, unknown>>) {
-      for (const [path, value] of [...map]) {
-        if (!isWithin(path, from)) continue;
-        map.delete(path);
-        map.set(to + path.slice(from.length), value);
-      }
-    }
+    moveKeys([this.flags, this.ids], from, to);
     this.listed = null;
   }
 

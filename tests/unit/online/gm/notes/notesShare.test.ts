@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseGmMessage, type AssetRef, type GmMessage } from '../../../../../src/app/online/protocol/index.ts';
 import { notesTag } from '../../../../../src/app/online/gm/notes/notesTag.ts';
 import { settled } from '../settled.ts';
-import { ANA, BEN, gif, holdReads, makeTable, OLD, shared, started, type Table } from './notesHarness.ts';
+import { ANA, BEN, clock, gif, holdReads, makeTable, OLD, shared, started, type Table } from './notesHarness.ts';
 
 const titles = (table: Table): string[] => table.list().map((note) => note.title);
 const idOf = (table: Table, title: string): string => table.list().find((note) => note.title === title)?.id ?? '';
@@ -282,6 +282,109 @@ describe('NotesShare', () => {
       await reads.release();
       expect(titles(table)).toEqual(['A', 'C']);
       expect(await table.text(idOf(table, 'A'))).toBe('See b here.');
+    });
+
+    it('keeps a note listed when a note it links to that is not shared is renamed or moved', async () => {
+      table = await started({ 'A.md': shared('See [[C]] here.'), 'C.md': 'Not shared.' });
+      const reads = holdReads(table);
+      table.dropped.length = 0;
+      await table.vault.move('C.md', 'Z/C.md');
+      table.vault.resolve();
+      expect(titles(table)).toEqual(['A']);
+      expect(table.dropped).toEqual([]);
+      expect(reads.waiting).toBe(0);
+    });
+
+    it('keeps a note listed, unchanged, when a shared note it links to moves to another folder', async () => {
+      table = await started({ 'A.md': shared('See [[B|b]] here.'), 'B.md': shared('B.') });
+      const before = table.list().find((note) => note.title === 'A') as { text: AssetRef };
+      holdReads(table);
+      table.dropped.length = 0;
+      await table.vault.move('B.md', 'Z/B.md');
+      table.vault.resolve();
+      expect(titles(table)).toEqual(['A', 'B']);
+      expect(table.dropped).toEqual([]);
+      expect(table.list().find((note) => note.title === 'A')?.text).toEqual(before.text);
+    });
+
+    it('keeps a note listed while it is read again because a note it linked to is now shared', async () => {
+      table = await started({ 'A.md': shared('See [[B|b]] here.'), 'B.md': 'Not yet.' });
+      expect(await table.text(idOf(table, 'A'))).toBe('See b here.');
+      const reads = holdReads(table);
+      table.vault.write('B.md', shared('B.'));
+      expect(titles(table)).toEqual(['A']);
+      while (reads.waiting > 0) await reads.release();
+      expect(titles(table)).toEqual(['A', 'B']);
+      expect(await table.text(idOf(table, 'A'))).toBe(`See [b](atlas-note:${idOf(table, 'B')}) here.`);
+    });
+
+    it('withdraws a note at once when a shared note it links to is retitled, and lists it again once read', async () => {
+      table = await started({ 'A.md': shared('See [[B|b]] here.'), 'B.md': shared('B.'), 'C.md': shared('Alone.') });
+      const a = table.list().find((note) => note.title === 'A') as { text: AssetRef };
+      const reads = holdReads(table);
+      table.dropped.length = 0;
+      await table.vault.move('B.md', 'Beta.md');
+      expect(titles(table)).not.toContain('A');
+      expect(table.dropped).toContain(notesTag(a.text.hash));
+      while (reads.waiting > 0) await reads.release();
+      expect(titles(table)).toEqual(['A', 'Beta', 'C']);
+    });
+
+    describe('after a read that failed', () => {
+      it('lists the note again when a later read works', async () => {
+        const time = clock();
+        table = await started({ 'Keep.md': shared('Open.') }, { timers: time });
+        const reads = vi.spyOn(table.vault.app.vault, 'read').mockRejectedValueOnce(new Error('busy'));
+        reads.mockClear();
+        table.vault.write('Keep.md', shared('Changed.'));
+        await settled();
+        expect(table.list()).toEqual([]);
+        time.advance(1_999);
+        await settled();
+        expect(table.list()).toEqual([]);
+        time.advance(1);
+        await settled();
+        expect(titles(table)).toEqual(['Keep']);
+        expect(reads).toHaveBeenCalledTimes(2);
+      });
+
+      it('reads a note that always fails four times, and not after stop', async () => {
+        const time = clock();
+        table = await started({ 'Keep.md': shared('Open.') }, { timers: time });
+        const reads = vi.spyOn(table.vault.app.vault, 'read').mockRejectedValue(new Error('busy'));
+        reads.mockClear();
+        table.vault.write('Keep.md', shared('Changed.'));
+        await settled();
+        for (const ms of [2_000, 10_000, 60_000, 600_000]) {
+          time.advance(ms);
+          await settled();
+        }
+        expect(reads).toHaveBeenCalledTimes(4);
+        expect(time.pending).toBe(0);
+        table.vault.write('Keep.md', shared('Again.'));
+        await settled();
+        expect(reads).toHaveBeenCalledTimes(5);
+        expect(time.pending).toBe(1);
+        table.share.stop();
+        expect(time.pending).toBe(0);
+        time.advance(600_000);
+        await settled();
+        expect(reads).toHaveBeenCalledTimes(5);
+      });
+
+      it('does not retry a copy that is too large', async () => {
+        const time = clock();
+        table = await started({ 'Keep.md': shared('Short.') }, { maxBytes: 64, timers: time });
+        table.vault.write('Keep.md', shared('Long. '.repeat(40)));
+        await settled();
+        const reads = vi.spyOn(table.vault.app.vault, 'read');
+        reads.mockClear();
+        expect(time.pending).toBe(0);
+        time.advance(600_000);
+        await settled();
+        expect(reads).not.toHaveBeenCalled();
+        expect(table.list()).toEqual([]);
+      });
     });
 
     it('removes every listener when it stops, and answers nothing afterwards', async () => {
