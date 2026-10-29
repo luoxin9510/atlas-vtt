@@ -5,7 +5,7 @@ import type { RelayTiming } from './config.ts';
 import type { Knock, TableState } from './gmLink.ts';
 import { type GateView, newPlayerKey } from './joinGate.ts';
 import { sha256Hex } from './persist.ts';
-import { gameFromPlayer, sendFrame, toGm } from './routing.ts';
+import { closeWhenSent, gameFromPlayer, sendFrame, toGm } from './routing.ts';
 import { NewcomerLimit } from './limits.ts';
 import type { TableRegistry } from './tables.ts';
 
@@ -27,8 +27,8 @@ export class PlayerLink {
     if (resumed !== undefined && wait !== undefined) {
       const old = resumed.socket;
       resumed.socket = socket;
-      old.close(CLOSE.replaced);
-      sendFrame(socket, { v: 1, t: 'waiting', wait });
+      closeWhenSent(old, CLOSE.replaced);
+      sendFrame(socket, { v: 1, t: 'waiting', wait }, state.limits);
       return true;
     }
     const now = Date.now();
@@ -64,14 +64,15 @@ export class PlayerLink {
     if (knock === undefined) return;
     if (state.players.size >= this.#tables.maxPlayers) {
       toGm(state, { v: 1, t: 'knock-gone', id, full: true });
-      knock.socket.close(CLOSE.full);
+      closeWhenSent(knock.socket, CLOSE.full);
       return;
     }
     this.#welcome(code, state, knock.socket, id, newPlayerKey(), knock.name);
   }
 
   decline(state: TableState, id: string): void {
-    this.#takeKnock(state, id)?.socket.close(CLOSE.declined);
+    const knock = this.#takeKnock(state, id);
+    if (knock !== undefined) closeWhenSent(knock.socket, CLOSE.declined);;
   }
 
   /** The GM removes a player: their key stops working and their socket closes. */
@@ -81,7 +82,7 @@ export class PlayerLink {
     if (player === undefined) return;
     state.players.delete(id);
     toGm(state, { v: 1, t: 'player-left', id });
-    player.socket.close(CLOSE.kicked);
+    closeWhenSent(player.socket, CLOSE.kicked);
   }
 
   /** A socket of the table closed: a player who was connected is gone, a knock that waited is gone. */
@@ -110,7 +111,7 @@ export class PlayerLink {
   }
 
   #turnAway(socket: WebSocket, closeCode: number): false {
-    socket.close(closeCode);
+    closeWhenSent(socket, closeCode);
     return false;
   }
 
@@ -145,11 +146,11 @@ export class PlayerLink {
     if (existing !== undefined) {
       // The same player on a new socket: the old one is out before it is closed, so its late frames count for nothing.
       state.players.delete(id);
-      existing.socket.close(CLOSE.replaced);
+      closeWhenSent(existing.socket, CLOSE.replaced);
     }
     this.#tables.rememberPlayer(code, id, { name, keyHash: sha256Hex(key) }, this.#protected(state));
     state.players.set(id, { id, name, socket });
-    sendFrame(socket, { v: 1, t: 'welcome', role: 'player', id, key, gmOnline: state.gm !== null });
+    sendFrame(socket, { v: 1, t: 'welcome', role: 'player', id, key, gmOnline: state.gm !== null }, state.limits);
     toGm(state, { v: 1, t: 'player-joined', id, name });
   }
 
@@ -158,12 +159,12 @@ export class PlayerLink {
     const timer = setTimeout(() => {
       if (this.#takeKnock(state, id) === undefined) return;
       toGm(state, { v: 1, t: 'knock-gone', id });
-      knock.socket.close(CLOSE.noAnswer);
+      closeWhenSent(knock.socket, CLOSE.noAnswer);
     }, this.#timing.knockWaitMs);
     timer.unref();
     const knock: Knock = { id, name, socket, timer, waitHash: wait === undefined ? null : sha256Hex(wait) };
     state.waiting.set(id, knock);
-    sendFrame(socket, wait === undefined ? { v: 1, t: 'waiting' } : { v: 1, t: 'waiting', wait });
+    sendFrame(socket, wait === undefined ? { v: 1, t: 'waiting' } : { v: 1, t: 'waiting', wait }, state.limits);
     toGm(state, { v: 1, t: 'knock', id, name });
   }
 }

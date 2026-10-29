@@ -4,7 +4,8 @@ import type { CampaignSeat } from '../../../src/app/online/protocol/seat.ts';
 import type { RelayTiming } from './config.ts';
 import { JoinGate } from './joinGate.ts';
 import { PlayerLink } from './playerLink.ts';
-import { announceGm, DEFAULT_BACKLOG_CAP, gameFromGm, sendFrame, toGm } from './routing.ts';
+import { Backlog, RELAY_BACKLOG_BUDGET } from './backlog.ts';
+import { announceGm, closeWhenSent, DEFAULT_BACKLOG_CAP, gameFromGm, type Limits, sendFrame, toGm } from './routing.ts';
 import type { TableListener, TableRegistry } from './tables.ts';
 
 export { sendFrame };
@@ -40,8 +41,8 @@ export interface TableState {
   readonly joinGate: JoinGate;
   /** Every open socket of the table, welcomed or not; all are closed when the table ends. */
   readonly sockets: Set<WebSocket>;
-  /** The most unsent bytes any socket of the table may hold. */
-  readonly backlogCap: number;
+  /** The most unsent bytes one socket may hold, and the relay-wide budget (shared by every table). */
+  readonly limits: Limits;
 }
 
 /** Per-table state and the GM's side of the protocol. Players join through the same `stateOf`. */
@@ -50,10 +51,10 @@ export class TableLinks implements TableListener {
   readonly #states = new Map<string, TableState>();
   readonly #timing: RelayTiming;
   readonly #players: PlayerLink;
-  readonly #backlogCap: number;
+  readonly #limits: Limits;
 
-  constructor(tables: TableRegistry, timing: RelayTiming, backlogCap: number = DEFAULT_BACKLOG_CAP) {
-    this.#backlogCap = backlogCap;
+  constructor(tables: TableRegistry, timing: RelayTiming, backlogCap: number = DEFAULT_BACKLOG_CAP, totalBacklog: number = RELAY_BACKLOG_BUDGET) {
+    this.#limits = { perSocket: backlogCap, budget: new Backlog(totalBacklog) };
     this.#tables = tables;
     this.#timing = timing;
     this.#players = new PlayerLink(tables, timing);
@@ -68,7 +69,7 @@ export class TableLinks implements TableListener {
   stateOf(code: string): TableState {
     let state = this.#states.get(code);
     if (state === undefined) {
-      state = { gm: null, gate: { code: null, ask: false }, gateKnown: false, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set(), backlogCap: this.#backlogCap };
+      state = { gm: null, gate: { code: null, ask: false }, gateKnown: false, roster: [], players: new Map(), waiting: new Map(), joinGate: new JoinGate(this.#timing), sockets: new Set(), limits: this.#limits };
       this.#states.set(code, state);
     }
     return state;
@@ -82,7 +83,7 @@ export class TableLinks implements TableListener {
     // It stops being the GM before it is closed: ws waits for the peer's answer, and until then its frames must count for nothing.
     state.gm = null;
     this.#tables.setHosted(code, false);
-    gm.close(CLOSE.replaced);
+    closeWhenSent(gm, CLOSE.replaced);
     announceGm(state, false);
   }
 
@@ -92,7 +93,12 @@ export class TableLinks implements TableListener {
     if (state === undefined) return;
     this.#states.delete(code);
     this.#players.ended(state);
-    for (const socket of state.sockets) socket.close(CLOSE.ended);
+    for (const socket of state.sockets) closeWhenSent(socket, CLOSE.ended);
+  }
+
+  /** The relay-wide budget of queued frames. */
+  get backlog(): Backlog {
+    return this.#limits.budget;
   }
 
   /** A GM hello with the right secret arrived on `socket`: it becomes the table's GM and gets its welcome. */
@@ -101,14 +107,15 @@ export class TableLinks implements TableListener {
     const state = this.stateOf(code);
     const previous = state.gm;
     state.gm = socket;
-    previous?.close(CLOSE.replaced);
+    state.limits.budget.markGm(socket);
+    if (previous !== null) closeWhenSent(previous, CLOSE.replaced);
     this.#tables.setHosted(code, true);
     const players = [...state.players.values()].map(({ id, name }) => ({ id, name }));
     const waiting = [...state.waiting.values()].map(({ id, name }) => ({ id, name }));
-    sendFrame(socket, { v: 1, t: 'welcome', role: 'gm', players, ...(waiting.length > 0 && { waiting }), batch: true });
+    sendFrame(socket, { v: 1, t: 'welcome', role: 'gm', players, ...(waiting.length > 0 && { waiting }), batch: true }, state.limits);
     // The GM who arrives while a pause runs is told once, here; a pause that starts later tells it itself.
     const until = state.joinGate.pausedUntil(Date.now());
-    if (until !== null) sendFrame(socket, { v: 1, t: 'gate-paused', until });
+    if (until !== null) sendFrame(socket, { v: 1, t: 'gate-paused', until }, state.limits);
     announceGm(state, true);
   }
 

@@ -43,7 +43,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   // The real path, once: static.ts compares every resolved file against it (macOS /var is itself a link).
   const staticDir = config.staticDir === null ? null : await realRoot(config.staticDir);
   const handler = createHandler({ config: { ...config, staticDir }, tables, assets, log });
-  const links = new TableLinks(tables, config.timing, config.maxBacklogBytes);
+  const links = new TableLinks(tables, config.timing, config.maxBacklogBytes, config.maxTotalBacklogBytes);
   const sockets = createSocketServer(tables, links, config, log);
   const server = createServer(handler);
   server.on('upgrade', (req, socket, head) => sockets.upgrade(req, socket, head));
