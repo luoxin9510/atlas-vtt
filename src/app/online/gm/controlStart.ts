@@ -21,6 +21,8 @@ export interface StartPorts {
   readonly campaigns: TableCampaigns;
   readonly account: HostAccount;
   closings(): number;
+  /** Tells the panels something changed. */
+  changed(): void;
 }
 
 /** A table the server made and that is still wanted, with what it needs to run. */
@@ -44,8 +46,10 @@ export async function prepareStart(ports: StartPorts, leaf: WorkspaceLeaf | null
   const origin = relayOrigin();
   if (blocked !== null || leaf === null || campaignId === null || token === null || origin === null) return refused(blocked ?? NO_CAMPAIGN_TEXT);
   markStarting(true);
+  ports.changed();
   const closings = ports.closings();
   const made = await createCampaignTable(ports.campaigns, campaignId, token, origin, ports.account, (level) => rememberMinLevel(ports.app, level)).finally(() => markStarting(false));
+  ports.changed();
   if (made === null) return null;
   // The control was closed while the table was made: nothing keeps this table, so it is ended on the server it was made on.
   if (closings !== ports.closings()) {
@@ -66,7 +70,7 @@ export interface ControlHost extends EventsHost {
   readonly shelf: BookShelf;
   closings(): number;
   isStarting(): boolean;
-  /** Sets the flag that a table is being made, and tells the panels. */
+  /** Sets the flag that a table is being made; tells nobody. */
   setStarting(on: boolean): void;
   setCurrent(table: OnlineTable): void;
   setUnwatch(unwatch: () => void): void;
@@ -80,6 +84,7 @@ export interface ControlHost extends EventsHost {
 export async function startTable(host: ControlHost, leaf: WorkspaceLeaf | null, campaignId: string | null): Promise<OnlineTable | null> {
   if (host.current() !== null || host.isStarting()) return host.current();
   const started = await prepareStart(host, leaf, campaignId, (on) => host.setStarting(on));
+  // `campaignId` is checked for its type only: `prepareStart` refused a missing one.
   if (started === null || campaignId === null) return null;
   // A new table's log is empty: the last table's goes.
   host.logs.forget();

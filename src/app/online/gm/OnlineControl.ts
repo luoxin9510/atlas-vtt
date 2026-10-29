@@ -64,7 +64,6 @@ export class OnlineControl {
       isStarting: () => this.starting,
       setStarting: (on) => {
         this.starting = on;
-        this.changed();
       },
       setCurrent: (table) => {
         this.current = table;
