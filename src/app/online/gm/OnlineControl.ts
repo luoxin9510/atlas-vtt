@@ -1,22 +1,20 @@
 import { type App, type WorkspaceLeaf } from 'obsidian';
 import { showNotice } from '../../ui/notice';
-import { activeAtlasLeaf, activeStore, sceneStoreOf, selectedTokenIds, workScene, type WorkScene } from './atlasView.ts';
+import { activeAtlasLeaf } from './atlasView.ts';
 import type { CampaignPlayer } from '../../campaigns/players/playersFile';
 import { BookShelf } from './book/BookShelf.ts';
-import { CAMPAIGNS_LOADING_TEXT, linkRefusal, NO_CAMPAIGN_TEXT, NO_TABLE_TEXT, renewLink, type TableSeats } from './campaignSeats.ts';
+import { renewTable, resumeTable, startTable, type ControlHost } from './controlStart.ts';
+import { giveSharedTokens, markPlayerTokens, markSelected, selectedTokens, sharedScene, type TokenPorts } from './controlTokens.ts';
 import { GM_LEVEL } from '../protocol/index.ts';
-import { isOutdated, rememberMinLevel } from './gmLevel.ts';
-import { freeGate, newGate } from './joinGate.ts';
+import { isOutdated } from './gmLevel.ts';
 import { LogKeeper, type LogStore } from './log/logStore.ts';
 import { OnlineTable } from './OnlineTable.ts';
 import type { KnownPlayer, Ownership } from './ownership.ts';
-import { giveTokens, markTokens, playerTokenRows, type PlayerTokenRow } from './playerTokenRows.ts';
+import { playerTokenRows, type PlayerTokenRow } from './playerTokenRows.ts';
 import { presentOnPlayerView, presentedSceneSource, showPresentedElsewhere, type ShownElsewhere } from './presentedScene.ts';
 import type { SavedTable } from './savedTable.ts';
-import { relayOrigin } from './servers.ts';
-import { endStrayTable } from './strayTable.ts';
 import type { TableCampaigns } from './tableCampaigns.ts';
-import { createCampaignTable, NO_ACCOUNT, refused, startBlock, type HostAccount } from './tableStart.ts';
+import { NO_ACCOUNT, type HostAccount } from './tableStart.ts';
 import type { TableStatus } from './TableConnection.ts';
 import type { LostTable } from './tableEnd.ts';
 import { t } from '../../i18n';
@@ -47,13 +45,46 @@ export class OnlineControl {
   private unwatch = (): void => undefined;
   /** The running table's log, kept with it and told to its panels. */
   readonly logs: LogKeeper;
+  private readonly tokenPorts: TokenPorts;
+  private readonly host: ControlHost;
 
-  constructor(app: App, ownership: Ownership, private readonly campaigns: TableCampaigns, save: (table: SavedTable | null) => void = () => undefined, account: HostAccount = NO_ACCOUNT, logStore?: LogStore, private readonly shelf = new BookShelf()) {
+  constructor(app: App, ownership: Ownership, private readonly campaigns: TableCampaigns, save: (table: SavedTable | null) => void = () => undefined, account: HostAccount = NO_ACCOUNT, logStore?: LogStore, shelf = new BookShelf()) {
     this.app = app;
     this.ownership = ownership;
     this.save = save;
     this.logs = new LogKeeper(logStore);
     this.account = account;
+    this.tokenPorts = { ownership, campaigns, app, current: () => this.current };
+    this.host = {
+      app, campaigns, account, ownership, logs: this.logs, shelf,
+      // Read anew at each call: a close during an `await` must be seen.
+      closings: () => this.closings,
+      current: () => this.current,
+      saved: () => this.saved,
+      isStarting: () => this.starting,
+      setStarting: (on) => {
+        this.starting = on;
+        this.changed();
+      },
+      setCurrent: (table) => {
+        this.current = table;
+      },
+      setUnwatch: (unwatch) => {
+        this.unwatch = unwatch;
+      },
+      stop: () => this.stop(),
+      end: () => this.end(),
+      keep: (saved) => this.keep(saved),
+      changed: () => this.changed(),
+      detach: () => {
+        this.current = null;
+        this.unbind();
+        this.syncShown();
+      },
+      setEnded: (end) => {
+        this.ended = end;
+      },
+    };
     ownership.onChange(() => this.changed());
   }
 
@@ -119,7 +150,7 @@ export class OnlineControl {
    * until the table ends. Players see the scene Atlas presents to its player view.
    */
   start(leaf: WorkspaceLeaf | null, campaignId: string | null): Promise<OnlineTable | null> {
-    return this.startFor(leaf, campaignId);
+    return startTable(this.host, leaf, campaignId);
   }
 
   /**
@@ -128,22 +159,8 @@ export class OnlineControl {
    * Atlas presents again. The campaign stays played while it comes back, and is played no longer
    * where its players cannot be read.
    */
-  async resume(saved: SavedTable): Promise<OnlineTable | null> {
-    if (this.current !== null || this.starting) return this.current;
-    // A table is run again only on the server it was made on.
-    if (relayOrigin() !== saved.origin) {
-      this.campaigns.stop();
-      return null;
-    }
-    this.starting = true;
-    const closings = this.closings;
-    const seats = await this.campaigns.open(saved.campaignId).catch(() => null).finally(() => (this.starting = false));
-    if (closings !== this.closings || this.current !== null) return this.current;
-    if (seats === null) {
-      this.campaigns.stop();
-      return null;
-    }
-    return this.run(saved, seats, this.logs.saved());
+  resume(saved: SavedTable): Promise<OnlineTable | null> {
+    return resumeTable(this.host, saved);
   }
 
   /** Ends the running table for good: the link stops working, the saved table is forgotten and its campaign is played no longer. */
@@ -207,153 +224,33 @@ export class OnlineControl {
    * Gives the campaign a new link, so the old one stops working; a running table starts again on it.
    * Where it could not start again (no Atlas tab, signed out) nothing changes and the GM is told why.
    */
-  async newLink(): Promise<void> {
-    const campaignId = this.saved?.campaignId ?? this.campaigns.playing();
-    const leaf = this.current?.sharedTab ?? activeAtlasLeaf(this.app);
-    const blocked = this.current === null ? null : startBlock(leaf, campaignId, this.account);
-    if (blocked !== null) return void showNotice(blocked);
-    if (campaignId === null) return void showNotice(NO_CAMPAIGN_TEXT);
-    const seats = await this.campaigns.open(campaignId).catch(() => null);
-    if (seats === null || !renewLink(seats)) return void showNotice(seats === null ? CAMPAIGNS_LOADING_TEXT : linkRefusal(seats));
-    if (this.current === null) return;
-    // The campaign stays played across the restart, unless no table runs after it.
-    this.end();
-    let restarted: OnlineTable | null = null;
-    try {
-      restarted = await this.startFor(leaf, campaignId);
-    } finally {
-      if (restarted === null) this.campaigns.stop();
-    }
+  newLink(): Promise<void> {
+    return renewTable(this.host);
   }
 
   /** The player tokens of the shared scene as players see it (of the active Atlas tab while none is shared), with who has each. */
   playerTokens(): PlayerTokenRow[] {
-    return playerTokenRows(this.ownership, this.sharedScene());
+    return playerTokenRows(this.ownership, sharedScene(this.tokenPorts));
   }
 
   /** The tokens selected on the active Atlas tab (the shared one when none is active). */
   selectedTokens(): string[] {
-    const scene = this.activeScene();
-    return scene === null ? [] : selectedTokenIds(scene.store.getState());
+    return selectedTokens(this.tokenPorts);
   }
 
   /** Makes tokens of the shared scene player tokens, or the GM's own (which takes them back from their players). */
   markPlayerTokens(tokenIds: readonly string[], player: boolean): void {
-    if (this.canMark()) markTokens(this.ownership, this.sharedScene(), tokenIds, player);
+    markPlayerTokens(this.tokenPorts, tokenIds, player);
   }
 
   /** Makes the tokens selected on the active Atlas tab player tokens, or the GM's own; the number of tokens changed, null where no campaign keeps them. */
   markSelected(player: boolean): number | null {
-    const scene = this.activeScene();
-    const selected = scene === null ? [] : selectedTokenIds(scene.store.getState());
-    if (selected.length > 0 && !this.canMark()) return null;
-    markTokens(this.ownership, scene, selected, player);
-    return selected.length;
-  }
-
-  /** Whether player tokens can be kept now; where not, the GM is told why. Player tokens are the campaign's, so none are kept while no table plays one. */
-  private canMark(): boolean {
-    if (this.ownership.canMark()) return true;
-    showNotice(this.campaigns.playing() === null ? NO_TABLE_TEXT : CAMPAIGNS_LOADING_TEXT);
-    return false;
+    return markSelected(this.tokenPorts, player);
   }
 
   /** Gives tokens to a player, or takes them back from whoever has them (null). A token nobody had sees from then on (`seeAsPlayers`). */
   give(tokenIds: readonly string[], playerId: string | null): void {
-    giveTokens(this.ownership, this.sharedScene(), tokenIds, playerId);
-  }
-
-  private sharedScene(): WorkScene | null {
-    return workScene(this.current?.sharedStore ?? activeStore(this.app));
-  }
-
-  private activeScene(): WorkScene | null {
-    const shared = this.current?.sharedTab;
-    return workScene(activeStore(this.app) ?? (shared === null || shared === undefined ? null : sceneStoreOf(shared)));
-  }
-
-  private async startFor(leaf: WorkspaceLeaf | null, campaignId: string | null): Promise<OnlineTable | null> {
-    if (this.current !== null || this.starting) return this.current;
-    const blocked = startBlock(leaf, campaignId, this.account);
-    const token = this.account.token();
-    // The server is read once: the table is asked of it, and run on it or ended there, whatever the setting says by then.
-    const origin = relayOrigin();
-    if (blocked !== null || leaf === null || campaignId === null || token === null || origin === null) return refused(blocked ?? NO_CAMPAIGN_TEXT);
-    this.starting = true;
-    this.changed();
-    const closings = this.closings;
-    const made = await createCampaignTable(this.campaigns, campaignId, token, origin, this.account, (level) => rememberMinLevel(this.app, level)).finally(() => (this.starting = false));
-    this.changed();
-    if (made === null) return null;
-    // The control was closed while the table was made: nothing keeps this table, so it is ended on the server it was made on.
-    if (closings !== this.closings) {
-      endStrayTable(origin, made.created);
-      return null;
-    }
-    // The address was edited while the table was made: it belongs to a server that is no longer the one set.
-    if (relayOrigin() !== origin) {
-      endStrayTable(origin, made.created);
-      return null;
-    }
-    // A new table's log is empty: the last table's goes.
-    this.logs.forget();
-    const mapPath = sceneStoreOf(leaf)?.getState().mapPath ?? null;
-    return this.run({ ...made.created, origin, campaignId, mapPath, gate: newGate(undefined, made.seats.codes()) }, made.seats);
-  }
-
-  /** Runs the table on its campaign: its players and books are the campaign's from before anyone can join until it ends. */
-  private run(given: SavedTable, seats: TableSeats, savedLog?: unknown): OnlineTable | null {
-    // A join code that is now a player's own (made on another device since) is made anew: the page's one field takes both.
-    const saved = { ...given, gate: freeGate(given.gate, seats.codes()) };
-    this.ended = null;
-    this.keep(saved);
-    this.ownership.bind(seats);
-    this.campaigns.bound(saved.campaignId);
-    const table = new OnlineTable({
-      app: this.app, origin: saved.origin, table: saved, mapPath: saved.mapPath, ownership: this.ownership, seats, gate: saved.gate, paused: saved.paused === true, shelf: this.shelf, savedLog,
-      events: {
-        status: () => {
-          // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
-          if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);
-          this.changed();
-        },
-        gate: (gate) => {
-          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, gate });
-        },
-        paused: (paused) => {
-          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, paused });
-        },
-        changed: () => this.changed(),
-        log: () => void (this.current === table && this.logs.keep(table.log.saved())),
-        mapPath: (mapPath) => {
-          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, mapPath });
-        },
-        ended: (end) => {
-          if (this.current !== table) return;
-          this.current = null;
-          this.unbind();
-          this.syncShown();
-          // Whoever ends a table themselves decides what is played next (`stop`, `newLink`); a table the server closed, or another Obsidian took over, ends the play here.
-          if (end !== 'stopped') this.campaigns.stop();
-          // A table the server ended is gone; one the GM stopped was dropped by `stop`, one another Obsidian took over lives on there, and one that waits for an updated Atlas stays.
-          this.ended = end === 'stopped' || end === 'replaced' || end === 'outdated' ? null : end;
-          if (end === 'outdated') rememberMinLevel(this.app, GM_LEVEL + 1);
-          if (this.ended !== null) this.keep(null);
-          // The account page says why; the dock shows what the relay says of the account now.
-          if (end === 'no-access') void this.account.refresh(true);
-        },
-      },
-    });
-    // The table's campaign is the one played while it runs: its rules, quests and world map are what players get.
-    this.campaigns.play(saved.campaignId);
-    // A campaign deleted while its table runs is played no longer (`recordCampaignPlay`, the campaign page), and takes its table with it.
-    this.unwatch = this.campaigns.onChange(() => {
-      if (this.current === table && this.campaigns.playing() !== saved.campaignId) this.stop();
-    });
-    this.current = table;
-    table.start();
-    this.changed();
-    return table;
+    giveSharedTokens(this.tokenPorts, tokenIds, playerId);
   }
 
   /** Ends the running table on the server and forgets the saved one; what is played stays as it is. */
