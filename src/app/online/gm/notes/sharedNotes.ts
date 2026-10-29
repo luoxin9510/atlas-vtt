@@ -148,3 +148,27 @@ export class SharedSet {
     return this.listed;
   }
 }
+
+/** The entry listed as `info` says: the same copy under a new title or group, or null when nothing differs. */
+export function retitled(entry: Entry, info: SharedInfo): Entry | null {
+  if (entry.title === info.title && entry.group === info.group) return null;
+  return { ...entry, title: info.title, group: info.group };
+}
+
+/**
+ * Lists the held entries of shared notes under the title and group the share has for them now, so a rename
+ * shows before the copy is read again. Only notes in the shared set are looked at, so a title that is not
+ * shared is never taken. Whether any entry changed.
+ */
+export function retitleHeld(entries: Map<string, Entry>, set: SharedSet): boolean {
+  let changed = false;
+  for (const path of set.paths()) {
+    const entry = entries.get(path);
+    const info = set.info(path);
+    const next = entry === undefined || info === undefined ? null : retitled(entry, info);
+    if (next === null) continue;
+    entries.set(path, next);
+    changed = true;
+  }
+  return changed;
+}

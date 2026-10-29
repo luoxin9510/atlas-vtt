@@ -28,11 +28,12 @@ describe('online play\'s settings data', () => {
 
 describe('online play\'s settings', () => {
   /** Online play's settings with a GM signed in. */
-  function host(me: HttpResponse): { settings: OnlineSettings; account: AccountControl; saveSettings: () => Promise<void>; sectionsChanged: () => void; opened: string[]; saved: OnlineSettings[]; requests: HttpRequest[]; keyIs(): string | null } {
+  function host(me: HttpResponse): { settings: OnlineSettings; account: AccountControl; saveSettings: () => Promise<void>; sectionsChanged: () => void; sectionsChangedCalls: number; opened: string[]; saved: OnlineSettings[]; requests: HttpRequest[]; keyIs(): string | null } {
     const settings = { ...DEFAULT_SETTINGS };
     const opened: string[] = [];
     const saved: OnlineSettings[] = [];
     const requests: HttpRequest[] = [];
+    let sectionsChangedCalls = 0;
     let token: string | null = 'tok';
     let key: string | null = null;
     const account = new AccountControl({
@@ -43,7 +44,7 @@ describe('online play\'s settings', () => {
       openUrl: (url) => void opened.push(url),
       notify: () => undefined,
     });
-    return { settings, account, sectionsChanged: () => undefined, opened, saved, requests, keyIs: () => key, saveSettings: () => Promise.resolve(void saved.push({ ...settings })) };
+    return { settings, account, sectionsChanged: () => void (sectionsChangedCalls += 1), get sectionsChangedCalls() { return sectionsChangedCalls; }, opened, saved, requests, keyIs: () => key, saveSettings: () => Promise.resolve(void saved.push({ ...settings })) };
   }
 
   /** The sections drawn as the settings tab draws them. */
@@ -123,6 +124,8 @@ describe('online play\'s settings', () => {
     expect(relayOrigin()).toBe('https://tables.example.com');
     expect(row.controlEl.querySelector('input')?.value).toBe('https://tables.example.com');
     expect(of.saved.at(-1)?.serverOrigin).toBe('https://tables.example.com');
+    // The row set is fixed, so the settings page is not drawn again (a redraw would drop the field's focus).
+    expect(of.sectionsChangedCalls).toBe(0);
 
     typed(row, 'nope');
     expect(row.descEl.textContent).toBe('Enter an address such as https://play.example.com.');

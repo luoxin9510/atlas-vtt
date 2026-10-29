@@ -106,11 +106,6 @@ export class OnlineFeature extends Component {
     return this.ready ? onlineSettingsSections(this) : [];
   }
 
-  /** The server section changed what the settings show (the host key row comes and goes). */
-  sectionsChanged(): void {
-    this.onSectionsChanged();
-  }
-
   /** Runs one of online play's commands, or checks whether it can run now. */
   runCommand(id: OnlineCommandId, checking: boolean): boolean {
     return this.live && (this.commands.get(id)?.(checking) ?? false);

@@ -14,7 +14,7 @@ import { NOTES_TAG_PREFIX, notesTag } from './notesTag.ts';
 import { watchVault } from './notesWatch.ts';
 import { FailedReads } from './failedReads.ts';
 import { linkState, type LinkState } from './linkKey.ts';
-import { moveKeys, readFlag, SharedSet, type Entry } from './sharedNotes.ts';
+import { moveKeys, readFlag, retitleHeld, SharedSet, type Entry } from './sharedNotes.ts';
 
 export interface NotesSharePorts {
   app: App;
@@ -187,10 +187,10 @@ export class NotesShare {
   private sync(dirty: ReadonlySet<string>): void {
     const shared = this.set.paths();
     const listed = new Set(shared);
-    let removed = false;
+    let changed = retitleHeld(this.entries, this.set);
     for (const path of [...this.entries.keys(), ...this.building.keys()]) {
       if (listed.has(path)) continue;
-      removed ||= this.entries.delete(path);
+      changed ||= this.entries.delete(path);
       this.building.delete(path);
       this.turns.set(path, (this.turns.get(path) ?? 0) + 1);
     }
@@ -203,14 +203,14 @@ export class NotesShare {
       const reading = this.building.get(path);
       // A title the copy may show that is gone or changed withdraws it now, whatever a failed read left; a link that only appeared leaves it listed until it is read again.
       const withdrawn = entry !== undefined && ([...entry.shown].some((pair) => !state.shown.has(pair)) || [...entry.linked].some((pair) => !held.has(pair)));
-      if (withdrawn) removed = this.entries.delete(path) || removed;
+      if (withdrawn) changed = this.entries.delete(path) || changed;
       if (dirty.has(path)) this.failed.clear(path);
       else if (this.failed.skip(path, this.stamp(path, state.key))) continue;
       if (dirty.has(path) || (reading !== undefined ? reading !== state.key : withdrawn || entry?.linkKey !== state.key)) reads.push([path, state]);
     }
-    if (removed) this.settle();
+    if (changed) this.settle();
     for (const [path, state] of reads) void this.build(path, state);
-    if (removed) this.publish();
+    if (changed) this.publish();
   }
 
   private stamp(path: string, key: string): string {

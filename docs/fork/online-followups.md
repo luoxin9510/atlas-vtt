@@ -81,9 +81,9 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - ~~The community store replaced a fork installed as `atlas-vtt`~~ (done: local installs use the plugin id `atlas-vtt-fork`; found in testing). True only since the wave B final fix: online play used to look Atlas up under the fixed id `atlas-vtt`, and now reads the running plugin's `manifest.id` (`src/app/plugin/pluginId.ts`).
 
 ## Wave B residuals (open)
-- Renaming a shared note's title lags: the list shows the old title until the next change.
+- ~~Renaming a shared note's title lags: the list shows the old title until the next change.~~ (done: a rename or group change retitles the held entry at once, only for notes still in the shared set; wave D)
 - An escaped `\<!--` in a note cuts the copy there although it is only text (known over-hide; fails closed, pinned in `playerCopy.test.ts`).
-- The settings page re-renders when the server address changes, which can drop focus in the field.
+- ~~The settings page re-renders when the server address changes, which can drop focus in the field.~~ (done: the address change no longer redraws the settings tab; wave D)
 - The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
 - `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.
 
