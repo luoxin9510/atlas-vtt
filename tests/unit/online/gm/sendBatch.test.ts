@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_BATCH_SENDS, MAX_GM_FRAME, parseClientFrame } from '../../../../src/app/online/protocol/index.ts';
 import type { Timers } from '../../../../src/app/online/gm/companionTimers.ts';
-import { BATCH_MS, BULK_BUFFERED, SendQueue } from '../../../../src/app/online/gm/sendQueue.ts';
+import { BATCH_MS, BULK_BUFFERED, BURST, SendQueue } from '../../../../src/app/online/gm/sendQueue.ts';
 
 function clock(): Timers & { advance(ms: number): void } {
   let now = 0;
@@ -159,20 +159,32 @@ describe('the send queue towards a relay that takes batches', () => {
     time.advance(3 * BATCH_MS);
     expect(sent.flatMap(carried)).toEqual([]);
     expect(queue.length).toBe(0);
+    const plain = message({ t: 'plain' });
+    queue.push(plain.frame, '*', plain.entry);
+    time.advance(BATCH_MS);
+    expect(sent.flatMap(carried)).toEqual([{ t: 'plain' }]);
   });
 
   it('drops the tagged rest of a full batch', () => {
     const { queue, sent, time } = batching();
     const lead = message({ t: 'lead' });
     queue.push(lead.frame, '*', lead.entry);
-    for (let index = 0; index < MAX_BATCH_SENDS + 5; index += 1) {
+    // More full batches than the rate allows at once, so some of the tagged rest stays queued.
+    const total = MAX_BATCH_SENDS * (BURST + 2);
+    for (let index = 0; index < total; index += 1) {
       const next = message({ t: 'tagged', index });
       queue.push(next.frame, '*', next.entry, 'notes:h');
     }
+    time.advance(BATCH_MS);
+    expect(carried(sent[1] ?? '')).toHaveLength(MAX_BATCH_SENDS);
+    const left = queue.length;
+    expect(left).toBeGreaterThan(0);
+    const flown = sent.length;
+    expect(queue.dropTagged('notes:h')).toBe(left);
     const plain = message({ t: 'plain' });
     queue.push(plain.frame, '*', plain.entry);
-    expect(queue.dropTagged('notes:h')).toBe(MAX_BATCH_SENDS + 5);
     time.advance(3 * BATCH_MS);
-    expect(sent.flatMap(carried)).toEqual([{ t: 'lead' }, { t: 'plain' }]);
+    expect(sent.slice(flown).flatMap(carried)).toEqual([{ t: 'plain' }]);
+    expect(queue.length).toBe(0);
   });
 });

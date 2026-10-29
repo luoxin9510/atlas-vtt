@@ -284,7 +284,7 @@ describe('more adversarial pins', () => {
 		for (const [text, expected] of cases) {
 			const out = await copy(text);
 			expect(out, text).toBe(expected);
-			expect(out).not.toContain('SECRET2');
+			expect(out).not.toContain('SECRET');
 		}
 	});
 
@@ -315,18 +315,21 @@ describe('more adversarial pins', () => {
 		const cases: [string, string][] = [
 			['[[Unshared|atlas-note:a1b2c3d4e5f60718293a4b5c]] x', 'atlas-note:a1b2c3d4e5f60718293a4b5c x\n'],
 			['[[Unshared|a](https://evil.x)]] tail', '\\[[Unshared|a](https://evil.x)]] tail\n'],
-			['[[Unshared|<b>SECRET</b>]] x', '\\<b>SECRET\\</b> x\n'],
 			['[ref][r]\n\n[r]: Secret.md "SECRET title"', 'ref\n'],
 			['# %%SECRET%%\n\nbody', 'body\n'],
 		];
 		for (const [text, expected] of cases) {
-			expect(await copy(text), text).toBe(expected);
+			const out = await copy(text);
+			expect(out, text).toBe(expected);
+			expect(out).not.toContain('SECRET');
 		}
+		// The alias is GM-written visible text, so SECRET is shown here by design; only escaping is pinned.
+		expect(await copy('[[Unshared|<b>SECRET</b>]] x')).toBe('\\<b>SECRET\\</b> x\n');
 		const fragment = await copy('[x](Shared.md#SECRET)');
 		expect(fragment).toBe(`[x](${HREF})\n`);
 		expect(fragment).not.toContain('SECRET');
 		const table = await copy('| h |\n| - |\n| %%SECRET%% ok |');
-		expect(table).toContain('ok');
+		expect(table).toBe('| h  |\n| -- |\n| ok |\n');
 		expect(table).not.toContain('SECRET');
 	});
 });
