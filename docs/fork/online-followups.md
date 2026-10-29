@@ -25,8 +25,8 @@ Plan 2; pick them up when touching the code nearby.
 - ~~`tests/unit/relay/players.test.ts` is over 300 lines; split~~ (done: `players.gate`, `.routing`, `.persistence` and `.limits` test files plus the `tableSuite.ts` helper, 180 relay tests as before, each file under 140 lines).
 - Conformance ping test sends its own ping (the client's `Pulse` timer is not exercised); private `socket` field reached by a cast; no negative conformance case.
 - End-to-end test: count calls on the `http` stub and assert 0; no test of an `Origin` with an explicit `:443`.
-- No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.
-- Guard-only tests (pass with or without the fix): the 429-cap upgrade reset, the `done` flag.
+- ~~No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.~~ (done: dock host-key menu and Remove button tests here, apply-on-load / reset-on-unload in `serverLifecycle.test.ts`; wave D)
+- ~~Guard-only tests (pass with or without the fix): the 429-cap upgrade reset, the `done` flag.~~ (done: `upgradeErrors.test.ts` emits a reset on a refused upgrade, `players.gate.test.ts` sends a burst of wrong codes; both fail without their guard; wave D)
 
 ## Player app (`apps/play`)
 - A stretched map (`GridState.mapStretch`) is not shared, so players see it unstretched (upstream protocol limit).
@@ -42,9 +42,9 @@ Plan 2; pick them up when touching the code nearby.
 - Other players see a content-free "secret roll" line for gm/blind/self rolls (upstream behaviour; it reveals that a hidden roll happened).
 - Deferred minors from the per-task reviews: close-reason test weakness, unused `now` option, unguarded second welcome, part-to-yourCode routing, hash-only download keys, `blobCache` `forget()` not closing, no GPU destroy test, card stays open over a fogged own token, `JSON.stringify(ui)` per sync, condition icon letters, badges / pin-found not drawn, row `key=index`, `rollRefusal` only in the dice tab, tab `aria-controls`, `BlobPart` cast, composer draft lost on tab switch, e2e `serve()` port race, roll count by JSON substring and a fixed sleep, swiftshader args, `endToEnd.test.ts` size.
 - The `OnlineTable` wiring of fork levels (`forkClients.forget` on `left`, a `client` after a GM re-welcome) is tested only through `ForkClients` and the Node end-to-end test, not through `OnlineTable` itself (no harness).
-- `.atlas-play-reason` is styled only inside `.atlas-play-join`; the send-failed notice, the dice tray refusal and the refused screen show it unstyled.
-- `SceneView.sync` calls `coarsePointer()` (`matchMedia`) on every store update; evaluate it once.
-- `MapDownload` retries a map the GM never serves every 10 s without an upper bound (rate-limited, stops on scene change, lit scene or destroy).
+- ~~`.atlas-play-reason` is styled only inside `.atlas-play-join`; the send-failed notice, the dice tray refusal and the refused screen show it unstyled.~~ (done: the rule is top level in theme.scss; wave D)
+- ~~`SceneView.sync` calls `coarsePointer()` (`matchMedia`) on every store update; evaluate it once.~~ (done: `MapDownload.sync` takes a thunk and calls it only for a new key; wave D)
+- ~~`MapDownload` retries a map the GM never serves every 10 s without an upper bound (rate-limited, stops on scene change, lit scene or destroy).~~ (done: backoff 10 s doubling to 5 min, 8 tries, a reconnect or new scene starts afresh; wave D)
 
 ## Plan 2b residuals (image cache, lit scenes, drags, pause)
 What a user could notice; the rest of the deferred minors are in the SDD ledger.
@@ -55,8 +55,9 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - ~~Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.~~ (done: `minted`, `failed` and `mintRests` keep about 256 entries, oldest first; wave C)
 - A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
 - The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
-- After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the explored memory changes (a new hash) or the scene is loaded again.
-- A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.
+- ~~After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the explored memory changes (a new hash) or the scene is loaded again.~~ (done: `ExploredMask` asks again after a reconnect while the mask is still null; wave D)
+- ~~A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.~~ (done: `canDrag` decides drag and camera together; wave D)
+- A pause or hold that arrives mid-drag keeps the camera still until release (the drag is cancelled, the camera is given back only on the release).
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
@@ -80,11 +81,19 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - ~~The community store replaced a fork installed as `atlas-vtt`~~ (done: local installs use the plugin id `atlas-vtt-fork`; found in testing). True only since the wave B final fix: online play used to look Atlas up under the fixed id `atlas-vtt`, and now reads the running plugin's `manifest.id` (`src/app/plugin/pluginId.ts`).
 
 ## Wave B residuals (open)
-- Renaming a shared note's title lags: the list shows the old title until the next change.
+- ~~Renaming a shared note's title lags: the list shows the old title until the next change.~~ (done: a rename or group change retitles the held entry at once, only for notes still in the shared set; wave D)
 - An escaped `\<!--` in a note cuts the copy there although it is only text (known over-hide; fails closed, pinned in `playerCopy.test.ts`).
-- The settings page re-renders when the server address changes, which can drop focus in the field.
+- ~~The settings page re-renders when the server address changes, which can drop focus in the field.~~ (done: the address change no longer redraws the settings tab; wave D)
 - The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
-- `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.
+- ~~`main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.~~ (done: `OnlineFeature.ts` is 265 lines, its commands and old-data handling moved to `featureCommands.ts` and `featureLegacy.ts`; the settings-tab wiring left `main.ts` for `src/app/plugin/settingsTab.ts`, so `main.ts` is 297 lines; wave D)
+- The rest of `main.ts` belongs to upstream (308 lines there); the fork only keeps its settings-tab wiring out of it.
+
+## Wave D residuals (open)
+- Tests reach `OnlineFeature`'s legacy data through a cast to the private field (`migrateBooksInto.test.ts`).
+- The mock `Component` has no `registerEvent`, so `serverLifecycle.test.ts` stubs it on the feature.
+- `LegacyData` exposes mutable `books` and `assignments` (the ports-object pattern, one writer in `start()`).
+- `ExploredMask` may call `setExplored` in the short window after a `LitScene` failed and before it is destroyed (harmless: it only feeds the hidden lighting store, and the hash is GM-gated).
+- A pause or hold that arrives mid-drag keeps the camera still until release (see also Plan 2b residuals).
 
 ## Wave C residuals (open)
 Deferred minors from the relay hardening wave and the ticket pruning; the SDD ledger has the detail.

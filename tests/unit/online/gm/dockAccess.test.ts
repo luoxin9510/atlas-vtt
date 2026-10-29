@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import type { AccountView } from '../../../../src/app/online/gm/account/accountView.ts';
+import { HOST_KEY_SET_TEXT, NO_HOST_KEY_TEXT, type AccountView } from '../../../../src/app/online/gm/account/accountView.ts';
 import { ACCESS_REFUSALS } from '../../../../src/app/online/gm/account/relayAccount.ts';
+import { t } from '../../../../src/app/i18n/index.ts';
 import { renderClosingRow, renderUpdateRow } from '../../../../src/app/online/gm/dock/closingRow.ts';
 import { renderMenu, type MenuActions } from '../../../../src/app/online/gm/dock/ConnectionMenu.ts';
 import { panelView } from '../../../../src/app/online/gm/dock/OnlinePanel.ts';
@@ -171,5 +172,43 @@ describe('the online menu while the relay needs a newer Atlas', () => {
     renderUpdateRow(layer, true, { openAccountPage: vi.fn(), update });
     layer.querySelector('button')?.click();
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the online menu on a self-hosted server', () => {
+  const PICKED: CampaignPick = { list: [{ id: 'c1', name: 'Strahd', activity: 'Played 3d ago', players: 2, art: null, hue: 40 }], chosen: 'c1', query: '' };
+  const UNPICKED: CampaignPick = { ...PICKED, chosen: null };
+
+  it('says that no host key is set and where to set it, with no button and no field for a key', () => {
+    const shown = menu({}, { kind: 'host-key', set: false }, PICKED);
+    expect(shown.lines).toContain(NO_HOST_KEY_TEXT);
+    expect(shown.lines).toContain(t('onlineDock.setHostKey'));
+    expect(shown.buttons).toEqual([]);
+    expect(shown.layer.querySelector('input, form')).toBeNull();
+  });
+
+  it('offers Start, and no Sign out, once the host key is set and a campaign is chosen', () => {
+    const shown = menu({}, { kind: 'host-key', set: true }, PICKED);
+    expect(shown.lines).toContain(HOST_KEY_SET_TEXT);
+    expect(shown.buttons).toContain('Start online table');
+    expect(shown.buttons).not.toContain('Sign out');
+    shown.press('Start online table');
+    expect(shown.does.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('stands Update in for Start while the relay needs a newer Atlas', () => {
+    const shown = menu({ outdated: true }, { kind: 'host-key', set: true }, PICKED);
+    expect(shown.buttons).toContain('Update');
+    expect(shown.buttons).not.toContain('Start online table');
+    shown.press('Update');
+    expect(shown.does.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Start disabled until a campaign is chosen', () => {
+    const shown = menu({}, { kind: 'host-key', set: true }, UNPICKED);
+    const start = [...shown.layer.querySelectorAll('button')].find((button) => button.textContent === 'Start online table');
+    expect(start?.disabled).toBe(true);
+    shown.press('Start online table');
+    expect(shown.does.start).not.toHaveBeenCalled();
   });
 });

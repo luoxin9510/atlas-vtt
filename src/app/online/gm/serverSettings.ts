@@ -25,8 +25,6 @@ export interface ServerSettingsHost {
   readonly settings: OnlineSettings;
   readonly account: AccountControl;
   saveSettings(): Promise<void>;
-  /** The address changed, so the settings' rows may differ. */
-  sectionsChanged(): void;
 }
 
 /**
@@ -39,7 +37,6 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
   const changed = (): void => {
     host.account.serverChanged();
     for (const redraw of redraws) redraw();
-    host.sectionsChanged();
   };
   return [{
     heading: t('onlineGm.server.heading'),

@@ -1,7 +1,7 @@
 import type { Application, Container } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import type { MapBounds } from '../../../../src/app/vision/visibility.ts';
-import type { AssetLoader } from '../assets/AssetLoader.ts';
+import type { AssetLoader, ReconnectSignal } from '../assets/AssetLoader.ts';
 import { browserStorage } from '../browserStorage.ts';
 import { storedLightingAttempt } from '../lighting/storedAttempt.ts';
 import type { TableState, TableStoreApi } from '../state/tableStore.ts';
@@ -11,7 +11,7 @@ import { LitScene, lightingQualityFor } from './LitScene.ts';
 export interface LitHostDeps {
   app: Application;
   store: TableStoreApi;
-  assets: Pick<AssetLoader, 'load'>;
+  assets: Pick<AssetLoader, 'load'> & ReconnectSignal;
   lowPower: boolean;
   layers: SceneLayers;
   /** Draws selection outlines in the given container (or in each token's own with null). */

@@ -12,6 +12,13 @@ export const DROP_PREVIEW_MS = 3000;
 /** The list shows a token "at" its drop when it is within this many world pixels. */
 const AT_DROP = 0.5;
 
+/** Whether the player may drag this token now: an own, free token, the game running and a scene set. */
+export function canDrag(state: Pick<TableState, 'mine' | 'paused' | 'scene' | 'tokens'>, id: string): boolean {
+  if (!state.mine.has(id) || state.paused || state.scene === null) return false;
+  const token = state.tokens.find((t) => t.id === id);
+  return token !== undefined && token.held !== true;
+}
+
 export interface DragPorts {
   /** Sends a frame; false when it could not be (not connected, too large). */
   send(body: PlayerMessage): boolean;
@@ -84,7 +91,7 @@ export class DragController {
     this.cancel();
     const state = this.ports.store.getState();
     const token = state.tokens.find((t) => t.id === id);
-    if (!token || !state.mine.has(id) || token.held === true || state.paused || state.scene === null) return;
+    if (!token || state.scene === null || !canDrag(state, id)) return;
     this.forgetDrop();
     this.active = { id, scene: state.scene.id, grab: null, at: { x: token.x, y: token.y }, unsent: false, timer: null };
   }

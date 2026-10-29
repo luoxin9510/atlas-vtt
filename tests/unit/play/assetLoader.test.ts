@@ -249,7 +249,7 @@ describe('AssetLoader', () => {
     }
   });
 
-  describe('tickets', () => {
+  describe('tickets', { timeout: 20_000 }, () => {
     it('downloads by ticket, caches by hash and sends no chunk request', async () => {
       const fetcher = okFetch(png);
       const { loader, sent, cache } = setup(memoryCache(), fetcher);

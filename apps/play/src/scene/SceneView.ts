@@ -24,7 +24,7 @@ import { mapRequest } from './mapRequest.ts';
 import { MapSprite } from './mapSprite.ts';
 import { PinLayer } from './PinLayer.ts';
 import { applyZoomRange, gridOptions, maxTextureSize, MAX_ZOOM, MIN_ZOOM } from './sceneHelpers.ts';
-import { TokenDrags } from './TokenDrags.ts';
+import { canDrag, TokenDrags } from './TokenDrags.ts';
 import { TokenLayer } from './TokenLayer.ts';
 
 export { mapRequest } from './mapRequest.ts';
@@ -134,7 +134,7 @@ export class SceneView {
     this.drags = new TokenDrags({ store: this.store, tokens: this.tokenLayer, send: this.send, toWorld: (x, y) => viewport.toWorld(x, y), shown: () => this.drawn });
     this.input = new CanvasInput({
       host: canvasHost, canvas: app.canvas, now: () => performance.now(),
-      tokenAt: (x, y) => this.tokenAt(x, y), isMine: (id) => this.store.getState().mine.has(id),
+      tokenAt: (x, y) => this.tokenAt(x, y), canDrag: (id) => canDrag(this.store.getState(), id),
       onGesture: (g) => this.gesture(g), setCameraDrag: (on) => { if (on) viewport.plugins.resume('drag'); else viewport.plugins.pause('drag'); },
     });
     this.unsubscribe = this.store.subscribe((state) => this.sync(state));
@@ -175,7 +175,7 @@ export class SceneView {
     }
     this.lit.follow(state, this.viewport);
     const connected = state.status.kind === 'joined' && state.status.gmOnline;
-    this.download.sync(key, mapRequest(state, this.lowPower, this.maxTexture, coarsePointer()), connected);
+    this.download.sync(key, () => mapRequest(state, this.lowPower, this.maxTexture, coarsePointer()), connected);
     this.drawLayers(state);
   }
 

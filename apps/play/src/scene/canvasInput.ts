@@ -7,7 +7,7 @@ export interface CanvasInputOptions {
   now(): number;
   /** Screen (canvas CSS pixel) point to the id of the token there, if any. */
   tokenAt(x: number, y: number): string | null;
-  isMine(id: string): boolean;
+  canDrag(id: string): boolean;
   onGesture(g: Gesture): void;
   /** Whether the camera's one-finger drag may run: false while the finger is on a token of the player's. */
   setCameraDrag(on: boolean): void;
@@ -29,7 +29,7 @@ export class CanvasInput {
     this.recognizer = new GestureRecognizer({
       now: options.now,
       tokenAt: options.tokenAt,
-      isMine: options.isMine,
+      canDrag: options.canDrag,
       onGesture: options.onGesture,
     });
     const { host } = options;
@@ -54,7 +54,7 @@ export class CanvasInput {
     const s = this.sample(e);
     if (this.down.size === 0 && s.button === 0) {
       const token = this.options.tokenAt(s.x, s.y);
-      if (token !== null && this.options.isMine(token)) this.options.setCameraDrag(false);
+      if (token !== null && this.options.canDrag(token)) this.options.setCameraDrag(false);
     } else if (s.button === 0) {
       this.options.setCameraDrag(true);
     }

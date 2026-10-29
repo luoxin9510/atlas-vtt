@@ -175,8 +175,9 @@ body {
   h1 { margin: 0; font-size: var(--font-ui-large); }
   label { display: flex; flex-direction: column; gap: 4px; }
   input, button { min-height: 44px; font-size: var(--font-ui-medium); }
-  .atlas-play-reason { margin: 0; color: var(--text-error); }
 }
+
+.atlas-play-reason { margin: 0; color: var(--text-error); }
 
 .atlas-play-welcome {
   margin: 0;

@@ -4,7 +4,7 @@ import { CampaignFiles } from '../../../../src/app/campaigns/CampaignFiles';
 import { CAMPAIGNS_FOLDER } from '../../../../src/app/campaigns/campaignPaths';
 import { CampaignBooks } from '../../../../src/app/campaigns/players/CampaignBooks';
 import { CampaignPlayers } from '../../../../src/app/campaigns/players/CampaignPlayers';
-import type { TableCampaigns } from '../../../../src/app/online/gm/tableCampaigns.ts';
+import type { LegacyData } from '../../../../src/app/online/gm/featureLegacy.ts';
 import { EMPTY_BOOK, type StoredBook } from '../../../../src/app/online/gm/book/bookStore.ts';
 import { OnlineFeature } from '../../../../src/app/online/gm/OnlineFeature.ts';
 import { createInMemoryApp } from '../../../mocks/inMemoryVault';
@@ -19,6 +19,9 @@ const FOLDER = `${CAMPAIGNS_FOLDER}/Witherwild`;
 const campaignText = `${JSON.stringify({ format: 1, id: 'c1', name: 'Witherwild', createdAt: 1 })}\n`;
 const bookWith = (count: number): StoredBook => ({ ...EMPTY_BOOK, notes: [{ id: count.toString(16).padStart(24, '0'), title: `Note ${count}`, body: 'Body', at: count }] });
 
+/** The old data the feature still carries (private on the feature). */
+const legacyOf = (online: OnlineFeature): LegacyData => (online as unknown as { legacy: LegacyData }).legacy;
+
 const opened: ReturnType<typeof createInMemoryApp>[] = [];
 
 /** An online feature whose data file holds these old books, as it would have read them. */
@@ -31,7 +34,7 @@ async function feature(old: unknown): Promise<{ feature: OnlineFeature; vault: R
   const online = new OnlineFeature({ app: vault.app, manifest: { version: '0' } } as unknown as Plugin, { read: () => Promise.resolve(undefined), write: (data: unknown) => { saved.push(data as Record<string, unknown>); return Promise.resolve(); } } as never);
   // What start() reads of the data file.
   const { readBooks } = await import('../../../../src/app/online/gm/book/bookStore.ts');
-  (online as unknown as { legacyBooks: unknown }).legacyBooks = readBooks(old);
+  legacyOf(online).books = readBooks(old);
   return { feature: online, vault, saved };
 }
 
@@ -79,14 +82,14 @@ describe('carrying the old books into a campaign when its table starts', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await online.migrateBooksInto('c1');
     expect(saved).toEqual([]);
-    expect(Object.keys((online as unknown as { legacyBooks: Record<string, object> }).legacyBooks.Cairn ?? {})).toEqual(['art/a.webp', 'art/gone.webp']);
+    expect(Object.keys(legacyOf(online).books.Cairn ?? {})).toEqual(['art/a.webp', 'art/gone.webp']);
   });
 
   it('are in the campaign\'s file before a table of it runs, so no book a player writes there meets the old one', async () => {
     assets.tokens = [{ id: 'lib-a', collection: 'Cairn', imagePath: 'art/a.webp' }];
     const { feature: online, vault } = await feature(OLD);
     CampaignPlayers.open(vault.app);
-    const campaigns = (online as unknown as { campaigns(): TableCampaigns }).campaigns();
+    const campaigns = legacyOf(online).campaigns();
     expect(await campaigns.open('c1')).not.toBeNull();
     expect(Object.keys(JSON.parse(vault.files.get(`${FOLDER}/books.json`) ?? '{"books":{}}').books)).toEqual(['lib-a']);
   });

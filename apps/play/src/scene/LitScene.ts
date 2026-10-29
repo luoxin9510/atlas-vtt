@@ -2,20 +2,19 @@ import type { Application } from 'pixi.js';
 import { UPDATE_PRIORITY } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import { DEFAULT_LIGHTING_QUALITY, LIGHTING_QUALITY, type LightingQualitySource } from '../../../../src/app/lighting/lightingQuality.ts';
-import type { AssetRef } from '../../../../src/app/online/protocol/index.ts';
 import { contextLost } from '../../../../src/app/pixi/lighting/engine/gpu.ts';
 import type { LightingAttempt } from '../../../../src/app/pixi/lighting/lightingAttempts.ts';
 import { LightingRenderer } from '../../../../src/app/pixi/lighting/LightingRenderer.ts';
 import { SensedOutlines } from '../../../../src/app/pixi/token-renderer/SensedOutlines.ts';
 import type { SightRules } from '../../../../src/app/vision/sightRules.ts';
 import type { MapBounds } from '../../../../src/app/vision/visibility.ts';
-import type { AssetLoader } from '../assets/AssetLoader.ts';
+import type { AssetLoader, ReconnectSignal } from '../assets/AssetLoader.ts';
 import { LightingInputs } from '../lighting/lightingInputs.ts';
 import { createLightingStore, type PlayLightingStore } from '../lighting/lightingStore.ts';
 import { sightRulesOf } from '../lighting/sightRulesOf.ts';
 import type { LitInputs, TableStoreApi } from '../state/tableStore.ts';
 import { DoorBadges } from './doorBadges.ts';
-import { dataUrlOfPng } from './pngDataUrl.ts';
+import { ExploredMask } from './exploredMask.ts';
 
 /** Low-power mode lights at the saver quality; otherwise the default. The quality never changes during a session. */
 export function lightingQualityFor(lowPower: boolean): LightingQualitySource {
@@ -30,7 +29,7 @@ export interface LitSceneDeps {
   viewport: Viewport;
   app: Application;
   store: TableStoreApi;
-  assets: Pick<AssetLoader, 'load'>;
+  assets: Pick<AssetLoader, 'load'> & ReconnectSignal;
   map: () => { bounds: MapBounds | null };
   quality: LightingQualitySource;
   attempt: LightingAttempt;
@@ -53,7 +52,7 @@ export class LitScene {
   private renderer: LightingRenderer | null = null;
   private rules: SightRules | null = null;
   private applied: Pick<LitInputs, 'lighting' | 'sight'> | null = null;
-  private exploredRef: AssetRef | null = null;
+  private readonly mask: ExploredMask;
   private exploredUrl: string | null = null;
   private sensedShown: LitInputs['sensed'] | null = null;
   private failed = false;
@@ -64,6 +63,7 @@ export class LitScene {
 
   constructor(private readonly deps: LitSceneDeps) {
     const { viewport, app, store } = deps;
+    this.mask = new ExploredMask(deps.assets, (url) => this.setExplored(url));
     this.outlines.view.visible = false;
     this.doors.container.visible = false;
     viewport.addChild(this.outlines.view, this.doors.container);
@@ -96,7 +96,7 @@ export class LitScene {
   private follow(): void {
     if (this.failed || this.destroyed) return;
     const { lit } = this.deps.store.getState();
-    this.followExplored(lit.explored);
+    this.mask.follow(lit.explored);
     this.showOverlays();
     const bounds = this.deps.map().bounds;
     if (lit.lighting === null || lit.sight === null || bounds === null) return;
@@ -129,24 +129,6 @@ export class LitScene {
     // The players' picture: what no token sees is dark, not ghosted.
     renderer.modeLayer.visible = true;
     return renderer;
-  }
-
-  /** The remembered-areas mask: a PNG fetched once per reference, handed over as a data URL. */
-  private followExplored(ref: AssetRef | null): void {
-    if (ref?.hash === this.exploredRef?.hash) return;
-    this.exploredRef = ref;
-    if (ref === null) {
-      this.setExplored(null);
-      return;
-    }
-    // The old mask may hold areas the GM has erased: show none while the new one loads.
-    this.setExplored(null);
-    void this.deps.assets.load(ref, null).then((asset) => {
-      if (this.exploredRef !== ref || this.failed || this.destroyed) return;
-      this.setExplored(asset === null ? null : dataUrlOfPng(asset.bytes));
-    }, () => {
-      if (this.exploredRef === ref) this.setExplored(null);
-    });
   }
 
   private setExplored(url: string | null): void {
@@ -183,6 +165,7 @@ export class LitScene {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.mask.destroy();
     this.unsubscribe();
     this.deps.app.ticker.remove(this.gate);
     this.deps.app.renderer.canvas.removeEventListener('webglcontextlost', this.onContextLost);

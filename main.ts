@@ -40,19 +40,9 @@ import { addStarterTokens } from './src/app/services/starterTokens';
 import { migratePlayerResourceVisibility } from './src/app/resources/playerVisibilityMigration';
 import { storeLegacyCollectionResources } from './src/app/services/collectionScenes';
 import type { WidgetSyncService } from './src/app/services/WidgetSyncService';
-import { AtlasSettingTab } from './src/app/settings/AtlasSettingTab';
-import { changelogSettingsSection } from './src/app/settings/changelogSettingsSection';
-import { hotkeySettingsSection, onboardingSettingsSection } from './src/app/settings/hotkeySettingsSection';
-import { navigationSettingsSection } from './src/app/settings/navigationSettingsSection';
-import { languageSettingsSection } from './src/app/settings/languageSettingsSection';
-import { deviceStorage } from './src/app/plugin/host/deviceStorage';
-import { diceSettingsSection } from './src/app/settings/diceSettingsSection';
-import { lightingSettingsSection } from './src/app/settings/lightingSettingsSection';
-import { mapImageCacheSettingsSection } from './src/app/settings/mapImageCacheSettingsSection';
 import { registerDiceLookSync } from './src/app/plugin/diceLookSync';
 import { registerAccentColorSync } from './src/app/plugin/accentColorSync';
 import { registerDiceStageRelease } from './src/app/plugin/diceStageRelease';
-import { supportSettingsSection } from './src/app/settings/supportSettingsSection';
 import { registerAtlasLeafSync } from './src/app/plugin/atlasLeaves';
 import { EXTENSION_ATLASMAP } from './src/app/utils/sceneFiles';
 import { registerColorSwatchIcons } from './src/app/plugin/colorSwatchIcons';
@@ -68,7 +58,8 @@ import { QuestIndex } from './src/app/campaigns/quests/QuestIndex';
 import { nameQuestCampaigns } from './src/app/campaigns/quests/nameQuestCampaigns';
 import { recordCampaignPlay } from './src/app/campaigns/recordCampaignPlay';
 import { registerPartySync } from './src/app/plugin/partySync';
-import { registerOnlinePlay, type OnlinePlay } from './src/app/plugin/onlinePlay';
+import type { OnlinePlay } from './src/app/plugin/onlinePlay';
+import { registerSettingsTab } from './src/app/plugin/settingsTab';
 import type { TableChat } from './src/app/online/gm/tableChat';
 import { registerPlayerWindowReloadCleanup } from './src/app/plugin/playerWindowReload';
 import { registerReturnToAtlasOnClose } from './src/app/plugin/returnToAtlasOnClose';
@@ -201,22 +192,12 @@ export default class AtlasVTTPlugin extends Plugin {
     this.globalAssetManager = new GlobalAssetManagerService(this.app);
     this.imageDisplayService = new ImageDisplayService(this.app);
 
-    let settingTab: AtlasSettingTab | null = null;
-    const onlinePlay = registerOnlinePlay(this, this.settingsService, () => settingTab?.refresh());
-    this.onlinePlay = onlinePlay;
-    settingTab = new AtlasSettingTab(this.app, this, () => [
-      languageSettingsSection(deviceStorage()),
-      navigationSettingsSection(this.settingsService),
-      diceSettingsSection(this.settingsService),
-      lightingSettingsSection(this.settingsService),
-      mapImageCacheSettingsSection(() => TileDecoderClient.forApp(this.app)),
-      hotkeySettingsSection(this.settingsService),
-      onboardingSettingsSection(this.settingsService),
-      changelogSettingsSection(this.settingsService, changelogService, this.manifest.version, updateWatch),
-      ...onlinePlay.settingsSections(),
-      supportSettingsSection(issueReporter),
-    ]);
-    this.addSettingTab(settingTab);
+    this.onlinePlay = registerSettingsTab(this, {
+      settingsService: this.settingsService,
+      changelogService,
+      updateWatch,
+      issueReporter,
+    });
     this.registerEditorSuggest(new HeaderAutocompleteSuggest(this.app));
     registerAtlasLinks(this);
     registerAtlasLeafSync(this);
