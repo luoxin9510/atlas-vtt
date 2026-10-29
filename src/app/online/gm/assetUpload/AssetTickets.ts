@@ -12,6 +12,16 @@ export const MINT_REST_MS = 60_000;
 export const MAX_UPLOADS = 2;
 /** A ticket is not handed out again this close to its expiry. */
 export const REUSE_MARGIN_MS = 10_000;
+/** Each of `minted`, `failed` and `mintRests` keeps about this many entries; the oldest go first. */
+export const ASSET_TICKET_CAP = 256;
+
+/** Drops the oldest entries (insertion order) until `map` is within `cap`, skipping any entry `keep` says must stay. */
+function trimOldest<V>(map: Map<string, V>, cap: number, keep: (value: V) => boolean = () => false): void {
+  for (const [key, value] of map) {
+    if (map.size <= cap) return;
+    if (!keep(value)) map.delete(key);
+  }
+}
 
 /**
  * Download tickets of a table's images: puts an image into the relay's cache once (concurrent asks
@@ -54,7 +64,9 @@ export class AssetTickets {
     if (restUntil !== undefined && this.now() < restUntil) return null;
     const ticket = await this.mint(hash, player);
     if (ticket !== null) {
+      this.minted.delete(key);
       this.minted.set(key, ticket);
+      trimOldest(this.minted, ASSET_TICKET_CAP);
       this.setStatus(null);
     }
     return ticket;
@@ -82,7 +94,9 @@ export class AssetTickets {
           this.uploaded.add(hash);
           this.setStatus(null);
         } else {
+          this.failed.delete(hash);
           this.failed.set(hash, this.now() + (outcome === 'busy' ? BUSY_RETRY_AFTER_MS : RETRY_AFTER_MS));
+          trimOldest(this.failed, ASSET_TICKET_CAP);
           if (outcome !== 'failed') this.setStatus(outcome);
         }
         return outcome === 'ok';
@@ -114,7 +128,11 @@ export class AssetTickets {
       if (answer?.status === 404) this.uploaded.delete(hash);
       const reason = reasonOfStatus(answer?.status);
       if (reason === 'full' || reason === 'busy') {
+        this.mintRests.delete(hash);
         this.mintRests.set(hash, this.now() + MINT_REST_MS);
+        // A rest still running is never dropped, so the cap is soft while more than that many are active.
+        const now = this.now();
+        trimOldest(this.mintRests, ASSET_TICKET_CAP, (until) => now < until);
         this.setStatus(reason);
       } else if (reason !== null) this.setStatus(reason);
       return null;
