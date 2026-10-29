@@ -12,7 +12,7 @@ import { mintTicket, TICKET_TTL_MS } from './tickets.ts';
 
 const ROUTE = /^\/api\/tables\/([^/]+)\/assets\/([^/]+)(?:\/(complete|tickets)|\/parts\/(\d{1,3}))?$/;
 
-const REASONS: Record<number, string> = { 400: 'bad-request', 404: 'gone', 409: 'missing-parts', 413: 'too-large', 415: 'not-an-image', 422: 'hash-mismatch', 429: 'busy', 500: 'failed', 507: 'storage-full' };
+const REASONS: Record<number, string> = { 400: 'bad-request', 401: 'unauthorized', 404: 'gone', 409: 'missing-parts', 413: 'too-large', 415: 'not-an-image', 422: 'hash-mismatch', 429: 'busy', 500: 'failed', 507: 'storage-full' };
 
 export interface UploadRoutes {
   /** Whether this request is one of the table's image routes (so its body is streamed and kept alive). */
@@ -28,7 +28,7 @@ interface UploadContext {
 
 /**
  * `PUT .../parts/{index}`, `POST .../complete`, `POST .../tickets` (mints a 120 s download ticket for a player) and `GET .../assets/{hash}` (resume status) of a table, each with the table secret as Bearer.
- * A refusal before the body is read is answered first and the body then drained within a bound (`refuseAndDrain`), so a client still streaming sees the status.
+ * A refusal before the table secret has passed ends the connection (no unauthenticated body is read). Any later refusal before the body is read is answered first and the body then drained within a bound (`refuseAndDrain`), so a client still streaming sees the status.
  */
 export function createUploadRoutes({ config, tables, store }: UploadContext): UploadRoutes {
   const rate = new UploadRateLimit();
@@ -45,6 +45,12 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
 
   function refuse(req: IncomingMessage, res: ServerResponse, status: number): void {
     refuseAndDrain(req, res, status, { error: REASONS[status] ?? 'failed' });
+  }
+
+  /** A refusal before the caller has proven the table secret: answered and the connection ended, nothing of the body is read on. */
+  function refuseClosing(res: ServerResponse, status: number): void {
+    res.setHeader('connection', 'close');
+    send(res, status, { error: REASONS[status] ?? 'failed' });
   }
 
   function answer(req: IncomingMessage, res: ServerResponse, result: PartResult, ok: unknown): void {
@@ -93,10 +99,10 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     matches: (method, path) => parse(method, path) !== null,
     async handle(req, res, method, path): Promise<void> {
       const route = parse(method, path);
-      if (route === null) return refuse(req, res, 404);
-      if (!(route.mint ? mintRate : rate).allow(clientAddress(req, config.trustProxy))) return refuse(req, res, 429);
+      if (route === null) return refuseClosing(res, 404);
+      if (!(route.mint ? mintRate : rate).allow(clientAddress(req, config.trustProxy))) return refuseClosing(res, 429);
       if (!tables.checkSecret(route.code, bearerOf(req))) {
-        return refuseAndDrain(req, res, 401, { error: 'unauthorized' });
+        return refuseClosing(res, 401);
       }
       if (route.part !== null) {
         return answer(req, res, await writePart(req, route.code, route.hash, route.part), {});

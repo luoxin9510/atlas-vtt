@@ -111,9 +111,13 @@ describe('refusals made before the body is consumed', () => {
     expect(await stream(relay, secret, PNG_HEAD, 4 * 1024 * 1024, false, 999)).toEqual({ status: 400, body: '{"error":"bad-request"}', error: null });
   });
 
-  it('answers 401 to a streamed upload with the wrong secret', async () => {
-    const { relay } = await start();
-    expect(await stream(relay, 'wrong', PNG_HEAD, 4 * 1024 * 1024, true)).toEqual({ status: 401, body: '{"error":"unauthorized"}', error: null });
+  it('answers 401 to a streamed upload with the wrong secret and closes, without being drained', async () => {
+    const { relay, secret } = await start();
+    const outcome = await stream(relay, 'wrong', PNG_HEAD, 4 * 1024 * 1024, false);
+    // Unauthenticated: the connection ends after the answer, so the client may see the 401 or a reset.
+    expect(outcome.status === 401 || outcome.error !== null).toBe(true);
+    if (outcome.status === 401) expect(outcome.body).toBe('{"error":"unauthorized"}');
+    expect((await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } })).status).toBe(200);
   });
 
   it('answers 200 to a streamed part of an image that is already complete', async () => {
