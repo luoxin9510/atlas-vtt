@@ -1,42 +1,34 @@
 import type { ConnectionStats } from '../protocol/index.ts';
 import type { App, WorkspaceLeaf } from 'obsidian';
 import { showNotice } from '../../ui/notice';
-import { randomHex } from '../../utils/randomHex';
-import { ArmedCards } from './armedCards.ts';
+import type { ArmedCards } from './armedCards.ts';
 import { AssetTickets } from './assetUpload/AssetTickets.ts';
 import type { ImageCacheReason } from './assetUpload/uploadAsset.ts';
 import { obsidianBinaryHttp } from './assetUpload/binaryHttp.ts';
-import { scaleInWindow } from './assetVariants.ts';
-import { ATLAS_VIEW_TYPE, type SceneStore } from './atlasView.ts';
+import type { SceneStore } from './atlasView.ts';
 import type { BookRests } from './book/bookRests.ts';
-import type { BookShelf } from './book/BookShelf.ts';
-import { gatedRests } from './book/restGate.ts';
-import type { TableSeats } from './campaignSeats.ts';
-import { tableBook, type TableBook } from './book/tableBook.ts';
+import type { TableBook } from './book/tableBook.ts';
 import { companionTimers, every } from './companionTimers.ts';
-import type { CreatedTable } from './createdTable.ts';
-import { ImageShare } from './image/ImageShare.ts';
-import { PAUSED_TEXT, TableGate, type GateSettings } from './joinGate.ts';
+import type { ImageShare } from './image/ImageShare.ts';
+import type { TableGate } from './joinGate.ts';
 import { gmRoll, type GmRollDraft, type GmRollRefusal } from './log/gmRolls.ts';
-import { restChangeOwners, restRecordOf } from './log/restEntry.ts';
-import { TableLog } from './log/TableLog.ts';
+import type { TableLog } from './log/TableLog.ts';
 import type { Ownership } from './ownership.ts';
-import { presentedScene, presentedSceneSource } from './presentedScene.ts';
+import { presentedSceneSource } from './presentedScene.ts';
 import { ForkClients } from './forkClients.ts';
-import { PauseShare } from './PauseShare.ts';
-import { bindScene, type SceneBinding } from './sceneBinding.ts';
-import { TabWatch } from './sharedTab.ts';
-import { CoveredPages } from './coveredPages.ts';
+import { PauseShare, tablePause, type TablePause } from './PauseShare.ts';
+import type { SceneBinding } from './sceneBinding.ts';
+import type { TabWatch } from './sharedTab.ts';
+import type { CoveredPages } from './coveredPages.ts';
 import { TableConnection, type TableStatus } from './TableConnection.ts';
 import { TableRoster } from './tableRoster.ts';
 import { closingText, tableEndOf, tableEndText, type TableEnd } from './tableEnd.ts';
-import { readVaultImage } from './vaultImage.ts';
-import { LOST_NOTICES, type OnlineTableEvents } from './tableEvents.ts';
-
-export type { OnlineTableEvents };
-import { FoundShare } from './pins/FoundShare.ts';
-import { tableNotes } from './notes/tableNotes.ts';
+import type { OnlineTableEvents } from './tableEvents.ts';
+import { buildShares } from './tableShares.ts';
+import { connectionHandlers, logRests, sceneWatch } from './tableWiring.ts';
+import type { FoundShare } from './pins/FoundShare.ts';
 import type { NotesShare } from './notes/NotesShare.ts';
+import type { OnlineTableOptions } from './onlineTableOptions.ts';
 
 /** How often the presented tab is looked for, and the shared one checked. */
 const WATCH_MS = 1_000;
@@ -66,7 +58,7 @@ export class OnlineTable {
   /** The table's gates: the join code, the two switches, and who waits for an answer. */
   readonly gate: TableGate;
   /** The game pause: while on, players' moves are refused; kept with the table. */
-  readonly pause: { readonly paused: boolean; set(on: boolean): void };
+  readonly pause: TablePause;
   /** The players of the campaign the table runs on. */
   readonly roster: TableRoster;
   /** The table's log: chat, rolls, who came and went. */
@@ -94,160 +86,48 @@ export class OnlineTable {
   /** Download tickets of the images this table keeps on the server. */
   private readonly tickets: AssetTickets;
 
-  constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, paused: boolean, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
+  constructor(options: OnlineTableOptions) {
+    const { app, origin, table, mapPath, ownership, seats, gate, paused, events, shelf, savedLog } = options;
     this.app = app;
     this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now(), () => events.changed());
-    this.forkClients = new ForkClients((player) => {
-      this.pauseShare.client(player);
-      this.notes.client(player);
-    });
+    this.forkClients = new ForkClients((player): void => { this.pauseShare.client(player); this.notes.client(player); });
     const pauseShare = new PauseShare({
       players: () => ownership.onlinePlayers(),
       levelOf: (player) => this.forkClients.levelOf(player),
       send: (body, to) => this.connection.send(body, to),
     }, paused);
     this.pauseShare = pauseShare;
-    this.pause = {
-      get paused(): boolean {
-        return pauseShare.paused;
-      },
-      set: (on) => {
-        if (on === pauseShare.paused) return;
-        pauseShare.set(on);
-        if (on) this.bound()?.share.cancelDrags();
-        events.paused(on);
-        events.changed();
-      },
-    };
+    this.pause = tablePause(pauseShare, { cancelDrags: () => this.bound()?.share.cancelDrags(), paused: (on) => events.paused(on), changed: () => events.changed() });
     this.ownership = ownership;
     this.events = events;
     this.link = `${origin}/#${table.code}`;
-    this.cards = new ArmedCards(companionTimers());
-    this.gate = new TableGate(gate, {
-      send: (frame) => this.connection.sendGate(frame),
-      answer: (id, admit) => this.connection.answer(id, admit),
-      save: (settings) => events.gate(settings),
-      changed: () => events.changed(),
-      paused: () => showNotice(PAUSED_TEXT),
-      timers: companionTimers(),
-      taken: () => seats.codes(),
-      cards: this.cards,
+    const shares = buildShares({
+      app, ownership, seats, gate, shelf, savedLog, events, tickets: this.tickets, forkClients: this.forkClients,
+      connection: () => this.connection,
+      bound: () => this.bound(),
     });
-    const timers = companionTimers();
-    this.log = new TableLog({
-      send: (body, to) => this.connection.send(body, to),
-      clock: () => Date.now(),
-      now: () => timers.now(),
-      randomId: () => randomHex(12),
-      nameOf: (player) => ownership.nameOf(player),
-      setTimer: (run, ms) => timers.setTimer(run, ms),
-      clearTimer: (timer) => timers.clearTimer(timer),
-      changed: () => events.log(),
-      speaker: (who, key) => this.bound()?.share.dice.speaker(who, key) ?? Promise.resolve(null),
-      rollInline: (formula) => this.bound()?.share.dice.quietRoll(formula) ?? null,
-    }, savedLog);
-    this.image = new ImageShare({
+    this.cards = shares.cards;
+    this.gate = shares.gate;
+    this.log = shares.log;
+    this.image = shares.image;
+    this.found = shares.found;
+    this.notes = shares.notes;
+    this.books = shares.books;
+    this.covers = shares.covers;
+    this.watch = sceneWatch({
+      app, ownership, forkClients: this.forkClients, tickets: this.tickets, pauseShare, shares, events, mapPath,
       send: (body, to, tag) => this.connection.send(body, to, tag),
-      now: () => timers.now(),
-      randomId: () => randomHex(12),
-      scaleImage: scaleInWindow,
-      changed: () => events.changed(),
-      logShown: (shown, path) => this.log.imageShown(shown, path),
-      loggedFile: (hash) => this.log.artFile(hash),
-      readImage: (path) => readVaultImage(app, path),
-      tickets: this.tickets,
-      forkLevelOf: (player) => this.forkClients.levelOf(player),
+      withdraw: () => this.withdraw(),
     });
-    this.found = new FoundShare(this.log, {
-      app, send: (body, to, tag) => this.connection.send(body, to, tag), now: () => timers.now(), nameOf: (player) => ownership.nameOf(player),
-      readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow, layers: () => this.bound()?.share.layers ?? null,
-      tickets: this.tickets, forkLevelOf: (player) => this.forkClients.levelOf(player),
-    });
-    this.notes = tableNotes({
-      app, players: () => ownership.onlinePlayers(), forkLevelOf: (player) => this.forkClients.levelOf(player),
-      send: (body, to, tag) => this.connection.send(body, to, tag), dropTagged: (tag) => this.connection.dropTagged(tag),
-      randomId: () => randomHex(12), now: () => timers.now(), tickets: this.tickets, readImage: (path) => readVaultImage(app, path), scaleImage: scaleInWindow, changed: () => events.changed(),
-    });
-    this.books = tableBook({
-      app, shelf, ownership, randomId: () => randomHex(12),
-      send: (body, to, tag) => this.connection.send(body, to, tag),
-      scene: () => this.bound()?.book() ?? null,
-      readImage: (path) => readVaultImage(app, path),
-      tokenWrites: () => this.bound()?.resources ?? null,
-      cards: this.cards,
-      cardsChanged: () => events.changed(),
-    });
-    this.covers = new CoveredPages({
-      // Each method by itself: the timers are a class, whose methods a spread leaves behind
-      now: () => timers.now(),
-      setTimer: (run, ms) => timers.setTimer(run, ms),
-      clearTimer: (timer) => timers.clearTimer(timer),
-      sendLive: (body, key, to) => this.connection.sendLive(body, key, to),
-      batches: () => this.connection.batches,
-      connected: () => this.connection.connected,
-      uncovered: (player) => this.bound()?.share.catchUpMarks(player),
-    });
-    this.watch = new TabWatch<SceneBinding>({
-      leaves: () => app.workspace.getLeavesOfType(ATLAS_VIEW_TYPE),
-      presented: () => presentedScene(app),
-      bind: (tab, presented) => bindScene({
-        app,
-        seats: ownership,
-        forkLevelOf: (player) => this.forkClients.levelOf(player),
-        tickets: this.tickets,
-        paused: () => this.pauseShare.paused,
-        send: (body, to, tag) => this.connection.send(body, to, tag),
-        sendLive: (body, key, to) => this.covers.sendLive(body, key, to),
-        readImage: (path) => readVaultImage(app, path),
-        isLive: (binding) => this.watch.isLive(binding),
-        randomId: () => randomHex(12),
-        logRoll: (roll) => this.log.rolled(roll),
-        logArt: (hash) => this.log.artFile(hash),
-        rollRequest: (from, answer) => this.log.requestOf(from, answer),
-        foundPin: (map, pin) => this.found.entryOf(map, pin),
-        nameOf: (player) => ownership.nameOf(player),
-      }, tab, presented),
-      lost: (reason) => {
-        this.withdraw();
-        const notice = LOST_NOTICES[reason];
-        if (notice !== null) showNotice(notice);
-      },
-      mapPath: (path) => events.mapPath(path),
-    }, mapPath);
-    this.connection = new TableConnection(origin, table.code, table.secret, {
-      status: (status) => this.setStatus(status),
-      // The scene and tokens first: the players' mine messages follow from the ownership change.
-      welcome: (connected) => {
-        // Who joined while the GM was away is seated as one who joins now; who came or went is in the log before it goes out again.
-        const players = connected.filter((player) => this.roster.joined(player));
-        this.log.welcome(players);
-        // Pages say again with the books that follow whether theirs covers the map.
-        this.covers.reset();
-        this.resend();
-        ownership.welcome(players);
-      },
-      joined: (player) => {
-        if (!this.roster.joined(player)) return;
-        // The log as it was, then the line that they joined, which everyone gets.
-        this.resend(player.id);
-        ownership.joined(player);
-        this.log.joined(player);
-      },
-      left: (player) => {
-        this.forkClients.forget(player);
-        this.covers.playerLeft(player);
-        this.bound()?.share.playerLeft(player);
-        this.image.playerLeft(player);
-        this.books.share.playerLeft(player);
-        this.found.playerLeft(player);
-        this.notes.playerLeft(player);
-        ownership.left(player);
-        this.log.left(player);
-      },
-      // The log, the shown image and the books are the table's, so they hear players while no scene is shared too.
-      message: (from, body) => void (this.forkClients.receive(from, body) || this.covers.receive(from, body) || this.log.receive(from, body) || this.image.receive(from, body) || this.notes.receive(from, body) || this.found.receive(from, body) || this.books.share.receive(from, body) || this.sceneOrGone(from, body)),
-      access: (closesAt) => this.setClosing(closesAt),
-    }, this.gate);
+    this.connection = new TableConnection(origin, table.code, table.secret, connectionHandlers({
+      ownership, forkClients: this.forkClients, shares,
+      roster: () => this.roster,
+      bound: () => this.bound(),
+      resend: (to) => this.resend(to),
+      setStatus: (status) => this.setStatus(status),
+      setClosing: (closesAt) => this.setClosing(closesAt),
+      sceneOrGone: (from, body) => this.sceneOrGone(from, body),
+    }), this.gate);
     this.roster = new TableRoster(seats, this.connection, { kick: (player) => this.kick(player), turnAway: (player) => this.connection.kick(player), joinCode: () => this.gate.settings.code });
     this.stopOwnership = ownership.onChange(() => this.bound()?.share.ownersChanged());
   }
@@ -317,11 +197,7 @@ export class OnlineTable {
     this.found.start();
     this.notes.start();
     // Every rest that reaches a character of this table the GM's Atlas takes while it runs is logged: approved requests and the GM's own.
-    this.stopLoggingRests = gatedRests.onRested((rest) => {
-      const players = this.playersOfCharacter(rest.characterId);
-      const changePlayers = restChangeOwners(rest).map((id) => (id === rest.characterId ? [] : this.playersOfCharacter(id)));
-      if (players.length > 0 || changePlayers.some((list) => list.length > 0)) this.log.rested(restRecordOf(rest), players, changePlayers);
-    });
+    this.stopLoggingRests = logRests(this.log, this.ownership, this.books.share);
     this.watch.check();
     this.stopWatchTimer = every(companionTimers(), WATCH_MS, () => this.watch.check());
     // Atlas presenting another scene is followed at once; the timer catches everything else
@@ -343,12 +219,6 @@ export class OnlineTable {
   close(): void {
     this.stopWatch();
     this.connection.stop();
-  }
-
-  /** The players of a character (a library token's id): the campaign's player it was given to, and whoever plays it at the table now. */
-  private playersOfCharacter(characterId: string): string[] {
-    const owner = this.ownership.ownerOfCharacter(characterId);
-    return [...new Set([...(owner === undefined ? [] : [owner]), ...this.books.share.playersOf(characterId)])];
   }
 
   private setStatus(status: TableStatus): void {
@@ -396,7 +266,6 @@ export class OnlineTable {
     this.watch.stop();
   }
 
-  /** The binding of the tab shared now, while it is still the same tab; null while there is none. */
   /** The scene share reads what is left (it refuses an asset it does not show); with none bound, a request for a hash the notes once held is refused. */
   private sceneOrGone(from: string, body: unknown): boolean {
     const bound = this.bound();
@@ -405,6 +274,7 @@ export class OnlineTable {
     return true;
   }
 
+  /** The binding of the tab shared now, while it is still the same tab; null while there is none. */
   private bound(): SceneBinding | null {
     const binding = this.watch.binding;
     return binding !== null && this.watch.isLive(binding) ? binding : null;

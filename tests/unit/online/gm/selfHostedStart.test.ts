@@ -139,6 +139,19 @@ describe('starting a table on a self-hosted server', () => {
     expect(FakeSocket.all[0]?.frames().some((frame) => frame.t === 'end')).toBe(true);
   });
 
+  it('tells the panels twice of a start the server refused, and not at all of a resume that cannot run', async () => {
+    const { leaf } = tab();
+    seen.answer = { status: 401, json: { error: 'unauthorized' } };
+    const online = new OnlineControl(app, boundOwnership([]), fakeCampaigns(), () => undefined, account);
+    const changes = vi.fn();
+    online.onChange(changes);
+    expect(await online.start(leaf, 'c1')).toBeNull();
+    expect(changes).toHaveBeenCalledTimes(2);
+    changes.mockClear();
+    expect(await online.resume(saved(OTHER))).toBeNull();
+    expect(changes).not.toHaveBeenCalled();
+  });
+
   it('tells the account that the self-hosted server refused, even when the address was switched upstream meanwhile', async () => {
     const { leaf } = tab();
     seen.answer = { status: 401, json: { error: 'unauthorized' } };

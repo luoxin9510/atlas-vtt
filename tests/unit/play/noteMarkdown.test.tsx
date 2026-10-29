@@ -100,6 +100,20 @@ describe('NoteMarkdown', () => {
     expect(meta.textContent).not.toContain('wide');
   });
 
+  it('titles a known callout without a title by its type, capitalised', () => {
+    const plain = draw('> [!warning]\n> careful');
+    expect(plain.querySelector('.atlas-play-callout-title')!.textContent).toBe('Warning');
+    cleanup();
+    const tldr = draw('> [!tldr]\n> x');
+    expect(tldr.querySelector('.atlas-play-callout-title')!.textContent).toBe('Tldr');
+    cleanup();
+    const titled = draw('> [!warning] Mind\n> x');
+    expect(titled.querySelector('.atlas-play-callout-title')!.textContent).toBe('Mind');
+    cleanup();
+    const unknown = draw('> [!madeup]\n> x');
+    expect(unknown.querySelector('.atlas-play-callout')).toBeNull();
+  });
+
   it('renders lists, task items, code and rules, and drops math-like and html text', () => {
     const root = draw('1. one\n2. two\n\n- [x] done\n- [ ] open\n\n```\ncode $x$\n```\n\n---\n\n`in` ~~gone~~ **b** *i*\n\n$a$ and $$b$$');
     expect(root.querySelector('ol')).not.toBeNull();

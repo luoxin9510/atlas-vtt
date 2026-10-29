@@ -208,7 +208,7 @@ describe('tightening', () => {
 	});
 
 	it('drops an image caption that is the file name', async () => {
-		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]', '![Secret%20Map.png](Secret%20Map.png)', '![Secret%20Map](Secret%20Map.png)', '![Secret Map.png](Secret%20Map.png)', '![%53ecret.png](Secret.png)']) {
+		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]', '![Secret%20Map.png](Secret%20Map.png)', '![Secret%20Map](Secret%20Map.png)', '![Secret Map.png](Secret%20Map.png)', '![%53ecret.png](Secret.png)', '![Sécret](Sécret.png)', '![Folder/Secret.png](Folder/Secret.png)', '![Secret%2520Map](Secret%20Map.png)', '![[Folder/Secret.png|Folder/Secret]]']) {
 			expect(await copy(text), text).toMatch(/^!\[\]\(atlas-asset:/);
 		}
 		expect(await copy('![[Secret.png|The Secret]]')).toMatch(/^!\[The Secret\]/);
@@ -228,5 +228,144 @@ describe('tightening', () => {
 		expect(await copy('a [[Secret|a]b]] c')).toBe('a  c\n');
 		expect(await copy('a [[Secret#h]b]] c')).toBe('a  c\n');
 		expect(await copy('a [[Secret never closed')).toBe('a\n');
+	});
+
+	it('drops a broken wikilink that spans sibling nodes', async () => {
+		for (const text of ['[[Secret [x](https://a.b) rest]] tail', 'a [[Secret `code` more x rest']) {
+			const out = await copy(text);
+			expect(out, text).not.toContain('Secret');
+			expect(out, text).not.toContain('rest');
+			expect(out, text).not.toContain(']]');
+		}
+		// a span does not cross a block: the next paragraph is kept as typed
+		expect(await copy('[[Secret *em* more\n\nnext]] tail')).not.toContain('Secret');
+		expect(await copy('a ![[Secret.png unclosed')).not.toContain('!');
+	});
+
+	it('refuses an image ref whose hash is not lowercase hex', async () => {
+		for (const hash of ['Z'.repeat(64), 'a'.repeat(63) + ')', 'A'.repeat(64)]) {
+			const result = await copyForPlayers(parseNote('![[A.png]]'), { ...targets, image: async () => ({ hash, size: 1, mime: 'image/png' }) });
+			expect(result.markdown, hash).toBe('');
+			expect(result.images.size, hash).toBe(0);
+		}
+	});
+
+	it('cuts the copy at an unclosed inline html comment', async () => {
+		const out = await copy('a <!-- unclosed SECRET\n\nSECRET2');
+		expect(out).not.toContain('SECRET');
+		expect(out).not.toContain('<!--');
+		expect(out).toContain('a');
+	});
+
+	it('keeps an inline code span that holds <!--', async () => {
+		expect(await copy('a `<!--` b')).toBe('a `<!--` b\n');
+	});
+
+	// Known over-hide: an escaped `\<!--` is only text, yet the copy cuts there. It fails closed (players see less).
+	it('cuts the rest at an escaped <!--', async () => {
+		expect(await copy('a \\<!-- b\n\nlater')).toBe('a\n');
+	});
+});
+
+describe('more adversarial pins', () => {
+	it('1: an odd number of %% opens an unclosed comment that cuts the later blocks', async () => {
+		const out = await copy('a %% x %% b %% c\n\nlater');
+		expect(out).toBe('a  b\n');
+		expect(out).not.toContain('SECRET');
+	});
+
+	it('2: an even run of backslashes does not hide the marker', async () => {
+		const out = await copy('a \\\\%% SECRET %% b');
+		expect(out).toBe('a \\ b\n');
+		expect(out).not.toContain('SECRET');
+	});
+
+	it('3: gm callout heads without a space and lazy lines are cut', async () => {
+		const cases: [string, string][] = [
+			['>[!gm] SECRET\n>more\n\nafter', 'after\n'],
+			['> [!gm]\nlazy SECRET\n\nafter', 'after\n'],
+			// "shown" is a lazy continuation of the inner quote, as in CommonMark and Obsidian
+			['> [!info] t\n>> [!gm] SECRET\n>> more\n> shown', '> [!info] t\n'],
+		];
+		for (const [text, expected] of cases) {
+			const out = await copy(text);
+			expect(out, text).toBe(expected);
+			expect(out).not.toContain('SECRET');
+		}
+	});
+
+	it('4: a gm callout in a list inside a list is cut', async () => {
+		const out = await copy('1. one\n   - > [!gm] SECRET\n     > more\n   - kept');
+		expect(out).toBe('1. one\n   * kept\n');
+		expect(out).not.toContain('SECRET');
+	});
+
+	it('5: a comment crossing a callout line break, and an unclosed one after a paragraph line, fail closed', async () => {
+		const crossing = await copy('> [!info] t\n> a %%\n> SECRET\n> %% b\n\nafter');
+		expect(crossing).toBe('> [!info] t\n>\n> a  b\n\nafter\n');
+		expect(crossing).not.toContain('SECRET');
+		// Over-hiding against Obsidian is deliberate: the unclosed inline comment cuts "visible".
+		const unclosed = await copy('text\n%%\nSECRET\n\nvisible');
+		expect(unclosed).toBe('text\n');
+		expect(unclosed).not.toContain('SECRET');
+	});
+
+	it('6: frontmatter tricks do not leak', async () => {
+		const cases: [string, string][] = [
+			['\uFEFF---\nsecret: SECRET\n---\nbody', 'body\n'],
+			['---   \nsecret: SECRET\n---\nbody', 'body\n'],
+			['---\nsecret: %% SECRET\n---\nbody\n%%\nSECRET2', 'body\n'],
+			['%%\n---\nsecret: SECRET\n---\n%%\nbody', 'body\n'],
+		];
+		for (const [text, expected] of cases) {
+			const out = await copy(text);
+			expect(out, text).toBe(expected);
+			expect(out).not.toContain('SECRET');
+		}
+	});
+
+	it('6: frontmatter that is not at byte 0 or not closed by --- stays visible, as in Obsidian', async () => {
+		// parity with Obsidian checked 2026-10-29
+		expect(await copy('\n---\nsecret: SECRET\n---\nbody')).toBe('***\n\n## secret: SECRET\n\nbody\n');
+		// parity with Obsidian checked 2026-10-29
+		expect(await copy('---\nsecret: SECRET\n...\nbody')).toBe('***\n\nsecret: SECRET\n...\nbody\n');
+	});
+
+	it('7: html is dropped whole', async () => {
+		const cases: [string, string][] = [
+			['<details><summary>x</summary>SECRET</details> after', ''],
+			['<span\nhidden>SECRET</span> after', 'after\n'],
+			['<script>SECRET</script>\n\nvisible', 'visible\n'],
+			['<style>x{}</style>\nvisible', 'visible\n'],
+			['[<b>SECRET</b>](https://a.b)', ''],
+			['<!-- SECRET\n\nstill SECRET -->\nvisible', 'visible\n'],
+		];
+		for (const [text, expected] of cases) {
+			const out = await copy(text);
+			expect(out, text).toBe(expected);
+			expect(out).not.toContain('SECRET');
+		}
+	});
+
+	it('8: aliases to unshared notes and forged hrefs make no link and leak nothing', async () => {
+		const cases: [string, string][] = [
+			['[[Unshared|atlas-note:a1b2c3d4e5f60718293a4b5c]] x', 'atlas-note:a1b2c3d4e5f60718293a4b5c x\n'],
+			['[[Unshared|a](https://evil.x)]] tail', '\\[[Unshared|a](https://evil.x)]] tail\n'],
+			['[ref][r]\n\n[r]: Secret.md "SECRET title"', 'ref\n'],
+			['# %%SECRET%%\n\nbody', 'body\n'],
+		];
+		for (const [text, expected] of cases) {
+			const out = await copy(text);
+			expect(out, text).toBe(expected);
+			expect(out).not.toContain('SECRET');
+		}
+		// The alias is GM-written visible text, so SECRET is shown here by design; only escaping is pinned.
+		expect(await copy('[[Unshared|<b>SECRET</b>]] x')).toBe('\\<b>SECRET\\</b> x\n');
+		const fragment = await copy('[x](Shared.md#SECRET)');
+		expect(fragment).toBe(`[x](${HREF})\n`);
+		expect(fragment).not.toContain('SECRET');
+		const table = await copy('| h |\n| - |\n| %%SECRET%% ok |');
+		expect(table).toBe('| h  |\n| -- |\n| ok |\n');
+		expect(table).not.toContain('SECRET');
 	});
 });

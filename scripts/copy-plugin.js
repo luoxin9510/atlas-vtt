@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getPluginTargetDirs, markForHotReload } = require('./worktree-targets');
+const { forkManifest } = require('./forkManifest');
 
 const distDir = path.join(__dirname, '..', 'dist');
 const rootManifest = path.join(__dirname, '..', 'manifest.json');
@@ -28,7 +29,14 @@ if (missingRequired.length > 0) {
 
     for (const file of artifactFiles) {
       if (!fs.existsSync(file.source)) continue;
-      fs.copyFileSync(file.source, path.join(target.dirPath, file.targetName));
+      const targetPath = path.join(target.dirPath, file.targetName);
+      // The installed manifest carries the fork's id; the repository's manifest.json stays as it is.
+      if (file.source === rootManifest) {
+        const manifest = JSON.parse(fs.readFileSync(file.source, 'utf8'));
+        fs.writeFileSync(targetPath, `${JSON.stringify(forkManifest(manifest), null, 2)}\n`);
+      } else {
+        fs.copyFileSync(file.source, targetPath);
+      }
     }
 
     copiedCount += 1;

@@ -27,6 +27,7 @@ export interface OnlineSettingsHost {
   readonly settings: OnlineSettings;
   readonly account: AccountControl;
   saveSettings(): Promise<void>;
+  sectionsChanged(): void;
 }
 
 /** Online play's sections of Atlas's settings: the server and account, shared notes and error reports. */

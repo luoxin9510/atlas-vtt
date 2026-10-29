@@ -5,8 +5,11 @@ import { CampaignPlay } from '../../../src/app/campaigns/campaignPlay';
 import { registerOnlinePlay } from '../../../src/app/plugin/onlinePlay';
 import type { SettingsService } from '../../../src/app/services/SettingsService';
 
+const features: { onSectionsChanged: () => void }[] = vi.hoisted(() => []);
+
 vi.mock('../../../src/app/online/gm/OnlineFeature.ts', () => ({
   OnlineFeature: class {
+    constructor(_plugin: unknown, _data: unknown, readonly onSectionsChanged: () => void) { features.push(this); }
     settingsSections = (): unknown[] => [{ heading: 'Online account', rows: [] }];
     runCommand = (): boolean => true;
   },
@@ -38,14 +41,14 @@ function host(): { plugin: Plugin; settings: SettingsService; children: Set<unkn
 describe('online play behind its experimental switch', () => {
   it('loads nothing and offers no settings while the switch is off', () => {
     const { plugin, settings, children } = host();
-    const online = registerOnlinePlay(plugin, settings);
+    const online = registerOnlinePlay(plugin, settings, () => undefined);
     expect(children.size).toBe(0);
     expect(online.settingsSections()).toEqual([]);
   });
 
   it('loads with the switch, once, and unloads when it goes off', () => {
     const { plugin, settings, children, flip } = host();
-    const online = registerOnlinePlay(plugin, settings);
+    const online = registerOnlinePlay(plugin, settings, () => undefined);
     flip(true);
     flip(true);
     expect(children.size).toBe(1);
@@ -59,13 +62,13 @@ describe('online play behind its experimental switch', () => {
     const { plugin, settings, flip } = host();
     const play = CampaignPlay.forApp(plugin.app);
     expect(play.playing()).toBe('a'.repeat(24));
-    registerOnlinePlay(plugin, settings);
+    registerOnlinePlay(plugin, settings, () => undefined);
     expect(play.playing()).toBeNull();
   });
 
   it('switched off while a table runs, ends the play only after the table was closed', () => {
     const { plugin, settings, flip, playedAtRemoval } = host();
-    registerOnlinePlay(plugin, settings);
+    registerOnlinePlay(plugin, settings, () => undefined);
     flip(true);
     const play = CampaignPlay.forApp(plugin.app);
     play.play('b'.repeat(24));
@@ -76,7 +79,7 @@ describe('online play behind its experimental switch', () => {
 
   it('registers its commands once and offers them only while it is loaded', () => {
     const { plugin, settings, commands, flip } = host();
-    registerOnlinePlay(plugin, settings);
+    registerOnlinePlay(plugin, settings, () => undefined);
     const start = commands.get('start-online-table');
     expect(commands.size).toBe(6);
     expect(start?.(true)).toBe(false);
@@ -86,6 +89,24 @@ describe('online play behind its experimental switch', () => {
     flip(true);
     expect(commands.size).toBe(6);
     expect(commands.get('start-online-table')).toBe(start);
+  });
+});
+
+describe('online play tells the settings when its sections change', () => {
+  it('on load, when the feature reports its data was read, and when the switch turns it off', () => {
+    const { plugin, settings, flip } = host();
+    features.length = 0;
+    const changed = vi.fn();
+    registerOnlinePlay(plugin, settings, changed);
+    expect(changed).not.toHaveBeenCalled();
+    flip(true);
+    expect(changed).toHaveBeenCalledTimes(1);
+    features[0]?.onSectionsChanged();
+    expect(changed).toHaveBeenCalledTimes(2);
+    flip(true);
+    expect(changed).toHaveBeenCalledTimes(2);
+    flip(false);
+    expect(changed).toHaveBeenCalledTimes(3);
   });
 });
 

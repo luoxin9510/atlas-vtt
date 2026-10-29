@@ -3,7 +3,7 @@ import type { Nodes, Root, RootContent, Table, TableCell } from 'mdast';
 import type { SharedNote } from '../../../../src/app/online/protocol/fork.ts';
 import { assetImageOf, isHttpsUrl, noteIdOf } from '../../../../src/app/online/protocol/noteLinks.ts';
 import type { Loader } from '../assets/useAssetUrl.ts';
-import { readQuoteHead } from './callout.ts';
+import { defaultCalloutTitle, readQuoteHead } from './callout.ts';
 import { NoteImage } from './NoteImage.tsx';
 
 export interface NoteMarkdownProps {
@@ -56,7 +56,7 @@ function renderQuote(node: Extract<Nodes, { type: 'blockquote' }>, context: Cont
   }
   return (
     <div key={key} className={`atlas-play-callout atlas-play-callout-${split.head.type}`}>
-      {hasTitle ? <div className="atlas-play-callout-title">{title}</div> : null}
+      <div className="atlas-play-callout-title">{hasTitle ? title : defaultCalloutTitle(split.head.type)}</div>
       <div className="atlas-play-callout-body">{children(split.body, context)}</div>
     </div>
   );

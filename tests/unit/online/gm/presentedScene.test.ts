@@ -8,7 +8,7 @@ import type { SceneState } from '../../../../src/app/online/gm/atlasView.ts';
 import { OnlineControl } from '../../../../src/app/online/gm/OnlineControl.ts';
 import { Ownership } from '../../../../src/app/online/gm/ownership.ts';
 import { boundOwnership, fakeCampaigns } from './fakeSeats.ts';
-import { findPresentedTab, PRESENT_COMMAND, presentedScene, readPresented, showPresentedElsewhere } from '../../../../src/app/online/gm/presentedScene.ts';
+import { findPresentedTab, presentCommandId, presentedScene, readPresented, showPresentedElsewhere } from '../../../../src/app/online/gm/presentedScene.ts';
 import type { SavedTable } from '../../../../src/app/online/gm/savedTable.ts';
 import { app, atlasTab, FakeSocket, FakeTabs, png, present, switchScene, workspace } from './fakeTable.ts';
 import { sceneState } from './shareHarness.ts';
@@ -273,7 +273,7 @@ describe('what Atlas presents', () => {
     const vendor = path.resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
     const read = (file: string): string => fs.readFileSync(path.join(vendor, file), 'utf8');
     expect(read('main.ts')).toMatch(/get presentedScene\(\): PresentedSceneSource \{\s*return presentedSceneOf\(this\.app\);/);
-    const [plugin, command] = PRESENT_COMMAND.split(':');
+    const [plugin, command] = presentCommandId().split(':');
     expect(JSON.parse(read('manifest.json'))).toMatchObject({ id: plugin });
     expect(read('src/app/plugin/registerCommands.ts')).toMatch(new RegExp(`id: '${command ?? ''}',[^}]*presentActiveTab\\(`));
   });

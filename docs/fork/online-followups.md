@@ -18,11 +18,11 @@ Plan 2; pick them up when touching the code nearby.
 - The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).
 
 ## Plugin (`src/app/online`)
-- `OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic.
-- `knockStack.ts`: `NAME` constant sits between imports; `inviteQr.ts` trailing piece class; `aroundToken` drops the name if a translator drops the placeholder (covered by the placeholder test).
+- ~~`OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic~~ (done: start, events and tokens split out; 296 lines).
+- ~~`knockStack.ts`: `NAME` constant sits between imports~~ (done). `inviteQr.ts` trailing piece class; `aroundToken` drops the name if a translator drops the placeholder (covered by the placeholder test).
 
 ## Tests
-- `tests/unit/relay/players.test.ts` is over 300 lines; split.
+- ~~`tests/unit/relay/players.test.ts` is over 300 lines; split~~ (done: `players.gate`, `.routing`, `.persistence` and `.limits` test files plus the `tableSuite.ts` helper, 180 relay tests as before, each file under 140 lines).
 - Conformance ping test sends its own ping (the client's `Pulse` timer is not exercised); private `socket` field reached by a cast; no negative conformance case.
 - End-to-end test: count calls on the `http` stub and assert 0; no test of an `Origin` with an explicit `:443`.
 - No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.
@@ -60,19 +60,28 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
-- `OnlineTable` has 11 positional constructor parameters and is about 430 lines; the pause wiring there is tested only through `PauseShare`.
+- ~~`OnlineTable` has 11 positional constructor parameters and was about 430 lines~~ (done: one options object, 298 lines). The pause wiring there is tested only through `PauseShare`.
 
 ## Plan 3 residuals (shared notes)
 Deferred minors from the notes work; none lets hidden text reach a player.
-- `obsidianSyntax.ts` is 323 lines and has duplicated comment loops.
-- `parseNote` adversarial cases are not pinned by tests.
-- An image's alt text is compared raw against the decoded path.
-- The broken-`[[` drop works per text node.
-- `ref.hash` is not checked as hex at the copy boundary.
-- No test covers batching together with `dropTagged`.
-- Dependents are withdrawn on any link-key change, so a linked note can flicker out of the list.
-- Failed markers are kept until the next edit, and a transient read error keeps a note withdrawn until its next edit.
-- `NotesShare.ts` is 319 lines and `OnlineTable.ts` about 417.
-- `leave()` clearing the notes is not pinned by a test.
-- An empty-title known callout shows no title.
+- ~~`obsidianSyntax.ts` is 323 lines and has duplicated comment loops~~ (done: split and deduped, now 25 lines).
+- ~~`parseNote` adversarial cases are not pinned by tests~~ (done: pinned; an unclosed inline `<!--` now cuts the copy).
+- ~~An image's alt text is compared raw against the decoded path~~ (done: alt text vs file name is compared decoded).
+- ~~The broken-`[[` drop works per text node~~ (done).
+- ~~`ref.hash` is not checked as hex at the copy boundary~~ (done).
+- ~~No test covers batching together with `dropTagged`~~ (done: pinned).
+- ~~Dependents are withdrawn on any link-key change, so a linked note can flicker out of the list~~ (done: dependents stay listed).
+- ~~Failed markers are kept until the next edit, and a transient read error keeps a note withdrawn until its next edit~~ (done: bounded retry at 2 s, 10 s and 60 s).
+- ~~`NotesShare.ts` was 319 lines and `OnlineTable.ts` about 430~~ (done: 294 and 298 lines).
+- ~~`leave()` clearing the notes is not pinned by a test~~ (done: pinned).
+- ~~An empty-title known callout shows no title~~ (done: shows the type as its default title).
 - The settings row name "How notes are shared" was chosen without spec text.
+- ~~The online settings did not show on Obsidian 1.13+ until reopened~~ (done: settings refresh, found in testing).
+- ~~The community store replaced a fork installed as `atlas-vtt`~~ (done: local installs use the plugin id `atlas-vtt-fork`; found in testing). True only since the wave B final fix: online play used to look Atlas up under the fixed id `atlas-vtt`, and now reads the running plugin's `manifest.id` (`src/app/plugin/pluginId.ts`).
+
+## Wave B residuals (open)
+- Renaming a shared note's title lags: the list shows the old title until the next change.
+- An escaped `\<!--` in a note cuts the copy there although it is only text (known over-hide; fails closed, pinned in `playerCopy.test.ts`).
+- The settings page re-renders when the server address changes, which can drop focus in the field.
+- The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
+- `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.

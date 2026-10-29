@@ -28,7 +28,7 @@ describe('online play\'s settings data', () => {
 
 describe('online play\'s settings', () => {
   /** Online play's settings with a GM signed in. */
-  function host(me: HttpResponse): { settings: OnlineSettings; account: AccountControl; saveSettings: () => Promise<void>; opened: string[]; saved: OnlineSettings[]; requests: HttpRequest[]; keyIs(): string | null } {
+  function host(me: HttpResponse): { settings: OnlineSettings; account: AccountControl; saveSettings: () => Promise<void>; sectionsChanged: () => void; opened: string[]; saved: OnlineSettings[]; requests: HttpRequest[]; keyIs(): string | null } {
     const settings = { ...DEFAULT_SETTINGS };
     const opened: string[] = [];
     const saved: OnlineSettings[] = [];
@@ -43,7 +43,7 @@ describe('online play\'s settings', () => {
       openUrl: (url) => void opened.push(url),
       notify: () => undefined,
     });
-    return { settings, account, opened, saved, requests, keyIs: () => key, saveSettings: () => Promise.resolve(void saved.push({ ...settings })) };
+    return { settings, account, sectionsChanged: () => undefined, opened, saved, requests, keyIs: () => key, saveSettings: () => Promise.resolve(void saved.push({ ...settings })) };
   }
 
   /** The sections drawn as the settings tab draws them. */

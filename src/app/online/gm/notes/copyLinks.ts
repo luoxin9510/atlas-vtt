@@ -105,11 +105,26 @@ function safelyDecoded(text: string): string {
 	}
 }
 
-/** A caption that is only the file's name tells players the name: spaces, `_` and `-` count alike, the extension is optional. */
+/** Percent-decoded up to three times, until it stops changing. */
+function decodedFully(text: string): string {
+	let current = text;
+	for (let round = 0; round < 3; round++) {
+		const next = safelyDecoded(current);
+		if (next === current) break;
+		current = next;
+	}
+	return current;
+}
+
+/** The form names are compared in: decoded, NFKC, lower case, runs of space, `_`, `.`, `-`, `/` and `\` as one space. */
+function canonical(text: string): string {
+	return decodedFully(text).normalize('NFKC').toLowerCase().replace(/[\s_.\-/\\]+/g, ' ').trim();
+}
+
+/** A caption that is only the file's name or path tells players the name: separators count alike, the extension and folders are optional. */
 export function namesTheFile(caption: string, path: string): boolean {
-	const normal = (text: string): string => text.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
 	const name = path.slice(path.lastIndexOf('/') + 1);
-	const dot = name.lastIndexOf('.');
-	const names = [normal(name), ...(dot > 0 ? [normal(name.slice(0, dot))] : [])];
-	return [caption, safelyDecoded(caption)].some((text) => names.includes(normal(text)));
+	const withoutExtension = (text: string): string => (text.lastIndexOf('.') > 0 ? text.slice(0, text.lastIndexOf('.')) : text);
+	const names = [path, withoutExtension(path), name, withoutExtension(name)].map(canonical);
+	return names.includes(canonical(caption));
 }

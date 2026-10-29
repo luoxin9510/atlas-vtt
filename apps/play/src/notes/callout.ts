@@ -12,6 +12,11 @@ export interface QuoteHead {
   readonly known: boolean;
 }
 
+/** The title a callout of this type shows when its copy gives none: the type, first letter upper case (as Obsidian shows it; not translated). */
+export function defaultCalloutTitle(type: string): string {
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 /** Splits the first paragraph's children at the first line break: the head line and what follows. */
 function splitFirstLine(children: readonly PhrasingContent[]): { line: PhrasingContent[]; rest: PhrasingContent[] } {
   const line: PhrasingContent[] = [];

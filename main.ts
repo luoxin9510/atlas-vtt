@@ -84,6 +84,7 @@ import { registerUpdateWatch } from './src/app/updates/registerUpdateWatch';
 import { AtlasErrorLog } from './src/app/support/errorLog';
 import { IssueReporter } from './src/app/support/IssueReporter';
 import { runInBackground } from './src/app/utils/backgroundTask';
+import { setAtlasPluginId } from './src/app/plugin/pluginId';
 import { TileDecoderClient } from './src/app/pixi/mapImage/TileDecoderClient';
 import { MapImageService } from './src/app/pixi/mapImage/MapImageService';
 
@@ -120,6 +121,7 @@ export default class AtlasVTTPlugin extends Plugin {
   private unloaded = false;
 
   async onload(): Promise<void> {
+    setAtlasPluginId(this.manifest.id);
     // Record errors from the very start so startup problems can be reported too.
     const errorLog = new AtlasErrorLog();
     this.register(errorLog.attach());
@@ -199,9 +201,10 @@ export default class AtlasVTTPlugin extends Plugin {
     this.globalAssetManager = new GlobalAssetManagerService(this.app);
     this.imageDisplayService = new ImageDisplayService(this.app);
 
-    const onlinePlay = registerOnlinePlay(this, this.settingsService);
+    let settingTab: AtlasSettingTab | null = null;
+    const onlinePlay = registerOnlinePlay(this, this.settingsService, () => settingTab?.refresh());
     this.onlinePlay = onlinePlay;
-    this.addSettingTab(new AtlasSettingTab(this.app, this, () => [
+    settingTab = new AtlasSettingTab(this.app, this, () => [
       languageSettingsSection(deviceStorage()),
       navigationSettingsSection(this.settingsService),
       diceSettingsSection(this.settingsService),
@@ -212,7 +215,8 @@ export default class AtlasVTTPlugin extends Plugin {
       changelogSettingsSection(this.settingsService, changelogService, this.manifest.version, updateWatch),
       ...onlinePlay.settingsSections(),
       supportSettingsSection(issueReporter),
-    ]));
+    ]);
+    this.addSettingTab(settingTab);
     this.registerEditorSuggest(new HeaderAutocompleteSuggest(this.app));
     registerAtlasLinks(this);
     registerAtlasLeafSync(this);
@@ -257,6 +261,7 @@ export default class AtlasVTTPlugin extends Plugin {
 
   onunload(): void {
     this.unloaded = true;
+    setAtlasPluginId('');
     this.changelogService?.destroy();
     void this.settingsService?.saveSettingsNow();
     SystemPresetFiles.release(this.app);

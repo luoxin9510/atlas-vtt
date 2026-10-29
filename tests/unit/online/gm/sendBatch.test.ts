@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_BATCH_SENDS, MAX_GM_FRAME, parseClientFrame } from '../../../../src/app/online/protocol/index.ts';
 import type { Timers } from '../../../../src/app/online/gm/companionTimers.ts';
-import { BATCH_MS, BULK_BUFFERED, SendQueue } from '../../../../src/app/online/gm/sendQueue.ts';
+import { BATCH_MS, BULK_BUFFERED, BURST, SendQueue } from '../../../../src/app/online/gm/sendQueue.ts';
 
 function clock(): Timers & { advance(ms: number): void } {
   let now = 0;
@@ -130,5 +130,61 @@ describe('the send queue towards a relay that takes batches', () => {
     socket.bufferedAmount = 0;
     time.advance(BATCH_MS);
     expect(sent.flatMap(carried)).toEqual([{ t: 'marks' }, { t: 'chunk' }]);
+  });
+
+  it('leaves a dropped tag out of the next batch', () => {
+    const { queue, sent, time } = batching();
+    const lead = message({ t: 'lead' });
+    queue.push(lead.frame, '*', lead.entry);
+    const a1 = message({ t: 'A1' });
+    queue.push(a1.frame, '*', a1.entry, 'notes:h');
+    const b = message({ t: 'B' });
+    queue.push(b.frame, '*', b.entry);
+    const a2 = message({ t: 'A2' });
+    queue.push(a2.frame, '*', a2.entry, 'notes:h');
+    expect(queue.dropTagged('notes:h')).toBe(2);
+    time.advance(BATCH_MS);
+    expect(sent.slice(1).flatMap(carried)).toEqual([{ t: 'B' }]);
+  });
+
+  it('drops tagged frames held back while the socket drains', () => {
+    const { queue, sent, socket, time } = batching();
+    socket.bufferedAmount = BULK_BUFFERED + 1;
+    for (const t of ['A1', 'A2']) {
+      const next = message({ t });
+      queue.push(next.frame, '*', next.entry, 'notes:h');
+    }
+    expect(queue.dropTagged('notes:h')).toBe(2);
+    socket.bufferedAmount = 0;
+    time.advance(3 * BATCH_MS);
+    expect(sent.flatMap(carried)).toEqual([]);
+    expect(queue.length).toBe(0);
+    const plain = message({ t: 'plain' });
+    queue.push(plain.frame, '*', plain.entry);
+    time.advance(BATCH_MS);
+    expect(sent.flatMap(carried)).toEqual([{ t: 'plain' }]);
+  });
+
+  it('drops the tagged rest of a full batch', () => {
+    const { queue, sent, time } = batching();
+    const lead = message({ t: 'lead' });
+    queue.push(lead.frame, '*', lead.entry);
+    // More full batches than the rate allows at once, so some of the tagged rest stays queued.
+    const total = MAX_BATCH_SENDS * (BURST + 2);
+    for (let index = 0; index < total; index += 1) {
+      const next = message({ t: 'tagged', index });
+      queue.push(next.frame, '*', next.entry, 'notes:h');
+    }
+    time.advance(BATCH_MS);
+    expect(carried(sent[1] ?? '')).toHaveLength(MAX_BATCH_SENDS);
+    const left = queue.length;
+    expect(left).toBeGreaterThan(0);
+    const flown = sent.length;
+    expect(queue.dropTagged('notes:h')).toBe(left);
+    const plain = message({ t: 'plain' });
+    queue.push(plain.frame, '*', plain.entry);
+    time.advance(3 * BATCH_MS);
+    expect(sent.slice(flown).flatMap(carried)).toEqual([{ t: 'plain' }]);
+    expect(queue.length).toBe(0);
   });
 });

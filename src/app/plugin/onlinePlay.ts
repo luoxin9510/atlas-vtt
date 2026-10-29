@@ -32,7 +32,7 @@ export interface OnlinePlay {
  * controls away. Off, Atlas does no work for it and connects to nothing. It needs the Obsidian that
  * keeps the account token safe.
  */
-export function registerOnlinePlay(plugin: Plugin, settings: SettingsService): OnlinePlay {
+export function registerOnlinePlay(plugin: Plugin, settings: SettingsService, onSectionsChanged: () => void): OnlinePlay {
   let feature: OnlineFeature | null = null;
   let toldTooOld = false;
   const sync = (): void => {
@@ -42,14 +42,16 @@ export function registerOnlinePlay(plugin: Plugin, settings: SettingsService): O
       toldTooOld = true;
       showNotice(t('onlineGm.needsObsidian', { version: SECRET_STORAGE_VERSION }));
     }
-    if (on !== (feature !== null)) {
+    const changedFeature = on !== (feature !== null);
+    if (changedFeature) {
       if (feature !== null) plugin.removeChild(feature);
       setWorldMapGate(on ? campaignWorldMapGate(plugin.app) : null);
       setQuestGate(on ? campaignQuestGate(plugin.app) : null);
       setStatblockGate(on ? characterStatblockGate(plugin.app) : null);
       setRestGate(on ? characterRestGate(plugin.app) : null);
-      feature = on ? plugin.addChild(new OnlineFeature(plugin, onlineDataFile(plugin.app))) : null;
+      feature = on ? plugin.addChild(new OnlineFeature(plugin, onlineDataFile(plugin.app), onSectionsChanged)) : null;
     }
+    if (changedFeature) onSectionsChanged();
     // A campaign is played only while its online table runs, and none runs while online play is off.
     // Only once the table's connection is closed, so players are never sent a book without the campaign first.
     if (!on) CampaignPlay.forApp(plugin.app).stop();
