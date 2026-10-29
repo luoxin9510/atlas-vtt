@@ -6,11 +6,11 @@ import { textButton } from './controls.ts';
 import { DockTooltip } from './dockTooltip.ts';
 import { aroundToken, BAR_GAP, roomAbove, rowOf } from './dockDom.ts';
 
-/** Where a card's sentence puts the name, which stands in an element of its own. */
-const NAME = '{name}';
 import type { RestActions } from './panelModel.ts';
 import { t } from '../../../i18n';
 
+/** Where a card's sentence puts the name, which stands in an element of its own. */
+const NAME = '{name}';
 /** The cards' width; never wider than the row the control hangs from. */
 const KNOCK_WIDTH = 300;
 /** The room the open control always leaves above itself: one card and the gap under it. */
