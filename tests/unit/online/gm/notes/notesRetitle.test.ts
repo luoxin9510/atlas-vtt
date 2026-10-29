@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { retitled, type Entry } from '../../../../../src/app/online/gm/notes/sharedNotes.ts';
 import { ANA, holdReads, shared, started, type Table } from './notesHarness.ts';
 import { settled } from '../settled.ts';
 
@@ -75,5 +76,17 @@ describe('a renamed shared note', () => {
     await settled();
     expect(JSON.stringify(table.sent)).not.toContain('Hidden Plain');
     expect(titles(table)).toEqual(['Other']);
+  });
+});
+
+describe('retitled', () => {
+  const entry = { id: 'note-1', title: 'Old', group: null } as unknown as Entry;
+
+  it('gives the copy the title and group of its own note', () => {
+    expect(retitled(entry, { id: 'note-1', title: 'New', group: 'Lore' })).toMatchObject({ id: 'note-1', title: 'New', group: 'Lore' });
+  });
+
+  it('takes nothing from another note\'s info, even when its title differs', () => {
+    expect(retitled(entry, { id: 'note-2', title: 'New', group: 'Lore' })).toBeNull();
   });
 });

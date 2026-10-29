@@ -88,6 +88,13 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - ~~`main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.~~ (done: `OnlineFeature.ts` is 265 lines, its commands and old-data handling moved to `featureCommands.ts` and `featureLegacy.ts`; the settings-tab wiring left `main.ts` for `src/app/plugin/settingsTab.ts`, so `main.ts` is 297 lines; wave D)
 - The rest of `main.ts` belongs to upstream (308 lines there); the fork only keeps its settings-tab wiring out of it.
 
+## Wave D residuals (open)
+- Tests reach `OnlineFeature`'s legacy data through a cast to the private field (`migrateBooksInto.test.ts`).
+- The mock `Component` has no `registerEvent`, so `serverLifecycle.test.ts` stubs it on the feature.
+- `LegacyData` exposes mutable `books` and `assignments` (the ports-object pattern, one writer in `start()`).
+- `ExploredMask` may call `setExplored` in the short window after a `LitScene` failed and before it is destroyed (harmless: it only feeds the hidden lighting store, and the hash is GM-gated).
+- A pause or hold that arrives mid-drag keeps the camera still until release (see also Plan 2b residuals).
+
 ## Wave C residuals (open)
 Deferred minors from the relay hardening wave and the ticket pruning; the SDD ledger has the detail.
 - Overlapping failed re-POSTs: the rollback of the first can interfere with the second (fix later by serialising `createDurable` per code).

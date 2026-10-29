@@ -229,7 +229,7 @@ These are test-only. Any source change is a finding to report, not to make.
   - Cost if wrong: one extra list message per rename.
 - **Map retry**
   - Ruling: 10 s doubling, capped at 5 minutes, at most 8 attempts.
-  - Why: about 20 minutes of trying is enough for a GM to fix a missing image, and a reconnect or scene change restarts it.
+  - Why: about 15 minutes of trying is enough for a GM to fix a missing image, and a reconnect or scene change restarts it.
 - **The `.atlas-play-reason` style**
   - Ruling: it gets no unit test (CSS only).
   - Why: the recon found no competing rule.

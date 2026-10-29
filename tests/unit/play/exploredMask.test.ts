@@ -91,4 +91,18 @@ describe('ExploredMask', () => {
     mask.follow(ref('b'));
     expect(set).toHaveBeenLastCalledWith(null);
   });
+
+  it('a reconnect while the current ref is still loading does not set a stale or duplicate mask', async () => {
+    const { mask, set, load, answers, fireReconnect } = setup();
+    mask.follow(ref('a'));
+    fireReconnect(); // the first load of `a` is still pending: asks again
+    expect(load).toHaveBeenCalledTimes(2);
+    answers[0]!.resolve(asset(1)); // the older answer is stale
+    await settle();
+    expect(set.mock.calls.filter(([url]) => url !== null)).toEqual([]);
+    answers[1]!.resolve(asset(2));
+    await settle();
+    const urls = set.mock.calls.map(([url]) => url as string | null).filter((u) => u !== null);
+    expect(urls).toEqual([dataUrlOfPng(asset(2).bytes)]);
+  });
 });

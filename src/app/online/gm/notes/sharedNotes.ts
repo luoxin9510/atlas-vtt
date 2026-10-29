@@ -149,8 +149,9 @@ export class SharedSet {
   }
 }
 
-/** The entry listed as `info` says: the same copy under a new title or group, or null when nothing differs. */
+/** The entry listed as `info` says: the same copy under a new title or group, or null when nothing differs or `info` is another note's. */
 export function retitled(entry: Entry, info: SharedInfo): Entry | null {
+  if (entry.id !== info.id) return null;
   if (entry.title === info.title && entry.group === info.group) return null;
   return { ...entry, title: info.title, group: info.group };
 }
