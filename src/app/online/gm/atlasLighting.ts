@@ -4,9 +4,7 @@ import { resolveLaserPointerSettings, type LaserPointerSettings } from '../../to
 import type { SightRules } from '../../vision/sightRules';
 import type { SceneState } from './atlasView.ts';
 import { t } from '../../i18n';
-
-/** The plugin id of Atlas, whose instance holds its settings. */
-export const ATLAS_PLUGIN_ID = 'atlas-vtt';
+import { atlasPluginId } from '../../plugin/pluginId';
 
 /**
  * What the GM's own lighting of a tab works its scene out by: the sight rules of the map's
@@ -62,7 +60,7 @@ export function lightingSourceOf(renderer: unknown): LightingSource | null {
 /** Atlas's own settings as its plugin instance holds them (`settingsService`). */
 export function atlasPlayerSettings(app: App): AtlasPlayerSettings {
   // Obsidian keeps the loaded plugins by id in `app.plugins.plugins`.
-  const settings = field(field(field(field(app, 'plugins'), 'plugins'), ATLAS_PLUGIN_ID), 'settingsService');
+  const settings = field(field(field(field(app, 'plugins'), 'plugins'), atlasPluginId()), 'settingsService');
   const playerView = field(settings, 'getLocalPlayerViewSettings');
   const view: unknown = typeof playerView === 'function' ? (playerView as () => unknown).call(settings) : undefined;
   const readLayout = field(settings, 'initiativeLayout');
@@ -84,7 +82,7 @@ export function atlasPlayerSettings(app: App): AtlasPlayerSettings {
 
 /** The GM's laser colour and size from Atlas's settings, as Atlas reads them (its default when they cannot be read). */
 export function atlasLaserLook(app: App): LaserPointerSettings {
-  const settings = field(field(field(field(app, 'plugins'), 'plugins'), ATLAS_PLUGIN_ID), 'settingsService');
+  const settings = field(field(field(field(app, 'plugins'), 'plugins'), atlasPluginId()), 'settingsService');
   const read = field(settings, 'getLaserPointerSettings');
   const raw: unknown = typeof read === 'function' ? (read as () => unknown).call(settings) : undefined;
   return resolveLaserPointerSettings(typeof raw === 'object' && raw !== null ? raw : undefined);
@@ -125,6 +123,6 @@ export function isLit(state: SceneState): boolean {
 
 /** The version of the Atlas plugin loaded now, or null. */
 export function atlasVersion(app: App): string | null {
-  const version = field(field(field(field(field(app, 'plugins'), 'plugins'), ATLAS_PLUGIN_ID), 'manifest'), 'version');
+  const version = field(field(field(field(field(app, 'plugins'), 'plugins'), atlasPluginId()), 'manifest'), 'version');
   return typeof version === 'string' && /^[\w.+-]{1,30}$/.test(version) ? version : null;
 }
