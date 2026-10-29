@@ -15,21 +15,35 @@ export function bearerOf(req: IncomingMessage): string {
   return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
 }
 
-const MAX_BODY = 4 * 1024;
+export const MAX_BODY = 4 * 1024;
 
-/** Reads at most 4 KiB of body; null when it is longer or the stream fails. Never stored or logged. */
-export function readBody(req: IncomingMessage): Promise<string | null> {
+/**
+ * Reads at most 4 KiB of body. A body that is longer is answered 413 and one that fails 400, both with `connection: close`, and
+ * the result is null: the response is written first and `connection: close` ends the socket after it (input still arriving is dropped, never held), so the client can read it. Never stored or logged.
+ */
+export function readBody(req: IncomingMessage, res: ServerResponse): Promise<string | null> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let settled = false;
+    const refuse = (status: number, error: string): void => {
+      settled = true;
+      chunks.length = 0;
+      res.setHeader('connection', 'close');
+      send(res, status, { error });
+      resolve(null);
+    };
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY) {
-        resolve(null);
-        req.destroy();
-      } else chunks.push(chunk);
+      if (settled) return;
+      if (size > MAX_BODY) refuse(413, 'too-large');
+      else chunks.push(chunk);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', () => resolve(null));
+    req.on('end', () => {
+      if (!settled) resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+    req.on('error', () => {
+      if (!settled && !res.headersSent) refuse(400, 'bad-body');
+    });
   });
 }

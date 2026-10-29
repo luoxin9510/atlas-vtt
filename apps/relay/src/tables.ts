@@ -83,14 +83,53 @@ export class TableRegistry {
 
   /** Makes a table, or gives an existing code a new secret (the old one stops working). 'full' at the table limit. */
   create(code: string): CreatedTable | 'full' {
-    if (!this.#tables.has(code) && this.#tables.size >= MAX_TABLES) return 'full';
-    const existed = this.#tables.has(code);
+    const made = this.#make(code);
+    if (made !== 'full' && made.existed) this.#notifyReplaced(code);
+    return made === 'full' ? 'full' : made.created;
+  }
+
+  /**
+   * Like `create`, but the old GM hears `replaced` only once the new secret is on disk. If the write fails the previous table
+   * (or none) is put back, nobody is notified and the error is rethrown.
+   */
+  async createDurable(code: string): Promise<CreatedTable | 'full'> {
+    const made = this.#make(code);
+    if (made === 'full') return 'full';
+    try {
+      await this.flush();
+    } catch (error) {
+      this.#rollback(code, made);
+      throw error;
+    }
+    if (made.existed) this.#notifyReplaced(code);
+    return made.created;
+  }
+
+  #make(code: string): { created: CreatedTable; previous: StoredTable | undefined; existed: boolean } | 'full' {
+    const previous = this.#tables.get(code);
+    if (previous === undefined && this.#tables.size >= MAX_TABLES) return 'full';
     const secret = randomBytes(32).toString('base64url');
-    this.#tables.set(code, { players: this.#tables.get(code)?.players, secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
+    this.#tables.set(code, { players: previous?.players, secretHash: sha256Hex(secret), lastHostedAt: Date.now() });
     this.#schedule(code);
     this.#save();
-    if (existed) for (const listener of this.#listeners) listener.replaced(code);
-    return { code, secret, maxPlayers: this.#options.maxPlayers };
+    return { created: { code, secret, maxPlayers: this.#options.maxPlayers }, previous, existed: previous !== undefined };
+  }
+
+  /** Puts the previous record back, unless a later re-POST has already replaced this one. */
+  #rollback(code: string, made: { created: CreatedTable; previous: StoredTable | undefined }): void {
+    if (this.#tables.get(code)?.secretHash !== sha256Hex(made.created.secret)) return;
+    if (made.previous === undefined) {
+      this.#tables.delete(code);
+      this.#clearTimer(code);
+    } else {
+      this.#tables.set(code, made.previous);
+      this.#schedule(code);
+    }
+    this.#save();
+  }
+
+  #notifyReplaced(code: string): void {
+    for (const listener of this.#listeners) listener.replaced(code);
   }
 
   checkSecret(code: string, secret: string): boolean {

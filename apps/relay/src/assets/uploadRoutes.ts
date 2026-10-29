@@ -53,10 +53,11 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
   }
 
   async function mint(req: IncomingMessage, res: ServerResponse, code: string, hash: string): Promise<void> {
-    const text = await readBody(req);
+    const text = await readBody(req, res);
+    if (text === null) return;
     let player: unknown;
     try {
-      const body: unknown = text === null ? null : JSON.parse(text);
+      const body: unknown = JSON.parse(text);
       player = typeof body === 'object' && body !== null ? (body as { player?: unknown }).player : undefined;
     } catch {
       player = undefined;

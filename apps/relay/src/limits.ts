@@ -8,6 +8,7 @@ const LOCK_MS = 10 * 60_000;
 const TABLES_PER_MINUTE = 10;
 const UPLOADS_PER_MINUTE = 60;
 const MINTS_PER_MINUTE = 600;
+const ME_PER_MINUTE = 60;
 const MINUTE_MS = 60_000;
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
@@ -137,6 +138,13 @@ export class UploadRateLimit extends MinuteRateLimit {
 export class MintRateLimit extends MinuteRateLimit {
   constructor() {
     super(MINTS_PER_MINUTE);
+  }
+}
+
+/** Per client address: at most 60 `GET /api/me` in any minute. */
+export class MeRateLimit extends MinuteRateLimit {
+  constructor() {
+    super(ME_PER_MINUTE);
   }
 }
 
