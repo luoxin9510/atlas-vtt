@@ -231,14 +231,6 @@ export const FEEDBACK_KEPT_DAYS = 180;
 /** Days the relay keeps an error group after its last report. */
 export const ERROR_REPORTS_KEPT_DAYS = 30;
 
-/** What a feedback form tells its sender is sent, in plain words. */
-export function feedbackNote(withDiagnostics: boolean): string {
-  const what = withDiagnostics
-    ? 'your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality)'
-    : 'only your message';
-  return `Sends ${what} to the Atlas team. No names and nothing from your game. Kept for ${FEEDBACK_KEPT_DAYS} days.`;
-}
-
 /** How sending feedback went: sent, refused for now (a rate or the hour's cap), or not sent. */
 export type FeedbackResult = 'sent' | 'busy' | 'failed';
 

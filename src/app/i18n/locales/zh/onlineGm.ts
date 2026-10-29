@@ -33,6 +33,7 @@ export const onlineGm: Translation = {
   'onlineGm.account.openPage': '打开账户页面',
   'onlineGm.server.addressHelp': '你用来主持联机桌的服务器的地址。留空则关闭联机游玩。',
   'onlineGm.server.addressInvalid': '请输入类似 https://play.example.com 的地址。',
+  'onlineGm.server.cleartextWarning': '未加密：主持密钥会以明文发送。另一台机器上的服务器请使用 https://。',
   'onlineGm.server.hostKeyHelp': '你的服务器给你的、用于主持联机桌的密钥。它只保存在这台设备上 Obsidian 的密钥存储中。',
   'onlineGm.server.heading': '联机服务器',
   'onlineGm.server.addressName': '联机服务器地址',

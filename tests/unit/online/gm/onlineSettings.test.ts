@@ -164,13 +164,24 @@ describe('online play\'s settings', () => {
     expect(of.keyIs()).toBeNull();
   });
 
-  it('say in the account row, self-hosted, whether a host key is set, with no sign-in and no account page', () => {
-    setServerOrigin('https://tables.example.com');
+  it('warn under the address while it would send the host key in clear text', () => {
     const of = host({ status: 200, json: {} });
-    const row = draw(of).row('Atlas account');
-    expect(row.descEl.textContent).toBe('No host key yet');
-    expect(buttonsOf(row)).toEqual([]);
-    of.account.setHostKey('k');
-    expect(row.descEl.textContent).toBe('Host key set');
+    const row = draw(of).row('Online server address');
+    const warning = 'Not encrypted: the host key is sent in clear text. Use https:// for a server on another machine.';
+    expect(row.descEl.textContent).not.toContain(warning);
+    typed(row, 'http://203.0.113.5:8787');
+    expect(row.descEl.textContent).toContain(warning);
+    typed(row, 'http://localhost:8787');
+    expect(row.descEl.textContent).not.toContain(warning);
+    typed(row, 'http://203.0.113.5:8787');
+    typed(row, 'https://play.example.com');
+    expect(row.descEl.textContent).not.toContain(warning);
+  });
+
+  it('list no account row, only the host key, when a self-hosted server is set', () => {
+    setServerOrigin('https://tables.example.com');
+    const drawn = draw(host({ status: 200, json: {} }));
+    expect(drawn.headings).toEqual(['Online server', 'Shared notes', 'Online diagnostics']);
+    expect(drawn.names).toEqual(['Online server address', 'Host key', 'How notes are shared', 'Send error reports']);
   });
 });

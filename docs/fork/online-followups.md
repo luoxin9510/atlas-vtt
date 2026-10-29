@@ -18,11 +18,7 @@ Plan 2; pick them up when touching the code nearby.
 - The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).
 
 ## Plugin (`src/app/online`)
-- `normalizeServerOrigin` accepts `http://` for any host; the host key then travels in clear text. Consider a warning for non-loopback `http:`.
-- `protocol/diagnostics.ts` `feedbackNote()` is unused and duplicated by `onlineDock.feedback.*` keys.
-- Feedback texts mention "the Atlas team", wrong on a self-hosted server.
 - `OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic.
-- On a self-hosted server the settings show both an "Online account" row ("Host key set") and the "Host key" row.
 - zh polish: `请求{button}` spacing, `由 你 发现`, `线上玩家` -> `联机玩家`; add 悄悄话, 讨论串, 中转服务器 to `zh-glossary.md`.
 - `knockStack.ts`: `NAME` constant sits between imports; `inviteQr.ts` trailing piece class; `aroundToken` drops the name if a translator drops the placeholder (covered by the placeholder test).
 

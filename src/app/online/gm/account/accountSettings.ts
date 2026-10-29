@@ -1,6 +1,7 @@
 import type { AtlasSettingSection } from '../../../settings/settingSections';
 import type { AccountControl } from './AccountControl.ts';
 import { accessText, accountText, HOST_KEY_SET_TEXT, NO_SERVER_TEXT, NO_HOST_KEY_TEXT, planText, UNREACHABLE_TEXT, type AccountView } from './accountView.ts';
+import { isSelfHosted } from '../servers.ts';
 import { t } from '../../../i18n';
 
 /** What the account row says. */
@@ -24,6 +25,8 @@ const signedIn = (view: AccountView): boolean => view.kind === 'no-access' || vi
  * the way to the account page, where invite keys are redeemed and the account's data is exported and deleted.
  */
 export function accountSections(account: AccountControl): AtlasSettingSection[] {
+  // A self-hosted server has no account: its host key is the Host key row's.
+  if (isSelfHosted()) return [];
   return [{
     heading: t('onlineGm.account.heading'),
     rows: [{
@@ -35,8 +38,9 @@ export function accountSections(account: AccountControl): AtlasSettingSection[] 
           const view = account.view();
           setting.setDesc(accountDesc(view));
           setting.clear();
-          // A self-hosted server has no account to sign in to or to open a page for.
-          if (view.kind === 'host-key' || view.kind === 'no-server') return;
+          // The server became self-hosted or was cleared while the row stood: no account to sign in to or to open a page for.
+          if (view.kind === 'host-key' || view.kind === 'no-server') return setting.settingEl.hide();
+          setting.settingEl.show();
           if (signedIn(view)) setting.addButton((button) => button.setButtonText(t('onlineGm.account.signOut')).onClick(() => void account.signOut()));
           else if (view.kind === 'signed-out') setting.addButton((button) => button.setButtonText(t('onlineGm.account.signIn')).setCta().onClick(() => void account.signIn()));
           else if (view.kind === 'waiting') setting.addButton((button) => button.setButtonText(t('common.cancel')).onClick(() => account.cancelSignIn()));

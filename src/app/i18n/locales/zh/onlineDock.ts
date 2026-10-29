@@ -43,6 +43,8 @@ export const onlineDock: Translation = {
   'onlineDock.feedback.autoReports': '自动发送错误报告',
   'onlineDock.feedback.noteDiagnostics': '会把你的消息和诊断信息（应用版本、浏览器或 Obsidian 版本、系统、最近的错误代码、连接质量）发送给 Atlas 团队。不含姓名，也不含你游戏中的任何内容。保留 {days} 天。',
   'onlineDock.feedback.noteMessage': '只会把你的消息发送给 Atlas 团队。不含姓名，也不含你游戏中的任何内容。保留 {days} 天。',
+  'onlineDock.feedback.noteDiagnosticsOperator': '会把你的消息和诊断信息（应用版本、浏览器或 Obsidian 版本、系统、最近的错误代码、连接质量）发送给服务器管理员。不含姓名，也不含你游戏中的任何内容。保留 {days} 天。',
+  'onlineDock.feedback.noteMessageOperator': '只会把你的消息发送给服务器管理员。不含姓名，也不含你游戏中的任何内容。保留 {days} 天。',
   'onlineDock.newCode': '新建加入码',
   'onlineDock.requireCode': '需要加入码',
   'onlineDock.askToJoin': '玩家加入前需我同意',

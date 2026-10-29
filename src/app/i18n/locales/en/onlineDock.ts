@@ -44,6 +44,8 @@ export const onlineDock = {
   'onlineDock.feedback.autoReports': 'Send error reports automatically',
   'onlineDock.feedback.noteDiagnostics': 'Sends your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality) to the Atlas team. No names and nothing from your game. Kept for {days} days.',
   'onlineDock.feedback.noteMessage': 'Sends only your message to the Atlas team. No names and nothing from your game. Kept for {days} days.',
+  'onlineDock.feedback.noteDiagnosticsOperator': 'Sends your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality) to the server\'s operator. No names and nothing from your game. Kept for {days} days.',
+  'onlineDock.feedback.noteMessageOperator': 'Sends only your message to the server\'s operator. No names and nothing from your game. Kept for {days} days.',
   'onlineDock.newCode': 'New code',
   'onlineDock.requireCode': 'Require code',
   'onlineDock.askToJoin': 'Ask before players join',

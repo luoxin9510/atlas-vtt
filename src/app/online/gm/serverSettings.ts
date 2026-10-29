@@ -1,5 +1,6 @@
 import type { AtlasSettingSection } from '../../settings/settingSections';
 import type { AccountControl } from './account/AccountControl.ts';
+import { isCleartextRemote } from './cleartext.ts';
 import { isSelfHosted, normalizeServerOrigin, setServerOrigin } from './servers.ts';
 import type { OnlineSettings } from './settings.ts';
 import { t } from '../../i18n';
@@ -11,6 +12,11 @@ export function applyServerSetting(settings: OnlineSettings): void {
 
 export const SERVER_ADDRESS_HELP = t('onlineGm.server.addressHelp');
 export const SERVER_ADDRESS_INVALID = t('onlineGm.server.addressInvalid');
+/** The address row's description: its help, and the warning while the address would send the host key in clear text. */
+function addressDesc(origin: string): string {
+  return isCleartextRemote(origin) ? `${SERVER_ADDRESS_HELP} ${t('onlineGm.server.cleartextWarning')}` : SERVER_ADDRESS_HELP;
+}
+
 const HOST_KEY_HELP = t('onlineGm.server.hostKeyHelp');
 
 /** What the server section's rows read and change. */
@@ -37,13 +43,14 @@ export function serverSections(host: ServerSettingsHost): AtlasSettingSection[] 
       name: t('onlineGm.server.addressName'),
       desc: SERVER_ADDRESS_HELP,
       render: (setting) => {
+        setting.setDesc(addressDesc(host.settings.serverOrigin));
         setting.addText((text) => {
           text.setPlaceholder('https://play.example.com').setValue(host.settings.serverOrigin);
           text.inputEl.addEventListener('change', () => {
             const typed = text.inputEl.value.trim();
             const origin = typed === '' ? '' : normalizeServerOrigin(typed);
             if (origin === null) return void setting.setDesc(SERVER_ADDRESS_INVALID);
-            setting.setDesc(SERVER_ADDRESS_HELP);
+            setting.setDesc(addressDesc(origin));
             text.setValue(origin);
             host.settings.serverOrigin = origin;
             applyServerSetting(host.settings);
