@@ -15,8 +15,17 @@ import { obsidianSyntax } from './obsidianSyntax';
  * see is built from this tree by an allowlist walk, so every construct must be marked here.
  */
 export function parseNote(text: string): Root {
-	return fromMarkdown(text, {
+	const tree = fromMarkdown(text, {
 		extensions: [gfm(), math(), frontmatter(['yaml']), obsidianSyntax()],
 		mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), frontmatterFromMarkdown(['yaml']), obsidianFromMarkdown()],
 	});
+	sources.set(tree, text);
+	return tree;
+}
+
+const sources = new WeakMap<Root, string>();
+
+/** The text a tree was parsed from (its node positions are offsets into it), or undefined for a tree built otherwise. */
+export function sourceOf(tree: Root): string | undefined {
+	return sources.get(tree);
 }

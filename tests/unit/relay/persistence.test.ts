@@ -64,6 +64,19 @@ describe('durable state file (M5)', () => {
     writeFileSync(statePath, '{"tables": ');
     expect(() => loadState(statePath)).toThrow(statePath);
   });
+
+  it('never quotes the file content in the error for one that is not valid JSON', () => {
+    const statePath = join(directory(), 'state.json');
+    writeFileSync(statePath, 'TICKETKEYSECRET {"ticketKey": "abc"');
+    let message = '';
+    try {
+      loadState(statePath);
+    } catch (error) {
+      message = error instanceof Error ? error.message : '';
+    }
+    expect(message).toContain(statePath);
+    expect(message).not.toContain('TICKETKEY');
+  });
 });
 
 describe('write failures (M5)', () => {

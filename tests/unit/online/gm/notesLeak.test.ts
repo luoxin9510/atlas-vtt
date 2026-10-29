@@ -196,6 +196,27 @@ async function check(gen: Trial, note: string): Promise<void> {
   walk(parseNote(markdown), (node) => expect(KEPT_KINDS.has(node.type), `${node.type} in:\n${markdown}`).toBe(true));
 }
 
+/** Every shape a `[!gm]` callout can parse as; the secret must never reach the player copy. */
+const GM_SHAPES: ReadonlyArray<readonly [string, string]> = [
+  ['setext dashes', '> [!gm] Twist\n> SECRET one\n> ---\n> SECRET two\n\nafter'],
+  ['setext equals', '> [!gm] Twist\n> SECRET one\n> ===\n>\n> SECRET two\n\nafter'],
+  ['definition head', '> [!gm]: https://x.example\n> SECRET one\n\nafter'],
+  ['nested in a callout', '> [!note] Open\n> > [!gm]\n> > SECRET one\n> > ---\n> > SECRET two\n\nafter'],
+  ['nested definition', '> [!note] Open\n> > [!gm]: https://x.example\n> > SECRET one\n\nafter'],
+  ['in a list item', '- item\n  > [!gm]\n  > SECRET one\n  > ---\n  > SECRET two\n\nafter'],
+  ['with metadata', '> [!gm|meta] Twist\n> SECRET one\n> ---\n> SECRET two\n\nafter'],
+  ['folded and upper case', '> [!GM]- Twist\n> SECRET one\n> ===\n> SECRET two\n\nafter'],
+];
+
+describe('a gm callout is dropped whatever its first line parses as', () => {
+  it.each(GM_SHAPES)('%s', async (_name, note) => {
+    const { markdown } = await copyForPlayers(parseNote(note), targets);
+    expect(markdown).not.toContain('SECRET');
+    expect(markdown).not.toContain('Twist');
+    expect(markdown).toContain('after');
+  });
+});
+
 const SHARE_TRIALS = 30;
 const SHARE_STEPS = 14;
 const NOTE_COUNT = 4;

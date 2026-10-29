@@ -43,6 +43,8 @@ export interface Entry {
   readonly linkKey: string;
   /** The `${id}:${title}` of the shared notes its links named: one gone or retitled withdraws the copy. */
   readonly shown: ReadonlySet<string>;
+  /** The same pairs for the notes the copy actually linked (the copy's own resolution): one gone or retitled withdraws the copy too. */
+  readonly linked: ReadonlySet<string>;
   /** Whether the note embeds images, which a change of the vault's images may affect. */
   readonly embeds: boolean;
 }

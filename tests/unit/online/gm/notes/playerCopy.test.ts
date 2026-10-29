@@ -368,4 +368,10 @@ describe('more adversarial pins', () => {
 		expect(table).toBe('| h  |\n| -- |\n| ok |\n');
 		expect(table).not.toContain('SECRET');
 	});
+
+	it('ends the copy at an unclosed block comment inside a list or a quote', async () => {
+		for (const text of ['- <!-- start\n  SECRET\n- SECRET two\n\nSECRET three', '> <!-- start\n> SECRET\n\nSECRET two']) {
+			expect(await copy(`before\n\n${text}`), text).toBe('before\n');
+		}
+	});
 });

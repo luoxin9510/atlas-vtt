@@ -201,14 +201,29 @@ export class NotesShare {
       const entry = this.entries.get(path);
       const reading = this.building.get(path);
       // A title the copy may show that is gone or changed withdraws it now, whatever a failed read left; a link that only appeared leaves it listed until it is read again.
-      if (entry !== undefined && ![...entry.shown].every((pair) => state.shown.has(pair))) removed = this.entries.delete(path) || removed;
+      const withdrawn = entry !== undefined && !(this.stillShown(entry.shown, state.shown) && this.stillHeld(entry.linked));
+      if (withdrawn) removed = this.entries.delete(path) || removed;
       if (dirty.has(path)) this.failed.clear(path);
       else if (this.failed.skip(path, this.stamp(path, state.key))) continue;
-      if (dirty.has(path) || (reading !== undefined ? reading !== state.key : entry?.linkKey !== state.key)) reads.push([path, state]);
+      if (dirty.has(path) || (reading !== undefined ? reading !== state.key : withdrawn || entry?.linkKey !== state.key)) reads.push([path, state]);
     }
     if (removed) this.settle();
     for (const [path, state] of reads) void this.build(path, state);
     if (removed) this.publish();
+  }
+
+  private stillShown(pairs: ReadonlySet<string>, now: ReadonlySet<string>): boolean {
+    return [...pairs].every((pair) => now.has(pair));
+  }
+
+  /** Whether every `${id}:${title}` is still that of a shared note. */
+  private stillHeld(pairs: ReadonlySet<string>): boolean {
+    const held = new Set<string>();
+    for (const path of this.set.paths()) {
+      const info = this.set.info(path);
+      if (info !== undefined) held.add(`${info.id}:${info.title}`);
+    }
+    return this.stillShown(pairs, held);
   }
 
   /** The state of a note's source and links, which a failed read is remembered by. */
@@ -239,12 +254,17 @@ export class NotesShare {
       const info = this.set.info(path);
       if (file === null || info === undefined) return;
       const source = await app.vault.read(file);
-      const copy = await copyNote(source, path, this.ports.images, (linkpath) => this.noteTarget(linkpath, path));
+      const linked = new Set<string>();
+      const copy = await copyNote(source, path, this.ports.images, (linkpath) => {
+        const target = this.noteTarget(linkpath, path);
+        if (target !== null) linked.add(`${target.id}:${target.title}`);
+        return target;
+      });
       const bytes = new TextEncoder().encode(copy.markdown).slice();
       if (bytes.length > (this.ports.maxBytes ?? MAX_ASSET_BYTES)) return this.fail(path, turn, epoch, key, false);
       const ref = { hash: await sha256Hex(bytes), size: bytes.length, mime: TEXT_MIME_TYPE };
       if (this.turns.get(path) !== turn || this.epoch !== epoch || this.set.info(path)?.id !== info.id) return;
-      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, shown: state.shown, embeds: source.includes('![') });
+      this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, shown: state.shown, linked, embeds: source.includes('![') });
       this.failed.clear(path);
       this.settle();
     } catch {

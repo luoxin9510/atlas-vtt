@@ -3,8 +3,9 @@ import { gfmToMarkdown } from 'mdast-util-gfm';
 import { toMarkdown } from 'mdast-util-to-markdown';
 import { assetImageHref, assetImageOf, isHttpsUrl, noteHref, CALLOUT_TYPES } from '../../protocol/noteLinks.ts';
 import { htmlEnd, isBlank, isOpenHtmlComment, stripBlockId, trimEdges, withoutBrokenWikiLinks } from './copyText';
-import { calloutOf, plainText, splitAtLine } from './copyCallouts';
+import { calloutOf, mayBeGmCallout, plainText, splitAtLine } from './copyCallouts';
 import { hasScheme, imageCaption, namesTheFile, resolveWikiLink, vaultPath, type CopyTargets } from './copyLinks';
+import { sourceOf } from './parseNote';
 import { PLAIN_CODE_LANGUAGES } from './plainLanguages';
 
 export type { CopyTargets } from './copyLinks';
@@ -21,6 +22,8 @@ interface Copy {
 	readonly images: Map<string, string>;
 	/** Set by an unclosed comment: nothing after it, in document order, is copied. */
 	cut: boolean;
+	/** The text the tree was parsed from, when known: a blockquote's first line is read from it. */
+	readonly source: string | undefined;
 }
 
 type Align = 'left' | 'right' | 'center' | null;
@@ -65,6 +68,9 @@ async function inline(node: PhrasingContent, copy: Copy, inLink: boolean): Promi
 			return wikiLink(node, copy, inLink);
 		case 'obsidianComment':
 			if (!node.closed) copy.cut = true;
+			return [];
+		case 'html':
+			if (isOpenHtmlComment(node)) copy.cut = true;
 			return [];
 		default:
 			return drop(node, copy);
@@ -204,12 +210,16 @@ async function block(node: RootContent, copy: Copy): Promise<BlockContent[]> {
 		case 'obsidianComment':
 			if (!node.closed) copy.cut = true;
 			return [];
+		case 'html':
+			if (isOpenHtmlComment(node)) copy.cut = true;
+			return [];
 		default:
 			return drop(node, copy);
 	}
 }
 
 async function quote(node: Extract<RootContent, { type: 'blockquote' }>, copy: Copy): Promise<BlockContent[]> {
+	if (mayBeGmCallout(node, copy.source)) return drop(node, copy);
 	const callout = calloutOf(node);
 	if (callout === null) {
 		const children = await blocks(node.children, copy);
@@ -282,7 +292,7 @@ function imagesIn(node: Nodes, found: ReadonlyMap<string, string>): Map<string, 
  * (anything else is dropped with its content), serialised to Markdown. The parsed tree is not touched.
  */
 export async function copyForPlayers(tree: Root, targets: CopyTargets): Promise<PlayerCopy> {
-	const copy: Copy = { targets, images: new Map(), cut: false };
+	const copy: Copy = { targets, images: new Map(), cut: false, source: sourceOf(tree) };
 	const children = await blocks(tree.children, copy);
 	const root: Root = { type: 'root', children };
 	const markdown = children.length === 0 ? '' : toMarkdown(root, { extensions: [gfmToMarkdown()] });

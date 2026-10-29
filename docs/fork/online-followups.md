@@ -97,4 +97,5 @@ Deferred minors from the relay hardening wave and the ticket pruning; the SDD le
 - The test "closes the largest backlog" depends on loopback buffering; a fake-socket version would be steadier.
 - `AssetTickets.uploaded` (hashes known to be in the relay's cache) is still not pruned; it holds only hashes, about 64 bytes each.
 - The `AssetTickets.mintRests` cap is soft: a rest still inside its 60 s is never dropped, so more than 256 hashes refused within one minute are all kept until their rests end.
+- `TableRegistry.createDurable` puts the new secret in memory before the flush: during it a GM hello with the new secret is accepted or the old GM's reconnect is refused, and a failed flush rolls back to a GM socket whose secret no longer validates. Fix: check secrets against the committed record until the flush resolves.
 - Deploying wave C to the VPS needs the user's go-ahead and has not been done.

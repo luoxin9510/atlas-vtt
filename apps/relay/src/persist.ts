@@ -66,8 +66,9 @@ export function loadState(statePath: string): StoredState {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch (error) {
-    throw new Error(`state file ${statePath} is not valid JSON (${error instanceof Error ? error.message : 'unreadable'}); fix or remove it`);
+  } catch {
+    // The parser's message quotes the input, which holds the ticket key: it is never passed on.
+    throw new Error(`state file ${statePath} is not valid JSON; fix or remove it`);
   }
   const root = typeof parsed === 'object' && parsed !== null ? (parsed as { tables?: unknown; ticketKey?: unknown }) : {};
   const tables = root.tables;

@@ -8,6 +8,24 @@ export interface SourceCallout {
 	readonly others: readonly PhrasingContent[];
 }
 
+const GM_HEAD = /^\[!\s*gm(?:[\]|\s]|$)/i;
+
+/**
+ * Whether a blockquote may be a gm callout. Obsidian decides by the quote's first source line, whatever the
+ * parser made of it (a setext heading, a definition), so that line is read from the source. Without positions
+ * the first child is searched instead; either way, doubt means yes.
+ */
+export function mayBeGmCallout(node: Blockquote, source: string | undefined): boolean {
+	const start = node.position?.start.offset;
+	if (source === undefined || start === undefined) {
+		const first = node.children[0];
+		return first !== undefined && /\[!\s*gm|"!\s*gm/i.test(JSON.stringify(first, (key, value: unknown) => (key === 'position' ? undefined : value)));
+	}
+	const rest = source.slice(start);
+	const end = rest.search(/[\r\n]/);
+	return GM_HEAD.test((end < 0 ? rest : rest.slice(0, end)).replace(/^>?[ \t]*/, ''));
+}
+
 /** The callout a blockquote is, or null for a plain quote. */
 export function calloutOf(node: Blockquote): SourceCallout | null {
 	const paragraph = node.children[0];
