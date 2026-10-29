@@ -26,6 +26,8 @@ export interface RelayConfig {
   readonly trustProxy: 'none' | 'xff' | 'cf';
   /** Hard cap on one socket's unsent bytes (memory protection): over it the socket is closed 1013 at once. */
   readonly maxBacklogBytes: number;
+  /** Relay-wide cap on queued bytes of all sockets, a shared broadcast counted once (default 256 MiB); the largest backlog is closed 1013 when passed. */
+  readonly maxTotalBacklogBytes?: number;
   readonly timing: RelayTiming;
   /** Where uploaded images are kept; default `assets` beside the state file. */
   readonly assetDir?: string;

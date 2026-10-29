@@ -108,6 +108,18 @@ describe('NotesShare', () => {
     expect(table.dropped).toContain(notesTag(cave.text.hash));
   });
 
+  it('withdraws a title the copy carries even when the link index does not list the link', async () => {
+    // A markdown link is resolved by the copy but not by the mock's wikilink index, as with a form Obsidian does not index.
+    table = await started({ 'A.md': shared('See [b](B.md) here.'), 'B.md': shared('Plain B.') });
+    const a = idOf(table, 'A');
+    const b = idOf(table, 'B');
+    expect(await table.text(a)).toBe(`See [b](atlas-note:${b}) here.`);
+    table.vault.write('B.md', 'Plain B.');
+    await settled();
+    expect(titles(table)).toEqual(['A']);
+    expect(await table.text(a)).toBe('See b here.');
+  });
+
   it('drops an image that is no longer named', async () => {
     table = await started({ 'Keep.md': shared('![[art/map.gif]]'), 'art/map.gif': gif('one') });
     const markdown = await table.text(table.list()[0]?.id ?? '');

@@ -77,8 +77,9 @@ export class QuestImages {
       const bytes = new Uint8Array(await this.app.vault.readBinary(file));
       const mime = bytes.length > MAX_ASSET_BYTES ? null : imageMimeOfBytes(bytes);
       return mime === null ? null : { hash: await sha256Hex(bytes), size: bytes.length, mime };
-    } catch (error) {
-      console.error(`[Atlas] Could not read the image ${file.path} of a quest:`, error);
+    } catch {
+      // The path is not logged: it names the image.
+      console.error('[Atlas] Could not read an image of a quest.');
       return null;
     }
   }

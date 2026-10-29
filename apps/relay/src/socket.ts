@@ -6,7 +6,7 @@ import { CLOSE, isOtherVersion, KEEPALIVE_PING, KEEPALIVE_PONG, MAX_PLAYER_FRAME
 import { normalizeOrigin, type RelayConfig } from './config.ts';
 import type { TableLinks } from './gmLink.ts';
 import { clientAddress, SocketCap } from './limits.ts';
-import { overload, progressedSince, stalled } from './routing.ts';
+import { closeWhenSent, dropOutbox, overload, progressedSince, stalled } from './routing.ts';
 import type { TableRegistry } from './tables.ts';
 
 /** Largest frame of a welcomed GM (a little over the protocol's 320 KiB chunk, with room for the envelope). */
@@ -80,7 +80,7 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
     let done = false;
     const end = (closeCode: number): void => {
       done = true;
-      socket.close(closeCode);
+      closeWhenSent(socket, closeCode);
     };
     const frameTimes: number[] = [];
     const helloTimer = setTimeout(() => {
@@ -145,6 +145,7 @@ export function createSocketServer(tables: TableRegistry, links: TableLinks, con
 
     socket.on('close', (closeCode) => {
       clearTimeout(helloTimer);
+      dropOutbox(socket);
       links.socketClosed(code, socket);
       log?.(`WS ${kind === 'new' ? 'socket' : kind} closed ${closeCode}`);
     });

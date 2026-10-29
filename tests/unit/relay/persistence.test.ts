@@ -64,6 +64,19 @@ describe('durable state file (M5)', () => {
     writeFileSync(statePath, '{"tables": ');
     expect(() => loadState(statePath)).toThrow(statePath);
   });
+
+  it('never quotes the file content in the error for one that is not valid JSON', () => {
+    const statePath = join(directory(), 'state.json');
+    writeFileSync(statePath, 'TICKETKEYSECRET {"ticketKey": "abc"');
+    let message = '';
+    try {
+      loadState(statePath);
+    } catch (error) {
+      message = error instanceof Error ? error.message : '';
+    }
+    expect(message).toContain(statePath);
+    expect(message).not.toContain('TICKETKEY');
+  });
 });
 
 describe('write failures (M5)', () => {
@@ -125,5 +138,22 @@ describe('ticket key (M4)', () => {
     const statePath = join(directory(), 'state.json');
     writeFileSync(statePath, JSON.stringify({ version: 1, tables: {}, ticketKey: 'short' }));
     expect(loadState(statePath).ticketKey).toBeNull();
+  });
+});
+
+describe('state keys are validated on load', () => {
+  it('drops tables and players whose ids are not well formed, including __proto__', () => {
+    const statePath = join(directory(), 'state.json');
+    const hash = 'a'.repeat(64);
+    const id = 'b'.repeat(20);
+    const player = `{"name":"x","keyHash":"${hash}"}`;
+    const table = (players: string): string => `{"secretHash":"${hash}","lastHostedAt":1,"players":${players}}`;
+    writeFileSync(statePath, `{"tables":{"__proto__":${table('{}')},"${CODE}":${table(`{"__proto__":${player},"name":${player},"${id}":${player}}`)}}}`);
+    const { tables } = loadState(statePath);
+    expect(Object.keys(tables)).toEqual([CODE]);
+    expect(Object.keys(tables[CODE]?.players ?? {})).toEqual([id]);
+    expect(Object.getPrototypeOf(tables)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(tables[CODE]?.players)).toBe(Object.prototype);
+    expect(({} as { secretHash?: string }).secretHash).toBeUndefined();
   });
 });

@@ -5,17 +5,17 @@ Deferred minor findings from the task and whole-branch reviews of Plan 1
 Plan 2; pick them up when touching the code nearby.
 
 ## Relay (`apps/relay`)
-- Re-POST while the state write fails kicks the live GM, then answers 503 (`http.ts`, `tables.ts`): `replaced` fires before `flush()`. Rare; the GM retries.
-- Oversize `POST /api/tables` body resets the connection instead of answering 400 (`http.ts`).
-- `/api/me` has only the host-key lockout, no per-minute limit.
-- Static serving follows symlinks inside `STATIC_DIR` (operator-controlled); use `realpath` to be strict.
-- `persist.ts` does not guard `__proto__` ids or codes when reading its own state file.
+- ~~Re-POST while the state write fails kicks the live GM, then answers 503 (`http.ts`, `tables.ts`): `replaced` fires before `flush()`. Rare; the GM retries.~~ (done: a failed write rolls back before the live GM is touched; wave C)
+- ~~Oversize `POST /api/tables` body resets the connection instead of answering 400 (`http.ts`).~~ (done: answers 413; wave C)
+- ~~`/api/me` has only the host-key lockout, no per-minute limit.~~ (done: per-minute limit added; wave C)
+- ~~Static serving follows symlinks inside `STATIC_DIR` (operator-controlled); use `realpath` to be strict.~~ (done: root and entries are checked with `realpath`, dotfiles through symlinks refused; wave C)
+- ~~`persist.ts` does not guard `__proto__` ids or codes when reading its own state file.~~ (done: guarded when reading the state file; wave C)
 - Newcomer limit is per client address: players behind one NAT share 10 newcomers per 10 minutes (keys and seat codes are not limited).
 - The 5-wrong-code pause is triggerable by anyone with the table link and blocks seat-code re-entry for 10 minutes (keys still enter); accepted trade-off.
-- Known-player records may exceed 128 if roster plus connected players exceed it.
-- No relay-wide memory budget across sockets: each socket may queue up to `maxBacklogBytes` (96 MiB), so many stuck sockets add up (`routing.ts`).
-- Queued outbound data is not freed eagerly when a socket closes; it waits for the outbox to be garbage collected with the socket (`routing.ts`).
-- The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).
+- ~~Known-player records may exceed 128 if roster plus connected players exceed it.~~ (done: resolved by an invariant, the roster cap holds; wave C)
+- ~~No relay-wide memory budget across sockets: each socket may queue up to `maxBacklogBytes` (96 MiB), so many stuck sockets add up (`routing.ts`).~~ (done: one 256 MiB budget across sockets, the largest backlog is closed with 1013; wave C)
+- ~~Queued outbound data is not freed eagerly when a socket closes; it waits for the outbox to be garbage collected with the socket (`routing.ts`).~~ (done: the outbox is dropped when the socket closes; wave C)
+- ~~The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).~~ (done: close waits for the outbox to flush; wave C)
 
 ## Plugin (`src/app/online`)
 - ~~`OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic~~ (done: start, events and tokens split out; 296 lines).
@@ -50,9 +50,9 @@ Plan 2; pick them up when touching the code nearby.
 What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - A slow phone whose `cache.put` runs past the 10 s stall window after a good ticket can show the "Image sent by the GM directly" line and fetch the image twice (`AssetLoader`).
 - The fallback line is a local log entry ordered by the phone's clock, so it can sit slightly out of order among the GM's entries.
-- Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status (`apps/relay/src/assets`); the GM then sends chunks.
+- ~~Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status (`apps/relay/src/assets`); the GM then sends chunks.~~ (done: refusals are answered, then drained or closed; wave C)
 - A relay that is full or has under 2 GiB of disk (`507`) sends everything over the socket instead.
-- Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.
+- ~~Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.~~ (done: `minted`, `failed` and `mintRests` keep about 256 entries, oldest first; wave C)
 - A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
 - The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
 - After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the explored memory changes (a new hash) or the scene is loaded again.
@@ -85,3 +85,17 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - The settings page re-renders when the server address changes, which can drop focus in the field.
 - The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
 - `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.
+
+## Wave C residuals (open)
+Deferred minors from the relay hardening wave and the ticket pruning; the SDD ledger has the detail.
+- Overlapping failed re-POSTs: the rollback of the first can interfere with the second (fix later by serialising `createDurable` per code).
+- `readBody` hangs only for a client that stays connected but sends nothing; the 300 s `requestTimeout` ends it.
+- The relay-wide backlog budget does not count bytes already handed to ws (in flight, about 1.3 MiB per socket at most).
+- Minting past the oversize limit is not covered by a test.
+- `MeRateLimit` behind a proxy (`TRUST_PROXY=cf`) is not covered by a test.
+- Upload resume of an already complete image (`200`) is not bounded by the drain limit, and the `writePart` reject path is not covered.
+- The test "closes the largest backlog" depends on loopback buffering; a fake-socket version would be steadier.
+- `AssetTickets.uploaded` (hashes known to be in the relay's cache) is still not pruned; it holds only hashes, about 64 bytes each.
+- The `AssetTickets.mintRests` cap is soft: a rest still inside its 60 s is never dropped, so more than 256 hashes refused within one minute are all kept until their rests end.
+- `TableRegistry.createDurable` puts the new secret in memory before the flush: during it a GM hello with the new secret is accepted or the old GM's reconnect is refused, and a failed flush rolls back to a GM socket whose secret no longer validates. Fix: check secrets against the committed record until the flush resolves.
+- Deploying wave C to the VPS needs the user's go-ahead and has not been done.
