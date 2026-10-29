@@ -374,4 +374,10 @@ describe('more adversarial pins', () => {
 			expect(await copy(`before\n\n${text}`), text).toBe('before\n');
 		}
 	});
+
+	it('ends the copy at an unclosed comment after other html on its line', async () => {
+		for (const text of ['<div><!-- x\n\nSECRET\n\n-->', '<!-- a --> <!-- b\n\nSECRET']) {
+			expect(await copy(`before\n\n${text}`), text).toBe('before\n');
+		}
+	});
 });

@@ -205,6 +205,9 @@ const GM_SHAPES: ReadonlyArray<readonly [string, string]> = [
   ['nested definition', '> [!note] Open\n> > [!gm]: https://x.example\n> > SECRET one\n\nafter'],
   ['in a list item', '- item\n  > [!gm]\n  > SECRET one\n  > ---\n  > SECRET two\n\nafter'],
   ['with metadata', '> [!gm|meta] Twist\n> SECRET one\n> ---\n> SECRET two\n\nafter'],
+  ['BOM then setext', '\uFEFFpublic\n\n> [!gm] Twist\n> SECRET one\n> ---\n> SECRET two\n\nafter'],
+  ['BOM then definition at the start', '\uFEFF> [!gm]: https://x.example\n> SECRET one\n\nafter'],
+  ['BOM, frontmatter, setext', '\uFEFF---\ntitle: t\n---\n> [!gm] Twist\n> SECRET one\n> ===\n> SECRET two\n\nafter'],
   ['folded and upper case', '> [!GM]- Twist\n> SECRET one\n> ===\n> SECRET two\n\nafter'],
 ];
 

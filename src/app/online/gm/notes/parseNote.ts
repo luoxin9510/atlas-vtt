@@ -19,7 +19,8 @@ export function parseNote(text: string): Root {
 		extensions: [gfm(), math(), frontmatter(['yaml']), obsidianSyntax()],
 		mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), frontmatterFromMarkdown(['yaml']), obsidianFromMarkdown()],
 	});
-	sources.set(tree, text);
+	// micromark counts offsets after a leading byte order mark, so the source is kept without it.
+	sources.set(tree, text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
 	return tree;
 }
 

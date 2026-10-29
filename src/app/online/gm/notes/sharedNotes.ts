@@ -117,6 +117,13 @@ export class SharedSet {
     return this.list().infos.get(path);
   }
 
+  /** The `${id}:${title}` of every shared note: what a copy's `linked` pairs must still be among. */
+  heldPairs(): ReadonlySet<string> {
+    const held = new Set<string>();
+    for (const info of this.list().infos.values()) held.add(`${info.id}:${info.title}`);
+    return held;
+  }
+
   /** More notes are flagged than the list holds. */
   get capped(): boolean {
     return this.flags.size > MAX_SHARED_NOTES;

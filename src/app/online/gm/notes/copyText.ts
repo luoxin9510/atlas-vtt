@@ -106,5 +106,5 @@ export function withoutBrokenWikiLinks(value: string, open: boolean): { text: st
  * it covers html nodes that today's parser does not emit inside phrasing, so keep it.
  */
 export function isOpenHtmlComment(node: Nodes): boolean {
-	return node.type === 'html' && node.value.startsWith('<!--') && !node.value.includes('-->');
+	return node.type === 'html' && node.value.lastIndexOf('<!--') > node.value.lastIndexOf('-->');
 }
