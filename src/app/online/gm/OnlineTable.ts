@@ -90,7 +90,7 @@ export class OnlineTable {
     const { app, origin, table, mapPath, ownership, seats, gate, paused, events, shelf, savedLog } = options;
     this.app = app;
     this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now(), () => events.changed());
-    this.forkClients = new ForkClients((player) => void (this.pauseShare.client(player), this.notes.client(player)));
+    this.forkClients = new ForkClients((player): void => { this.pauseShare.client(player); this.notes.client(player); });
     const pauseShare = new PauseShare({
       players: () => ownership.onlinePlayers(),
       levelOf: (player) => this.forkClients.levelOf(player),

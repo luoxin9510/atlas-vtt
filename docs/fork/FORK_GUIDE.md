@@ -119,6 +119,10 @@ and is never changed, so upstream merges stay clean. The reason: the community
 store would "update" a plugin installed as `atlas-vtt` to the official
 release, replacing this fork. Never enable both plugins in one vault.
 
+A new id starts with a fresh `data.json`: Atlas settings from an old `atlas-vtt` folder are not carried over.
+
+The `-fork` version suffix turns off the upstream update notice and the changelog's release matching (`releaseBaseVersion('0.9.1-fork')` is null); this is intended.
+
 ## Conventions distilled from upstream (summary, not a replacement)
 
 - PIXI.js **v8** imports only; Obsidian bundles v7 globally. Check current

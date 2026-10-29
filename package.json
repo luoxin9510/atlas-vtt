@@ -16,7 +16,7 @@
     "obsidian": "node scripts/obsidian-cli.js",
     "obsidian:help": "node scripts/obsidian-cli.js help",
     "obsidian:print-bin": "node scripts/obsidian-cli.js --print-bin",
-    "obsidian:reload": "node scripts/obsidian-cli.js plugin:reload id=atlas-vtt",
+    "obsidian:reload": "node scripts/obsidian-cli.js plugin:reload id=atlas-vtt-fork",
     "obsidian:errors": "node scripts/obsidian-cli.js dev:errors",
     "obsidian:console": "node scripts/obsidian-cli.js dev:console",
     "build": "cross-env COPY_ON_CHANGE=false vite build",

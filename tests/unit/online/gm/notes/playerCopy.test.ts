@@ -256,6 +256,15 @@ describe('tightening', () => {
 		expect(out).not.toContain('<!--');
 		expect(out).toContain('a');
 	});
+
+	it('keeps an inline code span that holds <!--', async () => {
+		expect(await copy('a `<!--` b')).toBe('a `<!--` b\n');
+	});
+
+	// Known over-hide: an escaped `\<!--` is only text, yet the copy cuts there. It fails closed (players see less).
+	it('cuts the rest at an escaped <!--', async () => {
+		expect(await copy('a \\<!-- b\n\nlater')).toBe('a\n');
+	});
 });
 
 describe('more adversarial pins', () => {

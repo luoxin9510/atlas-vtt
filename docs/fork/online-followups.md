@@ -60,7 +60,7 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
-- ~~`OnlineTable` has 11 positional constructor parameters and is about 430 lines~~ (done: one options object, 298 lines). The pause wiring there is tested only through `PauseShare`.
+- ~~`OnlineTable` has 11 positional constructor parameters and was about 430 lines~~ (done: one options object, 298 lines). The pause wiring there is tested only through `PauseShare`.
 
 ## Plan 3 residuals (shared notes)
 Deferred minors from the notes work; none lets hidden text reach a player.
@@ -72,9 +72,16 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - ~~No test covers batching together with `dropTagged`~~ (done: pinned).
 - ~~Dependents are withdrawn on any link-key change, so a linked note can flicker out of the list~~ (done: dependents stay listed).
 - ~~Failed markers are kept until the next edit, and a transient read error keeps a note withdrawn until its next edit~~ (done: bounded retry at 2 s, 10 s and 60 s).
-- ~~`NotesShare.ts` is 319 lines and `OnlineTable.ts` about 417~~ (done: 294 and 298 lines).
+- ~~`NotesShare.ts` was 319 lines and `OnlineTable.ts` about 430~~ (done: 294 and 298 lines).
 - ~~`leave()` clearing the notes is not pinned by a test~~ (done: pinned).
 - ~~An empty-title known callout shows no title~~ (done: shows the type as its default title).
 - The settings row name "How notes are shared" was chosen without spec text.
 - ~~The online settings did not show on Obsidian 1.13+ until reopened~~ (done: settings refresh, found in testing).
-- ~~The community store replaced a fork installed as `atlas-vtt`~~ (done: local installs use the plugin id `atlas-vtt-fork`; found in testing).
+- ~~The community store replaced a fork installed as `atlas-vtt`~~ (done: local installs use the plugin id `atlas-vtt-fork`; found in testing). True only since the wave B final fix: online play used to look Atlas up under the fixed id `atlas-vtt`, and now reads the running plugin's `manifest.id` (`src/app/plugin/pluginId.ts`).
+
+## Wave B residuals (open)
+- Renaming a shared note's title lags: the list shows the old title until the next change.
+- An escaped `\<!--` in a note cuts the copy there although it is only text (known over-hide; fails closed, pinned in `playerCopy.test.ts`).
+- The settings page re-renders when the server address changes, which can drop focus in the field.
+- The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
+- `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.

@@ -1,4 +1,4 @@
-import type { PhrasingContent } from 'mdast';
+import type { Nodes, PhrasingContent } from 'mdast';
 
 function isSpace(char: string): boolean {
 	return char === ' ' || char === '\t' || char === '\n' || char === '\r';
@@ -78,3 +78,33 @@ export function htmlEnd(nodes: readonly PhrasingContent[], start: number): numbe
 	return nodes.length;
 }
 
+/**
+ * Drops each `[[` up to its `]]` (or, with `open` set on return, to the end of the text): a wikilink the parser
+ * did not take must not show its typed target. `open` says the text starts inside such a `[[`. A `!` before it goes too.
+ */
+export function withoutBrokenWikiLinks(value: string, open: boolean): { text: string; open: boolean } {
+	let text = '';
+	let position = 0;
+	if (open) {
+		const close = value.indexOf(']]');
+		if (close < 0) return { text: '', open: true };
+		position = close + 2;
+	}
+	for (;;) {
+		const start = value.indexOf('[[', position);
+		if (start < 0) return { text: text + value.slice(position), open: false };
+		const before = value.slice(position, start);
+		text += before.endsWith('!') ? before.slice(0, -1) : before;
+		const close = value.indexOf(']]', start + 2);
+		if (close < 0) return { text, open: true };
+		position = close + 2;
+	}
+}
+
+/**
+ * Whether a raw html node opens a comment it never closes. A fail-closed guard on the anti-goal boundary:
+ * it covers html nodes that today's parser does not emit inside phrasing, so keep it.
+ */
+export function isOpenHtmlComment(node: Nodes): boolean {
+	return node.type === 'html' && node.value.startsWith('<!--') && !node.value.includes('-->');
+}

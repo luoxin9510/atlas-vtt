@@ -2,7 +2,7 @@ import type { BlockContent, List, ListItem, Nodes, PhrasingContent, Root, RootCo
 import { gfmToMarkdown } from 'mdast-util-gfm';
 import { toMarkdown } from 'mdast-util-to-markdown';
 import { assetImageHref, assetImageOf, isHttpsUrl, noteHref, CALLOUT_TYPES } from '../../protocol/noteLinks.ts';
-import { htmlEnd, isBlank, stripBlockId, trimEdges } from './copyText';
+import { htmlEnd, isBlank, isOpenHtmlComment, stripBlockId, trimEdges, withoutBrokenWikiLinks } from './copyText';
 import { calloutOf, plainText, splitAtLine } from './copyCallouts';
 import { hasScheme, imageCaption, namesTheFile, resolveWikiLink, vaultPath, type CopyTargets } from './copyLinks';
 import { PLAIN_CODE_LANGUAGES } from './plainLanguages';
@@ -129,34 +129,6 @@ async function markdownLink(url: string, text: string, children: PhrasingContent
 	if (note === null) return children;
 	if (children.length > 0 && !inLink) return [{ type: 'link', url: noteHref(note.id), title: null, children }];
 	return children.length > 0 ? children : noteLink(note.id, note.title, copy, inLink);
-}
-
-/**
- * Drops each `[[` up to its `]]` (or, with `open` set on return, to the end of the text): a wikilink the parser
- * did not take must not show its typed target. `open` says the text starts inside such a `[[`. A `!` before it goes too.
- */
-function withoutBrokenWikiLinks(value: string, open: boolean): { text: string; open: boolean } {
-	let text = '';
-	let position = 0;
-	if (open) {
-		const close = value.indexOf(']]');
-		if (close < 0) return { text: '', open: true };
-		position = close + 2;
-	}
-	for (;;) {
-		const start = value.indexOf('[[', position);
-		if (start < 0) return { text: text + value.slice(position), open: false };
-		const before = value.slice(position, start);
-		text += before.endsWith('!') ? before.slice(0, -1) : before;
-		const close = value.indexOf(']]', start + 2);
-		if (close < 0) return { text, open: true };
-		position = close + 2;
-	}
-}
-
-/** Whether a raw html node opens a comment it never closes. */
-function isOpenHtmlComment(node: Nodes): boolean {
-	return node.type === 'html' && node.value.startsWith('<!--') && !node.value.includes('-->');
 }
 
 function imageNode(ref: Parameters<typeof assetImageHref>[0], path: string, written: string, copy: Copy): PhrasingContent[] {
