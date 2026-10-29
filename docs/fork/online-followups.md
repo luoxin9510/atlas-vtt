@@ -55,7 +55,7 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.
 - A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
 - The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
-- After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the next scene load.
+- After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the explored memory changes (a new hash) or the scene is loaded again.
 - A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
