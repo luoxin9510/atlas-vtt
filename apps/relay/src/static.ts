@@ -1,7 +1,8 @@
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
+import { pipeline } from 'node:stream';
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -43,7 +44,7 @@ function notFound(res: ServerResponse): void {
   res.writeHead(404, SECURITY_HEADERS).end();
 }
 
-/** Serves a file below `root` (`/` is index.html). Paths that leave `root` or name a directory answer 404. */
+/** Serves a file below `root`, which must already be a real path (`/` is index.html). Dotfiles, links that resolve outside `root`, other paths that leave it and directories answer 404. */
 export async function serveStatic(root: string, urlPath: string, method: string, res: ServerResponse): Promise<void> {
   let decoded: string;
   try {
@@ -55,12 +56,17 @@ export async function serveStatic(root: string, urlPath: string, method: string,
   const relative = normalize(decoded === '/' ? '/index.html' : decoded);
   const file = join(root, relative);
   if (file !== root && !file.startsWith(root.endsWith(sep) ? root : root + sep)) return notFound(res);
-  const info = await stat(file).catch(() => null);
+  if (relative.split(/[\\/]/).some((part) => part.startsWith('.'))) return notFound(res);
+  // One realpath per request: a link (file or directory) may only lead to somewhere still inside the root.
+  const real = await realpath(file).catch(() => null);
+  if (real === null || !real.startsWith(root.endsWith(sep) ? root : root + sep)) return notFound(res);
+  const info = await stat(real).catch(() => null);
   if (info === null || !info.isFile()) return notFound(res);
   res.writeHead(200, { ...SECURITY_HEADERS, 'cache-control': cacheControl(relative), 'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream', 'content-length': info.size });
   if (method === 'HEAD') {
     res.end();
     return;
   }
-  createReadStream(file).on('error', () => res.destroy()).pipe(res);
+  // pipeline destroys the file stream when the client goes away, so the descriptor is freed at once.
+  pipeline(createReadStream(real), res, () => undefined);
 }

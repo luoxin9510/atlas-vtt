@@ -7,7 +7,7 @@ const MAX_TIMER_MS = 2 ** 31 - 1;
 /** While a GM hosts a table its `lastHostedAt` is refreshed this often at most (a quarter of the unhosted limit otherwise). */
 const HOSTED_REFRESH_MAX_MS = 3_600_000;
 /** Most players a table remembers keys for; the oldest who are not connected go first. */
-const MAX_KNOWN_PLAYERS = 128;
+export const MAX_KNOWN_PLAYERS = 128;
 
 export interface TableRegistryOptions {
   readonly statePath: string;

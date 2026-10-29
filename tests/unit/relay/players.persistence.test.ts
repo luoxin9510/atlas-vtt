@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CLOSE } from '../../../src/app/online/protocol/relay.ts';
+import { MAX_CAMPAIGN_PLAYERS } from '../../../src/app/online/protocol/seat.ts';
+import { loadConfig } from '../../../apps/relay/src/config.ts';
+import { MAX_KNOWN_PLAYERS } from '../../../apps/relay/src/tables.ts';
 import { CODE, createTable, gmOf, joined, playerOf } from './playerHarness.ts';
 import { TEST_PUBLIC_ORIGIN } from './relayHarness.ts';
 import { useTables } from './tableSuite.ts';
@@ -95,5 +98,14 @@ describe('player state over a restart', () => {
     await relay.close();
     running.splice(running.indexOf(relay), 1);
     expect(records()).toBe(3);
+  });
+});
+
+describe('known-player limit', () => {
+  it('has room for a full roster plus a full table', () => {
+    const env = { HOST_KEY: 'k'.repeat(32), PUBLIC_ORIGIN: 'https://relay.example.com' };
+    const MAX_CONNECTED_PLAYERS = loadConfig({ ...env, MAX_PLAYERS: '12' }).maxPlayers;
+    expect(() => loadConfig({ ...env, MAX_PLAYERS: String(MAX_CONNECTED_PLAYERS + 1) })).toThrow();
+    expect(MAX_CAMPAIGN_PLAYERS + MAX_CONNECTED_PLAYERS).toBeLessThanOrEqual(MAX_KNOWN_PLAYERS);
   });
 });

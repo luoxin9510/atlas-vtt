@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { open, rename } from 'node:fs/promises';
+import { PLAYER_ID_PATTERN } from '../../../src/app/online/protocol/identity.ts';
+import { TABLE_CODE_PATTERN } from '../../../src/app/online/protocol/relay.ts';
 
 /** What survives a restart of one table: the hash of its secret and when a GM last had it. */
 export interface StoredTable {
@@ -44,6 +46,8 @@ function storedPlayers(value: unknown): Record<string, StoredPlayer> {
   const players: Record<string, StoredPlayer> = {};
   if (typeof value !== 'object' || value === null) return players;
   for (const [id, entry] of Object.entries(value)) {
+    // Keys come from a file: only well-formed ids are kept, so `__proto__` or `name` never become entries.
+    if (!PLAYER_ID_PATTERN.test(id)) continue;
     const player = entry as { name?: unknown; keyHash?: unknown } | null;
     if (typeof player?.name === 'string' && typeof player.keyHash === 'string' && /^[0-9a-f]{64}$/.test(player.keyHash)) players[id] = { name: player.name, keyHash: player.keyHash };
   }
@@ -71,7 +75,7 @@ export function loadState(statePath: string): StoredState {
   const ticketKey = storedKey(root.ticketKey);
   if (typeof tables !== 'object' || tables === null) return { tables: result, ticketKey };
   for (const [code, entry] of Object.entries(tables)) {
-    if (!isStoredTable(entry)) continue;
+    if (!TABLE_CODE_PATTERN.test(code) || !isStoredTable(entry)) continue;
     result[code] = { secretHash: entry.secretHash, lastHostedAt: entry.lastHostedAt, players: storedPlayers((entry as { players?: unknown }).players) };
   }
   return { tables: result, ticketKey };
