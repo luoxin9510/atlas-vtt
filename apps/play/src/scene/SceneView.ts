@@ -175,7 +175,7 @@ export class SceneView {
     }
     this.lit.follow(state, this.viewport);
     const connected = state.status.kind === 'joined' && state.status.gmOnline;
-    this.download.sync(key, mapRequest(state, this.lowPower, this.maxTexture, coarsePointer()), connected);
+    this.download.sync(key, () => mapRequest(state, this.lowPower, this.maxTexture, coarsePointer()), connected);
     this.drawLayers(state);
   }
 

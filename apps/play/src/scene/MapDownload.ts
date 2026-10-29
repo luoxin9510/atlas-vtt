@@ -1,8 +1,12 @@
 import type { AssetRef } from '../../../../src/app/online/protocol/index.ts';
 import type { AssetLoader, LoadedAsset } from '../assets/AssetLoader.ts';
 
-/** A failed map download is tried again after this long, if the connection did not come back sooner. */
+/** A failed map download is tried again after this long, if the connection did not come back sooner; each failure doubles it. */
 export const MAP_RETRY_MS = 10_000;
+/** The longest wait between two tries. */
+export const MAP_RETRY_MAX_MS = 300_000;
+/** After this many failed tries the download stops asking (a reconnect or another scene starts it again). */
+export const MAP_MAX_ATTEMPTS = 8;
 
 export interface MapWish {
   readonly ref: AssetRef;
@@ -19,30 +23,35 @@ export interface MapDownloadPorts {
 
 /**
  * Asks for the map of the scene shown and keeps asking while it fails: a download lost with the
- * connection is asked for again once the table is back (or after `MAP_RETRY_MS`). A scene that
- * changes, or turns lit, gives the download up and stops all asking for it.
+ * connection is asked for again once the table is back (or after a backoff from `MAP_RETRY_MS`, up to
+ * `MAP_MAX_ATTEMPTS` tries). A scene that changes, or turns lit, gives the download up and stops all
+ * asking for it.
  */
 export class MapDownload {
   private key: string | null = null;
   private wish: MapWish | null = null;
   private failed = false;
+  private attempts = 0;
   private wasConnected = false;
   private generation = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly ports: MapDownloadPorts) {}
 
-  /** `key`: the scene and map shown (null: none); `wish`: the map wanted for it (null: none to ask for). */
-  sync(key: string | null, wish: MapWish | null, connected: boolean): void {
+  /** `key`: the scene and map shown (null: none); `wish`: builds the map wanted for it, called only when `key` changed. */
+  sync(key: string | null, wish: () => MapWish | null, connected: boolean): void {
     if (key !== this.key) {
       this.stop();
       this.key = key;
-      this.wish = wish;
+      this.wish = wish();
       this.wasConnected = connected;
       this.start();
       return;
     }
-    if (this.failed && connected && !this.wasConnected) this.start();
+    if (this.failed && connected && !this.wasConnected) {
+      this.attempts = 0;
+      this.start();
+    }
     this.wasConnected = connected;
   }
 
@@ -50,6 +59,7 @@ export class MapDownload {
   stop(): void {
     this.generation += 1;
     this.failed = false;
+    this.attempts = 0;
     if (this.timer !== null) this.ports.clearTimer(this.timer);
     this.timer = null;
     if (this.wish !== null) this.ports.assets.cancel(this.wish.ref.hash);
@@ -72,10 +82,13 @@ export class MapDownload {
         return;
       }
       this.failed = true;
+      const failures = this.attempts;
+      this.attempts += 1;
+      if (this.attempts >= MAP_MAX_ATTEMPTS) return;
       this.timer = this.ports.setTimer(() => {
         this.timer = null;
         if (generation === this.generation) this.start();
-      }, MAP_RETRY_MS);
+      }, Math.min(MAP_RETRY_MS * 2 ** failures, MAP_RETRY_MAX_MS));
     });
   }
 }
