@@ -61,6 +61,15 @@ describe('static player page', () => {
     expect(script.headers['x-content-type-options']).toBe('nosniff');
   });
 
+  it('caches hashed assets for a year and everything else not at all', async () => {
+    const origin = await relay();
+    expect((await get(origin, '/')).headers['cache-control']).toBe('no-cache');
+    expect((await get(origin, '/index.html')).headers['cache-control']).toBe('no-cache');
+    expect((await get(origin, '/assets/app.js')).headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect((await get(origin, '/assets/app.js', 'HEAD')).headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect((await get(origin, '/assets')).headers['cache-control']).toBeUndefined();
+  });
+
   it('answers HEAD without a body', async () => {
     const head = await get(await relay(), '/assets/app.js', 'HEAD');
     expect(head.status).toBe(200);

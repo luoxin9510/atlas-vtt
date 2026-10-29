@@ -53,6 +53,8 @@ export const onlineDock: Translation = {
   'onlineDock.codeCopied': '加入码已复制',
   'onlineDock.codeCopyFailed': '无法复制加入码。',
   'onlineDock.imageShown': '图片展示中',
+  'onlineDock.notesShared': { one: '已共享 {count} 篇笔记', other: '已共享 {count} 篇笔记' },
+  'onlineDock.notesCapped': '只共享前 500 篇笔记',
   'onlineDock.hide': '隐藏',
   'onlineDock.qr.codeOfLink': '加入链接的 QR 码',
   'onlineDock.qr.invite': '邀请',

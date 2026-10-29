@@ -43,7 +43,7 @@ export interface SceneBindingPorts {
   tickets: Pick<AssetTickets, 'ticket'>;
   /** Whether the GM has paused the game. */
   paused(): boolean;
-  send(body: GmMessage, to?: string): void;
+  send(body: GmMessage, to?: string, tag?: string): void;
   /** Sends a live message to all ahead of other frames; a newer one of the same key replaces it while it waits. */
   sendLive(body: GmMessage, key: string, to?: string): void;
   readImage(path: string): Promise<VaultImage | null>;
@@ -112,7 +112,7 @@ export function bindScene(ports: SceneBindingPorts, tab: AtlasTab, presented: Pr
     tokenRules: () => tokenRulesOf(shownRenderer()),
     readImage: (path) => ports.readImage(path),
     scaleImage: scaleInWindow,
-    send: (body, to) => live() && ports.send(body, to),
+    send: (body, to, tag) => live() && ports.send(body, to, tag),
     sendLive: (body, key, to) => live() && ports.sendLive(body, key, to),
     drawnPlaces: (tokenIds) => drawnTokenPlaces(shownRenderer(), tokenIds),
     notice: (text) => live() && showNotice(text),

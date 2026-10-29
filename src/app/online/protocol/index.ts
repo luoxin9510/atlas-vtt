@@ -24,6 +24,7 @@ export * from './logShown.ts';
 export * from './mapLayers.ts';
 export * from './marks.ts';
 export * from './moves.ts';
+export * from './noteLinks.ts';
 export * from './redact.ts';
 export * from './relay.ts';
 export * from './rules.ts';

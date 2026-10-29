@@ -23,6 +23,8 @@ export interface SessionEnv {
   storage: Storage | null;
   open(url: string): SocketLike;
   indexedDB: IDBFactory | null;
+  /** Calls `wake` when the page becomes visible or the network returns; returns the unsubscribe. */
+  onWake?(wake: () => void): () => void;
 }
 
 /** Which screen the player is on: the join form (with why they are back at it) or the table. */
@@ -46,6 +48,7 @@ export class Session {
   private readonly feed: GameFeed;
   private socket: TableSocket | null = null;
   private ticker: ReturnType<typeof setInterval> | null = null;
+  private unwatch: (() => void) | null = null;
   private hadKey = false;
   private name = '';
 
@@ -92,11 +95,14 @@ export class Session {
       },
     });
     this.socket.start();
+    this.unwatch = this.env.onWake?.(() => this.socket?.wake()) ?? null;
     this.ticker = setInterval(() => this.assets.tick(), TICK_MS);
   }
 
   /** Close the socket and stop the asset clock; the table's state goes with it. */
   leave(): void {
+    this.unwatch?.();
+    this.unwatch = null;
     this.socket?.stop();
     this.socket = null;
     if (this.ticker !== null) clearInterval(this.ticker);

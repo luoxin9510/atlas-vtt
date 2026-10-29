@@ -15,7 +15,7 @@ export class BookAssetDesk {
   /** `named` gives what a player's book names now, or null for a player who is not connected. */
   constructor(private readonly ports: BookSharePorts, private readonly named: (player: string) => NamedAssets | null) {
     const picture = bookPicture((hash, player) => this.assetOf(hash, player));
-    this.answers = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage }, picture);
+    this.answers = new AssetAnswers({ send: (body, to, tag) => ports.send(body, to, tag), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage }, picture);
   }
 
   /** A player's asset request: true when their book names what it asks for, which is then answered. */

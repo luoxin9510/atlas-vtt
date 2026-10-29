@@ -54,11 +54,16 @@ export class AssetStore {
   readonly #tables = new Map<string, TableAssets>();
   #serverBytes = 0;
 
-  constructor(
-    private readonly dir: string,
-    private readonly limits: AssetLimits,
-    private readonly now: () => number,
-  ) {}
+  // Plain fields, not parameter properties: Node strips types natively and does not transform those.
+  readonly #dir: string;
+  readonly #limits: AssetLimits;
+  readonly #now: () => number;
+
+  constructor(dir: string, limits: AssetLimits, now: () => number) {
+    this.#dir = dir;
+    this.#limits = limits;
+    this.#now = now;
+  }
 
   /** Opens the folder and counts what a former run left (leftover temporary files are removed). */
   static async open(dir: string, limits: AssetLimits, now: () => number): Promise<AssetStore> {
@@ -85,7 +90,7 @@ export class AssetStore {
   /** The complete image to send, or null. */
   open(code: string, hash: string): { stream: ReadStream; mime: string; size: number } | null {
     const entry = this.#tables.get(code)?.complete.get(hash);
-    return entry === undefined ? null : { stream: createReadStream(join(this.dir, code, hash)), mime: entry.mime, size: entry.size };
+    return entry === undefined ? null : { stream: createReadStream(join(this.#dir, code, hash)), mime: entry.mime, size: entry.size };
   }
 
   /** Streams a request body into part `index`; sizes are counted while it arrives and a refused part leaves no file. */
@@ -103,7 +108,7 @@ export class AssetStore {
     const held = table.parts.get(hash) ?? new Map<number, number>();
     table.parts.set(hash, held);
     let reserved = 0;
-    const folder = join(this.dir, code, '.parts', hash);
+    const folder = join(this.#dir, code, '.parts', hash);
     const temporary = join(folder, `${index}.${randomUUID()}.tmp`);
     try {
       if (await this.#diskLow()) throw new StoreError(507);
@@ -112,7 +117,7 @@ export class AssetStore {
       const guard = partGuard(index === 0, others, (bytes) => {
         reserved += bytes;
         this.#add(table, bytes);
-        if (table.bytes > this.limits.maxTableBytes || this.#serverBytes > this.limits.maxServerBytes) throw new StoreError(507);
+        if (table.bytes > this.#limits.maxTableBytes || this.#serverBytes > this.#limits.maxServerBytes) throw new StoreError(507);
       });
       await pipeline(body, guard, createWriteStream(temporary));
       await rename(temporary, join(folder, String(index)));
@@ -146,7 +151,7 @@ export class AssetStore {
       return { status: 413 };
     }
     table.completing.add(hash);
-    const temporary = join(this.dir, code, `${hash}.tmp`);
+    const temporary = join(this.#dir, code, `${hash}.tmp`);
     try {
       const digest = createHash('sha256');
       let head = Buffer.alloc(0);
@@ -160,17 +165,17 @@ export class AssetStore {
           }
         }
       };
-      await pipeline(Readable.from(chunks(join(this.dir, code, '.parts', hash))), createWriteStream(temporary));
+      await pipeline(Readable.from(chunks(join(this.#dir, code, '.parts', hash))), createWriteStream(temporary));
       const mime = sniffImage(head);
       if (mime === null || digest.digest('hex') !== hash) {
         await rm(temporary, { force: true });
         await this.#dropParts(code, table, hash);
         return { status: mime === null ? 415 : 422 };
       }
-      await rename(temporary, join(this.dir, code, hash));
+      await rename(temporary, join(this.#dir, code, hash));
       table.complete.set(hash, { size: sum(held), mime });
       table.parts.delete(hash);
-      await rm(join(this.dir, code, '.parts', hash), { recursive: true, force: true });
+      await rm(join(this.#dir, code, '.parts', hash), { recursive: true, force: true });
       return { status: 200 };
     } catch (error) {
       await rm(temporary, { force: true }).catch(() => undefined);
@@ -182,7 +187,7 @@ export class AssetStore {
 
   /** Deletes the images of every table the registry no longer knows (it ended while the relay was down or starting). */
   async purgeUnknown(has: (code: string) => boolean): Promise<void> {
-    for (const code of await readdir(this.dir)) if (TABLE_CODE_PATTERN.test(code) && !has(code)) await this.deleteTable(code);
+    for (const code of await readdir(this.#dir)) if (TABLE_CODE_PATTERN.test(code) && !has(code)) await this.deleteTable(code);
   }
 
   /** The table ended: its images go. */
@@ -193,7 +198,7 @@ export class AssetStore {
       this.#serverBytes -= table.bytes;
       this.#tables.delete(code);
     }
-    await rm(join(this.dir, code), { recursive: true, force: true });
+    await rm(join(this.#dir, code), { recursive: true, force: true });
   }
 
   /** Removes the parts of uploads nothing was added to for an hour. */
@@ -202,8 +207,8 @@ export class AssetStore {
       for (const hash of [...table.parts.keys()]) {
         if (table.completing.has(hash) || table.writing.has(hash)) continue;
         // A folder that cannot be read right now (just made, just removed) counts as touched just now.
-        const touched = await stat(join(this.dir, code, '.parts', hash)).then((info) => info.mtimeMs, () => this.now());
-        if (this.now() - touched > PARTS_STALE_MS) await this.#dropParts(code, table, hash);
+        const touched = await stat(join(this.#dir, code, '.parts', hash)).then((info) => info.mtimeMs, () => this.#now());
+        if (this.#now() - touched > PARTS_STALE_MS) await this.#dropParts(code, table, hash);
       }
     }
   }
@@ -219,7 +224,7 @@ export class AssetStore {
 
   async #scan(code: string): Promise<void> {
     const table = this.#table(code);
-    const found = await scanTable(join(this.dir, code));
+    const found = await scanTable(join(this.#dir, code));
     for (const [hash, entry] of found.complete) table.complete.set(hash, entry);
     for (const [hash, held] of found.parts) table.parts.set(hash, held);
     this.#add(table, found.bytes);
@@ -235,13 +240,13 @@ export class AssetStore {
     const held = table.parts.get(hash);
     if (held !== undefined) this.#add(table, -sum(held));
     table.parts.delete(hash);
-    await rm(join(this.dir, code, '.parts', hash), { recursive: true, force: true });
+    await rm(join(this.#dir, code, '.parts', hash), { recursive: true, force: true });
   }
 
   async #diskLow(): Promise<boolean> {
     try {
-      const space = await statfs(this.dir);
-      return space.bavail * space.bsize < this.limits.minFreeBytes;
+      const space = await statfs(this.#dir);
+      return space.bavail * space.bsize < this.#limits.minFreeBytes;
     } catch {
       return false;
     }

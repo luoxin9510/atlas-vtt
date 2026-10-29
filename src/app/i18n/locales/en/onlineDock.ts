@@ -54,6 +54,8 @@ export const onlineDock = {
   'onlineDock.codeCopied': 'Code copied',
   'onlineDock.codeCopyFailed': 'The code could not be copied.',
   'onlineDock.imageShown': 'Image shown',
+  'onlineDock.notesShared': { one: '{count} note shared', other: '{count} notes shared' },
+  'onlineDock.notesCapped': 'Only the first 500 notes are shared',
   'onlineDock.hide': 'Hide',
   'onlineDock.qr.codeOfLink': 'QR code of the invite link',
   'onlineDock.qr.invite': 'Invite',

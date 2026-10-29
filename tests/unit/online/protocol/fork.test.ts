@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { FORK_APP, FORK_PROTOCOL_LEVEL, PAUSE_LEVEL, TICKET_URL_PATTERN, parseGmMessage, parsePlayerMessage } from '../../../../src/app/online/protocol/index.ts';
+import { FORK_APP, FORK_PROTOCOL_LEVEL, NOTES_LEVEL, PAUSE_LEVEL, TICKET_URL_PATTERN, parseGmMessage, parsePlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 
 describe('the fork protocol messages', () => {
   it('keeps the fork level apart from upstream\'s', () => {
-    expect(FORK_PROTOCOL_LEVEL).toBe(2);
+    expect(FORK_PROTOCOL_LEVEL).toBe(3);
     expect(FORK_APP).toBe('atlas-fork-play');
   });
 
@@ -53,5 +53,35 @@ describe('the fork protocol messages', () => {
   it('keeps via socket on an asset request and rejects any other via', () => {
     expect(parsePlayerMessage({ t: 'asset-request', hash: HASH, via: 'socket' })).toEqual({ t: 'asset-request', hash: HASH, via: 'socket' });
     expect(parsePlayerMessage({ t: 'asset-request', hash: HASH, via: 'http' })).toBeNull();
+  });
+
+  describe('notes', () => {
+    const text = { hash: 'cd'.repeat(32), size: 10, mime: 'text/markdown' };
+    const note = (n: number, extra: Record<string, unknown> = {}): Record<string, unknown> => ({ id: n.toString(16).padStart(24, '0'), title: `Note ${n}`, text, ...extra });
+    const msg = (notes: unknown[]): Record<string, unknown> => ({ t: 'notes', notes });
+
+    it('parses a valid list and exports its level', () => {
+      expect(NOTES_LEVEL).toBe(3);
+      expect(parseGmMessage(msg([note(1, { group: 'Lore' }), note(2)]))).toEqual({ t: 'notes', notes: [note(1, { group: 'Lore' }), note(2)] });
+      expect(parseGmMessage(msg([]))).toEqual({ t: 'notes', notes: [] });
+    });
+
+    it('rejects bad entries', () => {
+      expect(parseGmMessage(msg([note(1, { id: 'a'.repeat(23) })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: 'x'.repeat(121) })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: 'a\u0007b' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: ' padded' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { group: 'x'.repeat(61) })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1), note(1)]))).toBeNull();
+      expect(parseGmMessage(msg(Array.from({ length: 501 }, (_, i) => note(i))))).toBeNull();
+      expect(parseGmMessage(msg(Array.from({ length: 500 }, (_, i) => note(i))))).not.toBeNull();
+      expect(parseGmMessage(msg([note(1, { text: { ...text, mime: 'image/png' } })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: '' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { title: '   ' })]))).toBeNull();
+      expect(parseGmMessage(msg([note(1, { group: '' })]))).toBeNull();
+      expect(parseGmMessage(msg([null]))).toBeNull();
+      expect(parseGmMessage(msg([{ id: note(1).id, title: 'T' }]))).toBeNull();
+      expect(parseGmMessage({ t: 'notes', notes: 'x' })).toBeNull();
+    });
   });
 });

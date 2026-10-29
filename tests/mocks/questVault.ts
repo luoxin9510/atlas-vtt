@@ -109,10 +109,19 @@ export function questVault(files: Record<string, string>, created: Record<string
     return frontmatter === undefined ? {} : { frontmatter };
   });
 
+  /** Resolves a link as Obsidian does: by the file's path or its end, a note also without `.md`; the handle follows moves. */
+  app.metadataCache.getFirstLinkpathDest = vi.fn((linkpath: string): TFile | null => {
+    const found = [linkpath, `${linkpath}.md`].flatMap((name) => [...vault.files.keys()].filter((path) => path === name || path.endsWith(`/${name}`)))[0];
+    return found === undefined ? null : handleOf(found);
+  });
+
   const write = (path: string, content: string): void => {
+    const existed = vault.files.has(path);
     if (!ctimes.has(path)) ctimes.set(path, clock);
     mtimes.set(path, clock++);
     vault.files.set(path, content);
+    // The vault tells of every file; notes are followed through the metadata cache, other files through the vault.
+    if (!path.endsWith('.md')) vault.emit(existed ? 'modify' : 'create', handleOf(path));
     emitCache('changed', handleOf(path));
   };
 

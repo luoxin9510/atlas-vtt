@@ -81,7 +81,12 @@ npx vitest run --project unit tests/unit/play
 npm run test:play-e2e   # builds apps/play, then a real Chromium against the relay (project `play-e2e`, not part of `unit`)
 ```
 
-Environment variables and the reverse proxy note are in `apps/relay/README.md`.
+```sh
+npm run bundle:relay                                  # dist/relay-bundle(.tgz): relay + protocol files + player build
+HOST_KEY=... npm run probe:relay -- https://play.example.com   # remote checks (--quick skips the 110 s idle wait)
+```
+
+Environment variables and the reverse proxy note are in `apps/relay/README.md`; deploying is in `docs/fork/deployment.md`.
 
 The relay also keeps the GM's map and token images (`ASSET_DIR`, 2 GiB per table, 10 GiB per
 server, uploads refused with 507 under 2 GiB of free disk) and hands players short-lived download
@@ -141,6 +146,21 @@ mechanical work to subagents and keep judgment in the main session:
 Give subagents self-contained prompts (paths, rules from this guide, the exact
 output format) and ask for conclusions with `file:line` references, not raw
 file dumps. Spot-check their findings before reporting them.
+
+## Shared notes
+
+A vault note is shared with players when its frontmatter has `atlas-share: true` (exactly the boolean;
+`"true"`, `yes` and `1` do not count). `atlas-share-group` (a string) sets the group the player app shows;
+the title is the file name. Where things live: the parser and the player copy are `src/app/online/gm/notes/`
+(`parseNote.ts` reads Obsidian Markdown through an allowlist; `playerCopy.ts`, `copyText.ts`, `copyLinks.ts`
+and `copyCallouts.ts` build the copy players get), `NotesShare.ts` keeps the shared set, the texts and images,
+and serves them (built in `OnlineTable` by `tableNotes`), `notesWatch.ts` follows the vault. The wire format is
+protocol level 3 (`src/app/online/protocol/fork.ts`, `noteLinks.ts`); the renderer is `apps/play/src/ui/NotesPanel.tsx`
+with `apps/play/src/notes/`. The anti-goal is that nothing the GM hides reaches a player (`[!gm]` callouts,
+`%%comments%%`, HTML, frontmatter, unshared notes, file names); `tests/unit/online/gm/notes/` holds the leak
+tests, `tests/unit/play/endToEnd.test.ts` runs a note from the vault to the player's store through the real
+relay, and `tests/e2e/playPage.e2e.test.ts` opens one in Chromium under the CSP. Any change to the copy
+rules must keep those green.
 
 ## Working with the user
 

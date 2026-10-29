@@ -24,6 +24,17 @@ installDomHost({
 });
 
 // Loaded after the language is set: some shared modules call t() when they load.
+/** Calls `wake` when the page turns visible and when the browser comes back online. */
+function onPageWake(wake: () => void): () => void {
+  const visible = (): void => { if (document.visibilityState === 'visible') wake(); };
+  document.addEventListener('visibilitychange', visible);
+  window.addEventListener('online', wake);
+  return () => {
+    document.removeEventListener('visibilitychange', visible);
+    window.removeEventListener('online', wake);
+  };
+}
+
 async function start(): Promise<void> {
   const [{ createRoot }, { t, getLocale }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
     import('react-dom/client'),
@@ -42,6 +53,7 @@ async function start(): Promise<void> {
   const session = code === null ? null : new Session({
     origin: location.origin, code, storage,
     open: openBrowserSocket,
+    onWake: onPageWake,
     indexedDB: typeof indexedDB === 'undefined' ? null : indexedDB,
   });
   const container = document.getElementById('root');

@@ -4,7 +4,7 @@ import { resolveMeasurementSettings, type MeasurementSettings } from '../../grid
 import type { SceneState, SceneStore } from './atlasView.ts';
 
 export interface RulesSharePorts {
-  send(body: GmMessage, to?: string): void;
+  send(body: GmMessage, to?: string, tag?: string): void;
   /** How the GM's own ruler labels distances on this map, or null while it cannot be read. */
   measurement?(): MeasurementSettings | null;
   /** The GM's accent colour as `#rrggbb`, or null while it cannot be read. */

@@ -39,6 +39,8 @@ interface QueuedFrame {
   readonly to: string | undefined;
   /** A game message as an entry of a `sends` frame; unset for the GM's own requests to the relay, which always go alone. */
   readonly entry: string | undefined;
+  /** What the frame belongs to (an asset's chunks), so the waiting ones can be dropped together; unset for most. */
+  readonly tag: string | undefined;
 }
 
 type Next = { readonly frame: QueuedFrame; readonly live: true; readonly key: string } | { readonly frame: QueuedFrame; readonly live: false };
@@ -74,15 +76,15 @@ export class SendQueue {
   }
 
   /** Queues a frame; `to` names who a game message is for, so it can be dropped once they are gone; `entry` is the message as a batch carries it. */
-  push(frame: string, to?: string, entry?: string): void {
-    this.frames.push({ text: frame, to, entry });
+  push(frame: string, to?: string, entry?: string, tag?: string): void {
+    this.frames.push({ text: frame, to, entry, tag });
     this.pump();
   }
 
   /** Queues a live frame: it replaces a waiting one of the same key and goes before every other frame. */
   pushLive(key: string, frame: string, to?: string, entry?: string): void {
     this.live.delete(key);
-    this.live.set(key, { text: frame, to, entry });
+    this.live.set(key, { text: frame, to, entry, tag: undefined });
     this.pump();
   }
 
@@ -91,6 +93,13 @@ export class SendQueue {
     const kept = (frame: QueuedFrame): boolean => frame.to === undefined || !gone(frame.to);
     this.frames = this.frames.filter(kept);
     this.live = new Map([...this.live].filter(([, frame]) => kept(frame)));
+  }
+
+  /** Drops every waiting frame (not the live ones) queued with `tag`, for every player; returns how many. */
+  dropTagged(tag: string): number {
+    const before = this.frames.length;
+    this.frames = this.frames.filter((frame) => frame.tag !== tag);
+    return before - this.frames.length;
   }
 
   /** Sends through `socket` from now on; `batching`: its relay takes `sends` frames. */

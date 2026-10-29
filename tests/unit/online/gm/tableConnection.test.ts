@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Timers } from '../../../../src/app/online/gm/companionTimers.ts';
 import { BATCH_MS, BURST } from '../../../../src/app/online/gm/sendQueue.ts';
 import { FLUSH_LOOK_MS, LATE_MS, OPEN_TIMEOUT_MS, PULSE_DEADLINE_MS, SETTLE_MS, WELCOME_TIMEOUT_MS } from '../../../../src/app/online/gm/socketWatch.ts';
+import { AssetAnswers } from '../../../../src/app/online/gm/assetAnswers.ts';
+import { assetTag, sha256Hex } from '../../../../src/app/online/gm/assetServe.ts';
 import { TableConnection, type TableStatus } from '../../../../src/app/online/gm/TableConnection.ts';
 
 /** A WebSocket the test opens, feeds and closes; `bufferedAmount` is what it holds unsent. */
@@ -477,5 +479,28 @@ describe('the campaign\'s players the relay is told', () => {
     // Nobody else is there to hear one.
     connection.sendCode({ t: 'your-code', code: BEN.code, first: false }, BEN.id);
     expect(frames().filter((frame) => frame.t === 'send')).toEqual([{ v: 1, t: 'send', to: ANA.id, body: { t: 'your-code', code: ANA.code, first: true } }]);
+  });
+});
+
+describe('dropping an asset\'s queued chunks', () => {
+  it('sends nothing of a dropped asset when the socket drains, and keeps a message queued between', async () => {
+    const { connection, timers } = table();
+    const socket = last();
+    socket.welcome([{ id: 'abcdefghijklmnopqrst', name: 'Ana' }]);
+    const bytes = new TextEncoder().encode('x'.repeat(300 * 1024));
+    const hash = await sha256Hex(bytes);
+    const answers = new AssetAnswers(
+      { send: (body, to, tag) => connection.send(body, to, tag), now: () => timers.now(), readImage: () => Promise.resolve(null) },
+      { map: () => null, explored: () => undefined, artPath: () => undefined, text: (asked) => (asked === hash ? bytes : undefined) },
+    );
+    socket.sent.length = 0;
+    socket.bufferedAmount = 200 * 1024;
+    answers.answer('abcdefghijklmnopqrst', { t: 'asset-request', hash });
+    connection.send({ t: 'asset-refused', hash: 'f'.repeat(64) }, 'abcdefghijklmnopqrst');
+    connection.dropTagged(assetTag(hash));
+    socket.bufferedAmount = 0;
+    timers.advance(1_000);
+    expect(socket.sent.some((text) => text.includes('"asset-refused"'))).toBe(true);
+    expect(socket.sent.some((text) => text.includes('"part"') || text.includes('"asset-chunk"'))).toBe(false);
   });
 });

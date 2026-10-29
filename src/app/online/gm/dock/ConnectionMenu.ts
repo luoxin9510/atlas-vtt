@@ -5,6 +5,7 @@ import { renderClosingRow, renderUpdateRow } from './closingRow.ts';
 import { inviteRow, surfaceHeader, textButton } from './controls.ts';
 import { gateEntries, renderCodeRow, renderPausedRow, renderPlayPausedRow, type GateRowActions } from './gateRows.ts';
 import { renderImageRow, type ImageRowActions } from './imageRow.ts';
+import { renderNotesRow } from './notesRow.ts';
 import type { MenuModel } from './panelModel.ts';
 import { addPlayerRow, linkEntries, type AddPlayerActions, type LinkActions } from './prompts.ts';
 import { t } from '../../../i18n';
@@ -55,6 +56,7 @@ export function renderMenu(layer: HTMLElement, model: MenuModel, actions: MenuAc
   renderPausedRow(layer, model.gate, actions);
   renderPlayPausedRow(layer, model.gate, actions);
   renderImageRow(layer, model.imageShown, actions);
+  renderNotesRow(layer, model.sharedNotes, model.notesCapped);
   if (model.link !== null) inviteRow(layer, () => actions.copy(), { open: model.qr, toggle: () => actions.toggleQr() }, linkEntries(layer, actions, redraw));
   renderCodeRow(layer, model.gate, actions);
   addPlayerRow(layer, actions, redraw);

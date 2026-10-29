@@ -17,6 +17,8 @@ import { app, atlasTab, png, present, workspace } from '../online/gm/fakeTable.t
 import { GENERIC_SOURCE } from '../online/gm/gmLighting.ts';
 import { DICE_TOOL, type DiceToolClass } from '../online/gm/realDice.ts';
 import { sceneState, token } from '../online/gm/shareHarness.ts';
+import { gif, shared } from '../online/gm/notes/notesHarness.ts';
+import { questVault, type QuestVault } from '../../mocks/questVault.ts';
 import { removeTestState, startTestRelay, TEST_HOST_KEY, TEST_PUBLIC_ORIGIN } from '../relay/relayHarness.ts';
 
 const { DiceTool } = (await import(/* @vite-ignore */ DICE_TOOL)) as { DiceTool: DiceToolClass };
@@ -32,7 +34,8 @@ interface ObsidianRequest {
 }
 
 // Obsidian's requestUrl, answered by the real relay over the network.
-vi.mock('obsidian', () => ({
+vi.mock('obsidian', async (original) => ({
+  ...(await original<typeof import('obsidian')>()),
   Notice: class {},
   normalizePath: (path: string) => path,
   requestUrl: async (request: ObsidianRequest): Promise<{ status: number; json: unknown; text: string; arrayBuffer: ArrayBuffer; headers: Record<string, string> }> => {
@@ -145,7 +148,10 @@ beforeEach(() => {
   vi.stubGlobal('fetch', (input: string | URL, init?: RequestInit) => realFetch(typeof input === 'string' && input.startsWith('/') ? new URL(input, relayOrigin) : input, init));
 });
 
+const plainVault = { metadataCache: app.metadataCache, vault: app.vault };
+
 afterEach(async () => {
+  Object.assign(app, plainVault);
   for (const session of sessions.splice(0)) session.leave();
   online?.close();
   online = null;
@@ -285,7 +291,7 @@ describe('a table from the GM through the relay to the player app', () => {
     await vi.waitFor(() => expect(ana.store.getState().tokens).toHaveLength(2), { timeout: 10_000 });
     await vi.waitFor(() => expect(ana.store.getState().mine.size).toBe(1), { timeout: 10_000 });
     expect(ben.store.getState().mine.size).toBe(0);
-    expect(frames.ana?.some((frame) => frame.includes('"forkLevel":2'))).toBe(true);
+    expect(frames.ana?.some((frame) => frame.includes('"forkLevel":3'))).toBe(true);
 
     // The map loads and verifies against its hash, as the scene view asks for it.
     const wanted = mapRequest(ana.store.getState(), false, 8192);
@@ -419,5 +425,61 @@ describe('the image cache, pause and moves between the GM and a player', () => {
     await vi.waitFor(() => expect(ana.store.getState().paused).toBe(false), { timeout: 10_000 });
     expect(ana.send({ t: 'move', scene: sceneId, id: heroId, x: 245, y: 100 })).toBe(true);
     await vi.waitFor(() => expect(game.tab.store.getState().objects.tokens.hero?.x).not.toBe(105), { timeout: 10_000 });
+  }, 60_000);
+});
+
+/** The GM's vault with notes in it: the scene's map still comes from the fake workspace files. */
+function vaultWith(files: Record<string, string>): QuestVault {
+  const notes = questVault(files);
+  const mapFiles = workspace.files;
+  const vault = Object.create(notes.app.vault) as typeof notes.app.vault;
+  Object.assign(vault, {
+    getFileByPath: (path: string) => (mapFiles.has(path) ? { path, stat: { mtime: 0, size: mapFiles.get(path)?.length ?? 0 } } : notes.app.vault.getFileByPath(path)),
+    readBinary: (file: { path: string }) => (mapFiles.has(file.path) ? Promise.resolve(mapFiles.get(file.path)?.slice().buffer) : notes.app.vault.readBinary(file as never)),
+  });
+  Object.assign(app, { metadataCache: notes.app.metadataCache, vault });
+  return notes;
+}
+
+describe('shared notes from the vault to the player app', () => {
+  it('lists a shared note, serves its text by chunks with a matching hash and its image by ticket, and refuses both once it is unshared', async () => {
+    const body = 'The cave is damp.\n\n![[art/cave.gif|A map]]\n\n> [!gm] Secret\n> The ogre hides.\n';
+    const vault = vaultWith({ 'Notes/Cave.md': shared(body, 'atlas-share-group: Places\n'), 'Notes/Private.md': 'Hidden text', 'art/cave.gif': gif('ticketed') });
+    const game = await boot({ assetDir: join(tmpdir(), `atlas-e2e-notes-${process.pid}`) });
+    const { ana } = await anaWithHero(game);
+    const ben = game.join('ben');
+    await vi.waitFor(() => expect(ben.store.getState().notes).toHaveLength(1), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ana.store.getState().notes).toHaveLength(1), { timeout: 10_000 });
+    const [note] = ana.store.getState().notes;
+    if (note === undefined) throw new Error('no note');
+    expect(note).toMatchObject({ title: 'Cave', group: 'Places' });
+    expect(JSON.stringify(ana.store.getState().notes)).not.toMatch(/Private|Hidden|Notes\//);
+
+    const before = gmSent.length;
+    const text = await ana.assets.load(note.text, null);
+    if (text === null) throw new Error('no text');
+    const { createHash } = await import('node:crypto');
+    expect(createHash('sha256').update(text.bytes).digest('hex')).toBe(note.text.hash);
+    const copy = new TextDecoder().decode(text.bytes);
+    expect(copy).toContain('The cave is damp.');
+    expect(copy).not.toMatch(/Secret|ogre|art\/cave/);
+    expect(assetsServed(before).some(([hash]) => hash === note.text.hash)).toBe(true);
+    expect(assetsServed(before, true).filter(([hash]) => hash === note.text.hash).length).toBe(assetsServed(before).filter(([hash]) => hash === note.text.hash).length);
+
+    const image = /atlas-asset:([0-9a-f]+)\?size=(\d+)\\?&mime=([\w%/]+)/.exec(copy);
+    if (image === null) throw new Error('no image ref');
+    const ref = { hash: image[1] ?? '', size: Number(image[2]), mime: decodeURIComponent(image[3] ?? '') };
+    const afterText = gmSent.length;
+    const picture = await ana.assets.load(ref as never, 1024);
+    expect(picture?.mime).toBe('image/gif');
+    expect(assetsServed(afterText, true).some(([hash]) => hash === ref.hash)).toBe(true);
+    expect(game.relay.assets.has(game.table.link.split('#')[1] ?? '', ref.hash)).toBe(true);
+
+    // The GM stops sharing: the list empties and a player who had not asked yet is refused.
+    vault.write('Notes/Cave.md', body);
+    await vi.waitFor(() => expect(ana.store.getState().notes).toEqual([]), { timeout: 10_000 });
+    await vi.waitFor(() => expect(ben.store.getState().notes).toEqual([]), { timeout: 10_000 });
+    expect(await ben.assets.load(note.text, null)).toBeNull();
+    expect(await ben.assets.load(ref as never, 1024)).toBeNull();
   }, 60_000);
 });

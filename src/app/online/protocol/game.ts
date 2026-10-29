@@ -2,7 +2,7 @@ import { ASSET_CHUNK_BYTES, isCount, isHash, isMaxSide, MAX_ASSET_BYTES, parseAs
 import { isBookType, isPlayerBookType, parseBookCover, parseBookMessage, parseBookTokenMessage, parsePlayerBookMessage, type BookMessage, type BookTokenMessage, type PlayerBookCover, type PlayerBookMessage, type PlayerBookParts } from './book.ts';
 import { parseBookRestMessage, type BookRestMessage } from './bookRest.ts';
 import { isDeltaOf, parseDelta, parseSeq, type DeltaMessage, type DeltaOf } from './delta.ts';
-import { parseAssetTicket, parsePause, parsePlayerClient, parseYourTurn, type AssetTicketMessage, type PauseMessage, type PlayerClient, type YourTurnMessage } from './fork.ts';
+import { parseAssetTicket, parseNotes, parsePause, parsePlayerClient, parseYourTurn, type AssetTicketMessage, type NotesMessage, type PauseMessage, type PlayerClient, type YourTurnMessage } from './fork.ts';
 import { parseFog, type SharedFog } from './fog.ts';
 import { parseImageMessage, type ImageMessage } from './image.ts';
 import { parseInitiative, type SharedInitiative } from './initiative.ts';
@@ -55,6 +55,7 @@ export type GmMessage =
   /** Sent to one player (fork protocol): a token of theirs has just been given the turn. */
   | YourTurnMessage
   | PauseMessage
+  | NotesMessage
   | AssetTicketMessage
   /** The committed fog of the scene `scene`; `seq` numbers it for the deltas that follow. */
   | { readonly t: 'fog'; readonly scene: string; readonly seq?: number; readonly fog: SharedFog }
@@ -238,6 +239,8 @@ export function parseGmMessage(value: unknown): GmMessage | null {
       return parseYourTurn(value);
     case 'pause':
       return parsePause(value);
+    case 'notes':
+      return parseNotes(value);
     case 'asset-ticket':
       return parseAssetTicket(value);
     case 'move-refused':

@@ -147,7 +147,7 @@ export class SceneShare {
     });
     this.marks = new MarkShare({ ...ports, cursorsShown }, () => this.mapSize);
     this.dragRulers = new PlayerDragRulers((drags) => ports.showPlayerDrags?.(drags));
-    this.assets = new AssetAnswers({ send: (body, to) => ports.send(body, to), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 }, {
+    this.assets = new AssetAnswers({ send: (body, to, tag) => ports.send(body, to, tag), now: () => ports.now(), readImage: (path) => ports.readImage(path), scaleImage: ports.scaleImage, tickets: ports.tickets, levelOf: (player) => ports.forkLevelOf?.(player) ?? 0 }, {
       map: () => {
         const map = this.scene?.map ?? null;
         return map !== null && this.mapBytes !== null ? { hash: map.hash, bytes: this.mapBytes, mime: map.mime } : null;

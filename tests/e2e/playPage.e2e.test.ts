@@ -3,6 +3,7 @@ import { chromium, type Browser, type ConsoleMessage, type Page } from 'playwrig
 import type WebSocket from 'ws';
 import { existsSync } from 'node:fs';
 import { crc32, deflateSync } from 'node:zlib';
+import { TEXT_MIME_TYPE } from '../../src/app/online/protocol/asset.ts';
 import { assetChunks, sha256Hex } from '../../src/app/online/gm/assetServe.ts';
 import { AssetTickets } from '../../src/app/online/gm/assetUpload/AssetTickets.ts';
 import type { BinaryHttp } from '../../src/app/online/gm/assetUpload/binaryHttp.ts';
@@ -440,5 +441,61 @@ describe('images by ticket, lit scenes and drags in Chromium', () => {
     expect(Math.abs(canvas.x + (after.x0 + after.x1) / 2 - expected.x)).toBeLessThanOrEqual(3);
     expect(Math.abs(canvas.y + (after.y0 + after.y1) / 2 - expected.y)).toBeLessThanOrEqual(3);
     expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('shared notes in Chromium under the relay\'s CSP', () => {
+  it('opens a note with a table, a callout and an image (a blob URL) and follows an in-app link, with no CSP violation', async () => {
+    const { origin, gm } = await serve();
+    const { page, to, say, consoleMessages, pageErrors } = await enter(origin, gm);
+    const violations: string[] = [];
+    await page.exposeFunction('reportViolation', (what: string) => violations.push(what));
+    await page.evaluate(() => document.addEventListener('securitypolicyviolation', (event) => void (window as unknown as { reportViolation(what: string): void }).reportViolation(`${event.violatedDirective} ${event.blockedURI}`)));
+
+    const picture = solidPng(32, 32, [30, 200, 30]);
+    const pictureHash = await sha256Hex(picture);
+    const imageRef = `atlas-asset:${pictureHash}?size=${picture.length}&mime=image/png`;
+    const otherId = 'b'.repeat(24);
+    const caveId = 'c'.repeat(24);
+    const cave = [
+      'The cave is damp.', '', '| Item | Count |', '| --- | --- |', '| Torch | 3 |', '', '> [!warning] Careful', '> The floor is slick.', '',
+      `![A map](${imageRef.replace('&', '\\&')})`, '', `[The other note](atlas-note:${otherId})`, '',
+    ].join('\n');
+    const caveBytes = new TextEncoder().encode(cave);
+    const otherBytes = new TextEncoder().encode('Other body text.\n');
+    const files = new Map<string, Uint8Array<ArrayBuffer>>([[pictureHash, picture], [await sha256Hex(caveBytes), caveBytes], [await sha256Hex(otherBytes), otherBytes]]);
+    gm.socket.on('message', (data) => {
+      const frame = JSON.parse(String(data)) as { t?: string; from?: string; body?: { t?: string; hash?: string } };
+      if (frame.t !== 'game' || frame.body?.t !== 'asset-request' || frame.body.hash === undefined) return;
+      const bytes = files.get(frame.body.hash);
+      if (bytes === undefined) return;
+      for (const body of assetChunks(frame.body.hash, bytes)) gm.socket.send(JSON.stringify({ v: 1, t: 'send', to: frame.from, body }));
+    });
+    await say({ t: 'scene', scene: { id: 'scene-one', map: null, lit: false } });
+    await say({ t: 'fog', scene: 'scene-one', fog: [] });
+    await page.waitForSelector('canvas', { timeout: 30_000 });
+    await say({ t: 'notes', notes: [
+      { id: caveId, title: 'Cave', group: 'Places', text: { hash: await sha256Hex(caveBytes), size: caveBytes.length, mime: TEXT_MIME_TYPE } },
+      { id: otherId, title: 'Other', text: { hash: await sha256Hex(otherBytes), size: otherBytes.length, mime: TEXT_MIME_TYPE } },
+    ] });
+
+    await page.getByRole('tab', { name: '笔记' }).click();
+    await page.getByRole('button', { name: 'Cave' }).click();
+    await page.waitForSelector('.atlas-play-notes table', { timeout: 30_000 });
+    expect(await page.locator('.atlas-play-notes td').first().textContent()).toBe('Torch');
+    expect(await page.locator('.atlas-play-callout-warning').count()).toBe(1);
+    await vi.waitFor(async () => {
+      const shown = await page.locator('.atlas-play-notes img').first().evaluate((img: HTMLImageElement) => ({ src: img.src, width: img.naturalWidth }));
+      expect(shown.src.startsWith('blob:')).toBe(true);
+      expect(shown.width).toBe(32);
+    }, { timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'The other note' }).click();
+    await page.waitForSelector('text=Other body text.', { timeout: 30_000 });
+    expect(await page.locator('.atlas-play-note-title').textContent()).toBe('Other');
+
+    expect(violations).toEqual([]);
+    expect(consoleMessages.filter((line) => line.includes('Content Security Policy'))).toEqual([]);
+    expect(pageErrors).toEqual([]);
   });
 });

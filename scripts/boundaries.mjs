@@ -165,7 +165,8 @@ export const BOUNDARIES = {
     mayImport: ["shared", "play"],
     packages: [
       "clipper2-ts", "pixi.js", "pixi-filters", "pixi-viewport", "react", "react-dom",
-      "framer-motion", "three", "lucide-react", "@radix-ui/*", "clsx", "tailwind-merge", "zustand", "immer"
+      "framer-motion", "three", "lucide-react", "@radix-ui/*", "clsx", "tailwind-merge", "zustand", "immer",
+      "mdast-util-from-markdown", "micromark-extension-gfm", "mdast-util-gfm", "mdast"
     ]
   }
 };

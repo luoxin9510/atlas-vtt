@@ -9,6 +9,7 @@ import type { SharedLightingScene, SharedSight } from '../../../../src/app/onlin
 import type { AssetRef } from '../../../../src/app/online/protocol/asset.ts';
 import type { SharedInitiative } from '../../../../src/app/online/protocol/initiative.ts';
 import type { SensedMark, SharedAnnotations, SharedDoor, SharedGrid, SharedPin } from '../../../../src/app/online/protocol/mapLayers.ts';
+import type { SharedNote } from '../../../../src/app/online/protocol/fork.ts';
 import type { SharedRules } from '../../../../src/app/online/protocol/rules.ts';
 import type { SharedToken } from '../../../../src/app/online/protocol/tokens.ts';
 import type { SocketStatus } from '../net/TableSocket.ts';
@@ -47,6 +48,8 @@ export interface TableState {
   refused: MoveRefusal | null;
   /** The table is paused: the GM takes no moves. Set by `pause`, cleared by a new welcome. */
   paused: boolean;
+  /** The notes the GM shares; belongs to the table, not to a scene, so a scene change or a reconnect keeps it until the GM sends a new list. */
+  notes: readonly SharedNote[];
   /** undefined: not received yet, so nothing of the map is drawn. */
   fog: SharedFog | undefined;
   grid: SharedGrid | null;
@@ -97,7 +100,7 @@ const EMPTY_SCENE_LAYER = {
 } satisfies Partial<TableState>;
 
 export function initialTableState(): TableState {
-  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, paused: false, ...EMPTY_SCENE_LAYER };
+  return { status: { kind: 'connecting' }, self: null, ownCode: null, scene: null, mode: 'none', lighting: 'unknown', rollRefusal: null, paused: false, notes: [], ...EMPTY_SCENE_LAYER };
 }
 
 /** What a lit scene keeps of the messages its lighting is worked out from; nothing is drawn from them here. */
@@ -133,6 +136,7 @@ export function reduceMessage(state: TableState, message: GmMessage, now: number
     return { ...EMPTY_SCENE_LAYER, scene, mode };
   }
   if (message.t === 'roll-refused') return { rollRefusal: message.reason };
+  if (message.t === 'notes') return { notes: message.notes };
   if (message.t === 'pause') return state.paused === message.paused ? {} : { paused: message.paused };
   if (!('scene' in message) || typeof message.scene !== 'string') return {};
   if (message.scene !== state.scene?.id) return {};
