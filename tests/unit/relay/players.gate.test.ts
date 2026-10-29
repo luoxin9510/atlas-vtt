@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLOSE, PLAYER_ID_PATTERN, SECRET_PATTERN } from '../../../src/app/online/protocol/relay.ts';
 import { Client, joined, playerOf } from './playerHarness.ts';
+import { TEST_PUBLIC_ORIGIN } from './relayHarness.ts';
 import { useTables } from './tableSuite.ts';
 
 const { sockets, table } = useTables();
@@ -89,6 +90,19 @@ describe('join gate over sockets', () => {
     for (let attempt = 0; attempt < 4; attempt += 1) expect(await playerOf(origin, sockets, { code: '000000' }).closed).toBe(CLOSE.wrongCode);
     expect(await playerOf(origin, sockets, { code: '000000' }).closed).toBe(CLOSE.paused);
     expect(await gm.frameOf('gate-paused')).toMatchObject({ t: 'gate-paused', until: expect.any(Number) });
+  });
+
+  it('counts one wrong code for a socket that sent five in a burst: the relay ignores what follows its own refusal', async () => {
+    const { origin, gm } = await table();
+    await gm.send({ t: 'gate', code: '123456', ask: false });
+    const burst = new Client(origin, sockets, { origin: TEST_PUBLIC_ORIGIN });
+    await burst.opened;
+    for (let frame = 0; frame < 5; frame += 1) burst.socket.send(JSON.stringify({ v: 1, t: 'hello', role: 'player', name: 'Ann', code: '000000' }));
+    expect(await burst.closed).toBe(CLOSE.wrongCode);
+    // One attempt was counted, not five: the next wrong code is refused as wrong, not as paused.
+    expect(await playerOf(origin, sockets, { code: '000000' }).closed).toBe(CLOSE.wrongCode);
+    await gm.sync();
+    expect(gm.types()).not.toContain('gate-paused');
   });
 });
 

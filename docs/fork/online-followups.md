@@ -25,8 +25,8 @@ Plan 2; pick them up when touching the code nearby.
 - ~~`tests/unit/relay/players.test.ts` is over 300 lines; split~~ (done: `players.gate`, `.routing`, `.persistence` and `.limits` test files plus the `tableSuite.ts` helper, 180 relay tests as before, each file under 140 lines).
 - Conformance ping test sends its own ping (the client's `Pulse` timer is not exercised); private `socket` field reached by a cast; no negative conformance case.
 - End-to-end test: count calls on the `http` stub and assert 0; no test of an `Origin` with an explicit `:443`.
-- No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.
-- Guard-only tests (pass with or without the fix): the 429-cap upgrade reset, the `done` flag.
+- ~~No tests for the dock host-key menu, the Remove button, or apply-on-load / reset-on-unload.~~ (done: dock host-key menu and Remove button tests here, apply-on-load / reset-on-unload in `serverLifecycle.test.ts`; wave D)
+- ~~Guard-only tests (pass with or without the fix): the 429-cap upgrade reset, the `done` flag.~~ (done: `upgradeErrors.test.ts` emits a reset on a refused upgrade, `players.gate.test.ts` sends a burst of wrong codes; both fail without their guard; wave D)
 
 ## Player app (`apps/play`)
 - A stretched map (`GridState.mapStretch`) is not shared, so players see it unstretched (upstream protocol limit).

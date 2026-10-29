@@ -167,6 +167,37 @@ describe('online play\'s settings', () => {
     expect(of.keyIs()).toBeNull();
   });
 
+  const removeOf = (setting: Setting): HTMLButtonElement | null => setting.controlEl.querySelector('button');
+  const placeholderOf = (setting: Setting): string | undefined => setting.controlEl.querySelector('input')?.placeholder;
+
+  it('show the Remove button only while a key is set, and paste again once it is removed', () => {
+    setServerOrigin('https://tables.example.com');
+    const of = host({ status: 200, json: {} });
+    const row = draw(of).row('Host key');
+    expect(removeOf(row)).toBeNull();
+    const pasteHere = placeholderOf(row);
+    typed(row, 'secret-host-key');
+    // The same row draws itself again in place; the tab is not asked for its sections again.
+    expect(buttonsOf(row)).toEqual(['Remove']);
+    expect(placeholderOf(row)).not.toBe(pasteHere);
+    expect(of.sectionsChangedCalls).toBe(0);
+    removeOf(row)?.click();
+    expect(of.keyIs()).toBeNull();
+    expect(removeOf(row)).toBeNull();
+    expect(placeholderOf(row)).toBe(pasteHere);
+  });
+
+  it('hide the Host key row, Remove button with it, when the address goes back to Atlas\'s own server', () => {
+    setServerOrigin('https://tables.example.com');
+    const of = host({ status: 200, json: {} });
+    const drawn = draw(of);
+    typed(drawn.row('Host key'), 'secret-host-key');
+    expect(buttonsOf(drawn.row('Host key'))).toEqual(['Remove']);
+    typed(drawn.row('Online server address'), UPSTREAM_RELAY_ORIGIN);
+    expect(drawn.row('Host key').settingEl.style.display).toBe('none');
+    expect(removeOf(drawn.row('Host key'))).toBeNull();
+  });
+
   it('warn under the address while it would send the host key in clear text', () => {
     const of = host({ status: 200, json: {} });
     const row = draw(of).row('Online server address');
