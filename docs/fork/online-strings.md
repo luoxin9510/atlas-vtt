@@ -8,6 +8,8 @@ Modules: `onlineGm` (settings, account and host key, table start and end, notice
 
 Columns: key, first use (file:line, relative to `src/app/`), English text (plural keys show the `other` form).
 
+This is a snapshot from Task 4: line numbers drift as files change. Rows for keys added later (the operator feedback notes, the image cache reasons and the cleartext address help) carry the line numbers of when they were added.
+
 ### gm/account
 
 | Key | Where | English |
@@ -37,7 +39,6 @@ Columns: key, first use (file:line, relative to `src/app/`), English text (plura
 | `onlineGm.account.signedInRefused` | online/gm/account/accountSettings.ts:13 | Signed in as {account}. {reason} |
 | `onlineGm.account.signedInPlan` | online/gm/account/accountSettings.ts:14 | Signed in as {account} · {plan} |
 | `onlineGm.account.signedOut` | online/gm/account/accountSettings.ts:15 | Not signed in. Sign in to host online tables with your Atlas account. |
-| `onlineGm.account.heading` | online/gm/account/accountSettings.ts:27 | Online account |
 | `onlineGm.account.name` | online/gm/account/accountSettings.ts:29 | Atlas account |
 | `onlineGm.account.signOut` | online/gm/account/accountSettings.ts:39, online/gm/dock/accountMenu.ts:69 | Sign out |
 | `onlineGm.account.signIn` | online/gm/account/accountSettings.ts:40 | Sign in |
@@ -50,6 +51,7 @@ Columns: key, first use (file:line, relative to `src/app/`), English text (plura
 | Key | Where | English |
 |---|---|---|
 | `onlineGm.server.addressHelp` | online/gm/serverSettings.ts:12 | The address of the server you host online tables on. Leave it empty to keep online play off. |
+| `onlineGm.server.addressHelpCleartext` | online/gm/serverSettings.ts:14 | The address of the server you host online tables on. Leave it empty to keep online play off. Not encrypted: the host key is sent in clear text. Use https:// for a server on another machine. |
 | `onlineGm.server.addressInvalid` | online/gm/serverSettings.ts:13 | Enter an address such as https://play.example.com. |
 | `onlineGm.server.hostKeyHelp` | online/gm/serverSettings.ts:14 | The key your server gave you for hosting tables. It stays in Obsidian's secret storage on this device. |
 | `onlineGm.server.heading` | online/gm/serverSettings.ts:35 | Online server |
@@ -172,8 +174,14 @@ Columns: key, first use (file:line, relative to `src/app/`), English text (plura
 | `onlineDock.feedback.diagnostics` | online/gm/dock/feedbackForm.ts:55 | Include diagnostics |
 | `onlineDock.feedback.send` | online/gm/dock/feedbackForm.ts:59 | Send |
 | `onlineDock.feedback.autoReports` | online/gm/dock/feedbackForm.ts:62 | Send error reports automatically |
-| `onlineDock.feedback.noteDiagnostics` | online/gm/dock/feedbackForm.ts:56 | Sends your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality) to the Atlas team. No names and nothing from your game. Kept for {days} days. |
-| `onlineDock.feedback.noteMessage` | online/gm/dock/feedbackForm.ts:56 | Sends only your message to the Atlas team. No names and nothing from your game. Kept for {days} days. |
+| `onlineDock.feedback.noteDiagnostics` | online/gm/dock/feedbackForm.ts:39 | Sends your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality) to the Atlas team. No names and nothing from your game. Kept for {days} days. |
+| `onlineDock.feedback.noteMessage` | online/gm/dock/feedbackForm.ts:39 | Sends only your message to the Atlas team. No names and nothing from your game. Kept for {days} days. |
+| `onlineDock.feedback.noteDiagnosticsOperator` | online/gm/dock/feedbackForm.ts:38 | Sends your message and diagnostics (app version, browser or Obsidian version, system, recent error codes, connection quality) to the server's operator. No names and nothing from your game. Kept for {days} days. |
+| `onlineDock.feedback.noteMessageOperator` | online/gm/dock/feedbackForm.ts:38 | Sends only your message to the server's operator. No names and nothing from your game. Kept for {days} days. |
+| `onlineDock.imageCache.full` | online/gm/dock/imageCacheRow.ts:8 | Image cache unavailable (server full): images go to players directly. |
+| `onlineDock.imageCache.busy` | online/gm/dock/imageCacheRow.ts:10 | Image cache unavailable (server busy): images go to players directly. |
+| `onlineDock.imageCache.refused` | online/gm/dock/imageCacheRow.ts:12 | Image cache unavailable (image refused): images go to players directly. |
+| `onlineDock.imageCache.unreachable` | online/gm/dock/imageCacheRow.ts:14 | Image cache unavailable (server unreachable): images go to players directly. |
 | `onlineDock.newCode` | online/gm/dock/gateRows.ts:45, online/gm/dock/gateRows.ts:60 | New code |
 | `onlineDock.requireCode` | online/gm/dock/gateRows.ts:46 | Require code |
 | `onlineDock.askToJoin` | online/gm/dock/gateRows.ts:47 | Ask before players join |

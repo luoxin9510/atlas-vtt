@@ -220,6 +220,31 @@ describe('wake', () => {
     vi.advanceTimersByTime(250);
     expect(sockets).toHaveLength(2);
   });
+  it('does not re-arm the dead timer on a second wake', () => {
+    const { sockets, socket } = setup();
+    sockets[0]!.receive(welcome);
+    socket.wake();
+    vi.advanceTimersByTime(5_000);
+    socket.wake();
+    expect(sockets[0]!.sent.filter((s) => s === 'ping')).toHaveLength(2);
+    vi.advanceTimersByTime(14_999);
+    expect(sockets[0]!.closed).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(sockets[0]!.closed).toBe(true);
+  });
+  it('starts the backoff over when it reconnects at once', () => {
+    const { sockets, statuses, socket } = setup();
+    sockets[0]!.serverClose(1006);
+    vi.advanceTimersByTime(250);
+    sockets[1]!.serverClose(1006);
+    vi.advanceTimersByTime(500);
+    sockets[2]!.serverClose(1006);
+    expect(statuses.at(-1)).toEqual({ kind: 'retrying', inMs: 1000 });
+    socket.wake();
+    expect(sockets).toHaveLength(4);
+    sockets[3]!.serverClose(1006);
+    expect(statuses.at(-1)).toEqual({ kind: 'retrying', inMs: 250 });
+  });
   it('keeps an open socket that answers', () => {
     const { sockets, socket } = setup();
     sockets[0]!.receive(welcome);

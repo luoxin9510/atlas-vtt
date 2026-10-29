@@ -18,12 +18,7 @@ Plan 2; pick them up when touching the code nearby.
 - The relay's close frame can overtake frames still queued in the per-socket outbox, so a closing player may miss its last frames (`routing.ts`, `socket.ts`).
 
 ## Plugin (`src/app/online`)
-- `normalizeServerOrigin` accepts `http://` for any host; the host key then travels in clear text. Consider a warning for non-loopback `http:`.
-- `protocol/diagnostics.ts` `feedbackNote()` is unused and duplicated by `onlineDock.feedback.*` keys.
-- Feedback texts mention "the Atlas team", wrong on a self-hosted server.
 - `OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic.
-- On a self-hosted server the settings show both an "Online account" row ("Host key set") and the "Host key" row.
-- zh polish: `请求{button}` spacing, `由 你 发现`, `线上玩家` -> `联机玩家`; add 悄悄话, 讨论串, 中转服务器 to `zh-glossary.md`.
 - `knockStack.ts`: `NAME` constant sits between imports; `inviteQr.ts` trailing piece class; `aroundToken` drops the name if a translator drops the placeholder (covered by the placeholder test).
 
 ## Tests
@@ -40,14 +35,12 @@ Plan 2; pick them up when touching the code nearby.
 - The end-to-end test fakes Atlas's player settings (`getLocalPlayerViewSettings`) and wires Atlas's real `DiceTool` into the fake tab; if Atlas's plugin surface changes, `tests/unit/play/endToEnd.test.ts` is the place that breaks first.
 - The Chromium launch args (`--use-angle=swiftshader`, `--enable-unsafe-swiftshader`) are kept so Pixi gets WebGL on machines without a GPU; the test also passed without them on the development Mac.
 - Render on change via the shared `RenderScheduler` instead of a continuous ticker (battery); a 100 ms idle input interval.
-- The main chunk is about 542 kB (all locales): split it for mainland mobile networks.
 - ~~No open timeout (10 s) and no dead-socket check while waiting for the first frame~~ (done: `OPEN_TIMEOUT_MS`).
 - ~~No `visibilitychange` / `online` hook to reconnect promptly after a phone wakes~~ (done: `TableSocket.wake()`, called by `Session`).
 - Tokens outside the map rect are not covered by the fog sprite (including the whole-map cover for invalid fog).
 - CSP `connect-src 'self'` against older iOS Safari (CSP3 `ws:` matching): check on the M6 phone test.
 - Other players see a content-free "secret roll" line for gm/blind/self rolls (upstream behaviour; it reveals that a hidden roll happened).
 - Deferred minors from the per-task reviews: close-reason test weakness, unused `now` option, unguarded second welcome, part-to-yourCode routing, hash-only download keys, `blobCache` `forget()` not closing, no GPU destroy test, card stays open over a fogged own token, `JSON.stringify(ui)` per sync, condition icon letters, badges / pin-found not drawn, row `key=index`, `rollRefusal` only in the dice tab, tab `aria-controls`, `BlobPart` cast, composer draft lost on tab switch, e2e `serve()` port race, roll count by JSON substring and a fixed sleep, swiftshader args, `endToEnd.test.ts` size.
-- Token and initiative art that fails while the table is unreachable is not asked for again until the token list changes (only the map download retries).
 - The `OnlineTable` wiring of fork levels (`forkClients.forget` on `left`, a `client` after a GM re-welcome) is tested only through `ForkClients` and the Node end-to-end test, not through `OnlineTable` itself (no harness).
 - `.atlas-play-reason` is styled only inside `.atlas-play-join`; the send-failed notice, the dice tray refusal and the refused screen show it unstyled.
 - `SceneView.sync` calls `coarsePointer()` (`matchMedia`) on every store update; evaluate it once.
@@ -58,16 +51,16 @@ What a user could notice; the rest of the deferred minors are in the SDD ledger.
 - A slow phone whose `cache.put` runs past the 10 s stall window after a good ticket can show the "Image sent by the GM directly" line and fetch the image twice (`AssetLoader`).
 - The fallback line is a local log entry ordered by the phone's clock, so it can sit slightly out of order among the GM's entries.
 - Large uploads: a `415` or `507` answered mid-stream may reset the connection instead of showing a status (`apps/relay/src/assets`); the GM then sends chunks.
-- A relay that is full or has under 2 GiB of disk (`507`) sends everything over the socket instead; a `429` or `507` mint is not remembered as a failure, so each new player asks again.
+- A relay that is full or has under 2 GiB of disk (`507`) sends everything over the socket instead.
 - Minted tickets are kept in memory until the table closes (`AssetTickets.minted` is never pruned); one table with thousands of images over a very long session grows slowly.
 - A lit scene whose lighting is switched off in Atlas (`lighting.enabled: false`) never shows to players (placeholder; fail closed). If Pixi's `app.init` fails (no WebGL at all) or the engine cannot start, the page stays on "Preparing lighting…" with no way out until the probe or the crash guard decides (a failed `app.init` leaves it there for good); after a crash loop the lighting stays blocked for 10 minutes.
 - The tokens are drawn whole under the lighting layer: bars and nameplates dim with their token, and the map's colour is not given to the engine, so bounce light reads mid grey.
+- After a reconnect, a lit scene's explored mask is not asked for again (it is fetched once per reference). It fails closed: the player sees less, not more, until the explored memory changes (a new hash) or the scene is loaded again.
 - A press on a token while the game is paused (or while the token is held) is a dead press: it neither drags nor pans the camera.
 - Moving a token near a lit room edge relies on the GM's landing; there is no wall pre-check on the player's side, so a drop into a wall is shown at its cell for a moment until the GM refuses it.
 - The touch `lostpointercapture` cancel and the square-grid snap offset were not checked on a real phone (M6 phone test).
 - Banner contrast in dark mode and the "paused" colour are untested on small screens.
-- `OnlineTable` has 11 positional constructor parameters and is about 390 lines; the pause wiring there is tested only through `PauseShare`.
-- A failed GM-side upload to the image cache writes no log line, so the GM cannot see why images arrive over the socket, and the player cannot tell either (Task 11 ruling).
+- `OnlineTable` has 11 positional constructor parameters and is about 430 lines; the pause wiring there is tested only through `PauseShare`.
 
 ## Plan 3 residuals (shared notes)
 Deferred minors from the notes work; none lets hidden text reach a player.

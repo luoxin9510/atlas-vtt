@@ -1,8 +1,10 @@
 import { renderClosingRow, renderUpdateRow, type ClosingRowActions } from './closingRow.ts';
+import type { ImageCacheReason } from '../assetUpload/uploadAsset.ts';
 import { inviteRow, surfaceHeader } from './controls.ts';
 import type { MenuEntry } from './dockMenu.ts';
 import { renderFeedback, type FeedbackActions, type FeedbackView } from './feedbackForm.ts';
 import { gateEntries, gateRowsOf, renderCodeRow, renderPausedRow, renderPlayPausedRow, type GateRowActions, type GateRows } from './gateRows.ts';
+import { renderImageCacheRow } from './imageCacheRow.ts';
 import { renderImageRow, type ImageRowActions } from './imageRow.ts';
 import { renderNotesRow } from './notesRow.ts';
 import { closingOf, groupsOf, seatsNoteOf, selectionBarOf, statusOf, type OnlinePlayer, type OnlineSnapshot, type PlayerGroup, type SceneFacts, type SelectionBar, type Tone } from './panelModel.ts';
@@ -28,6 +30,8 @@ export interface PanelView {
   readonly gate: GateRows | null;
   /** Players are shown an image over the map. */
   readonly imageShown: boolean;
+  /** Why the relay's image cache is unavailable; null while it works. */
+  readonly imageCache: ImageCacheReason | null;
   /** How many notes players can read, and whether the list was capped. */
   readonly sharedNotes: number;
   readonly notesCapped: boolean;
@@ -45,7 +49,7 @@ export interface PanelView {
 export function panelView(snapshot: OnlineSnapshot, scene: SceneFacts, feedback: FeedbackView, qr = false, title = t('onlineDock.title.table')): PanelView {
   const groups = groupsOf(snapshot, scene);
   const players = groups.flatMap((group) => (group.player === null ? [] : [group.player]));
-  return { title, status: statusOf(snapshot), seatsNote: seatsNoteOf(snapshot), link: snapshot.link, qr, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), imageShown: snapshot.imageShown === true, sharedNotes: snapshot.sharedNotes ?? 0, notesCapped: snapshot.notesCapped === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true, groups, players, bar: selectionBarOf(snapshot, scene), feedback };
+  return { title, status: statusOf(snapshot), seatsNote: seatsNoteOf(snapshot), link: snapshot.link, qr, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), imageShown: snapshot.imageShown === true, imageCache: snapshot.imageCache ?? null, sharedNotes: snapshot.sharedNotes ?? 0, notesCapped: snapshot.notesCapped === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true, groups, players, bar: selectionBarOf(snapshot, scene), feedback };
 }
 
 /** The campaign's players as the panel changes them, once the GM has answered. */
@@ -124,6 +128,7 @@ export function renderPanel(layer: HTMLElement, view: PanelView, actions: PanelA
   renderPausedRow(layer, view.gate, actions);
   renderPlayPausedRow(layer, view.gate, actions);
   renderImageRow(layer, view.imageShown, actions);
+  renderImageCacheRow(layer, view.imageCache);
   renderNotesRow(layer, view.sharedNotes, view.notesCapped);
   if (view.link !== null) inviteRow(layer, () => actions.copy(), { open: view.qr, toggle: () => actions.toggleQr() }, linkEntries(layer, actions, redraw));
   renderCodeRow(layer, view.gate, actions);

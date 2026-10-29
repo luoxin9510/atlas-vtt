@@ -126,3 +126,22 @@ describe('TokenLayer art changes', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('TokenLayer reconnect', () => {
+  it('asks again for failed art once per reconnect, and not after destroy', async () => {
+    const listeners = new Set<() => void>();
+    const load = vi.fn(async () => null);
+    const layer = new TokenLayer({ load, onReconnect: (l) => { listeners.add(l); return () => void listeners.delete(l); } }, true);
+    layer.sync([token('a', 0, 0, 60, { art: { hash: 'a'.repeat(64), size: 1, mime: 'image/png' } })], new Set(), null);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    for (const l of [...listeners]) l();
+    expect(load).toHaveBeenCalledTimes(2);
+    await Promise.resolve();
+    await Promise.resolve();
+    for (const l of [...listeners]) l();
+    expect(load).toHaveBeenCalledTimes(3);
+    layer.destroy();
+    expect(listeners.size).toBe(0);
+  });
+});

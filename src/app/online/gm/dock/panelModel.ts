@@ -1,5 +1,6 @@
 import { playerTone } from '../../protocol/index.ts';
 import type { WorkspaceLeaf } from 'obsidian';
+import type { ImageCacheReason } from '../assetUpload/uploadAsset.ts';
 import type { AccountView } from '../account/accountView.ts';
 import type { RestCard } from '../book/restRequests.ts';
 import type { GateActions, GateView } from '../joinGate.ts';
@@ -57,6 +58,8 @@ export interface OnlineSnapshot {
   readonly cardOrder: readonly string[];
   /** Players are shown an image over the map ("Display on player view"); absent while they are shown none. */
   readonly imageShown?: boolean;
+  /** Why the relay's image cache is unavailable (images then go over the socket); absent while it works. */
+  readonly imageCache?: ImageCacheReason;
   /** How many notes players can read; absent while none are shared. */
   readonly sharedNotes?: number;
   /** More notes are flagged than are shared (the list is capped); absent otherwise. */
@@ -134,6 +137,7 @@ export type ControlSource = Pick<OnlineControl, 'onChange' | 'status' | 'link' |
     cardOrder(): readonly string[];
     readonly image: { readonly isShown: boolean };
     readonly notes?: { readonly count: number; readonly capped: boolean };
+    readonly imageCache?: ImageCacheReason | null;
     readonly closesAt: number | null;
   } | null;
 };
@@ -169,6 +173,7 @@ export function onlineApi(control: ControlSource, hideImage: () => void): Online
       rests: control.table?.rests.cards() ?? [],
       cardOrder: control.table?.cardOrder() ?? [],
       ...(control.table?.image.isShown === true && { imageShown: true }),
+      ...(control.table?.imageCache != null && { imageCache: control.table.imageCache }),
       ...sharedNotesOf(control.table?.notes?.count ?? 0),
       ...(control.table?.notes?.capped === true && { notesCapped: true as const }),
     }),
@@ -293,7 +298,7 @@ export interface SceneFacts {
 
 export type MenuModel =
   | { readonly kind: 'start'; readonly account: AccountView; readonly starting: boolean; readonly lost: LostTable | null; readonly outdated: boolean; readonly campaigns: CampaignPick }
-  | { readonly kind: 'waiting'; readonly title: string; readonly link: string | null; readonly status: { readonly text: string; readonly tone: Tone }; readonly isShared: boolean; readonly gate: GateRows | null; readonly qr: boolean; readonly imageShown: boolean; readonly sharedNotes: number; readonly notesCapped: boolean; readonly closing: string | null; readonly updateAfter: boolean };
+  | { readonly kind: 'waiting'; readonly title: string; readonly link: string | null; readonly status: { readonly text: string; readonly tone: Tone }; readonly isShared: boolean; readonly gate: GateRows | null; readonly qr: boolean; readonly imageShown: boolean; readonly imageCache: ImageCacheReason | null; readonly sharedNotes: number; readonly notesCapped: boolean; readonly closing: string | null; readonly updateAfter: boolean };
 
 /** No campaigns read yet. */
 export const NO_CAMPAIGNS: CampaignPick = { list: null, chosen: null, query: '' };
@@ -311,7 +316,7 @@ export function menuModel(snapshot: OnlineSnapshot, scene: SceneFacts, account: 
   if (!isRunning(snapshot.status) || snapshot.status === 'starting') {
     return { kind: 'start', account, starting: snapshot.status === 'starting', lost: snapshot.status === 'refused' ? snapshot.lost ?? 'refused' : null, outdated: snapshot.outdated === true, campaigns };
   }
-  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), qr, imageShown: snapshot.imageShown === true, sharedNotes: snapshot.sharedNotes ?? 0, notesCapped: snapshot.notesCapped === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
+  return { kind: 'waiting', title: tableTitle(snapshot, campaigns), link: snapshot.link, status: statusOf(snapshot), isShared: scene.isShared, gate: gateRowsOf(snapshot.gate, snapshot.playPaused === true), qr, imageShown: snapshot.imageShown === true, imageCache: snapshot.imageCache ?? null, sharedNotes: snapshot.sharedNotes ?? 0, notesCapped: snapshot.notesCapped === true, closing: closingOf(snapshot), updateAfter: snapshot.updateAfter === true };
 }
 
 export interface GroupPlayer extends OnlinePlayer {

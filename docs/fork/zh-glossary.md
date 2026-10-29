@@ -96,6 +96,9 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 | shortcut / hotkey | 快捷键 | hotkey.title | |
 | shared notes | 共享笔记 | onlineGm.notes.heading | notes the GM shares with players (`atlas-share`) |
 | group (of shared notes) | 分组 | onlineGm.notes.desc | `atlas-share-group`; the heading players see notes under |
+| whisper | 悄悄话 | onlineLog.whisperTo | en "Whisper to {names}"; also onlineLog.stopWhispering 停止悄悄话, onlineLog.mode.whisper, onlineLog.cmd.w |
+| thread (chat reply thread) | 讨论串 | onlineLog.thread.title | en "Thread"; also onlineLog.replyInThread 在讨论串中回复 |
+| relay server | 中转服务器 | none (docs term only) | en "relay" (`apps/relay`, README); no online UI key says "relay", the UI calls it 联机服务器 (onlineGm.server.heading). Use 中转服务器 in docs/zh text that must name the relay itself |
 
 ### Inconsistencies found
 - GM vs DM: 主持人视图 (hotkey.gmView, toolbar.gmView, 2) vs DM 屏 (hotkey.dashboard, 1). Recommend: 主持人 for "GM" (neutral, matches TTRPG zh community usage 主持人/GM), keep 「DM」 only where English source says DM.
@@ -131,6 +134,7 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
   Obsidian vault.
 - **Roll**: dice 掷 / 投掷; random tables and loot 抽取.
 - **Cell**: 格子 = a cell; 方格 = the square grid type; 格 only as a counter.
+- **Names beside Chinese**: `onlineLog.found.by` '由{finder}发现' sits flush because {finder} can be 你 (onlineLog.author.youLower); `onlineDock.rest.label` '{character} 请求 {button}' keeps a space because {button} is statblock text of any script.
 - **Ellipsis**: mirror the English value ("…" or "...").
 - **Critical**: 大成功 / 大失败, as Chinese TTRPG communities say, not 暴击.
 - Existing wording left as it is (out of scope for this phase): `toolbar.sessionView`

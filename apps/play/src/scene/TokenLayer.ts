@@ -2,7 +2,7 @@ import { Container, ImageSource, Texture } from 'pixi.js';
 import type { SharedToken } from '../../../../src/app/online/protocol/tokens.ts';
 import type { AssetRef } from '../../../../src/app/online/protocol/asset.ts';
 import { restingTokenUIScale, tokenUIScale } from '../../../../src/app/pixi/token-renderer/tokenSizing.ts';
-import type { AssetLoader } from '../assets/AssetLoader.ts';
+import type { AssetLoader, ReconnectSignal } from '../assets/AssetLoader.ts';
 import { TokenView } from './tokenSprite.ts';
 
 /** Token artwork is asked for at most this long a side. */
@@ -42,8 +42,21 @@ export class TokenLayer {
   private readonly textures = new Map<string, CachedArt>();
   private tokens: readonly SharedToken[] = [];
   private destroyed = false;
+  private readonly stopListening: (() => void) | null;
 
-  constructor(private readonly assets: Pick<AssetLoader, 'load'>, private readonly lowPower: boolean, private readonly now: () => number = () => Date.now()) {}
+  constructor(private readonly assets: Pick<AssetLoader, 'load'> & ReconnectSignal, private readonly lowPower: boolean, private readonly now: () => number = () => Date.now()) {
+    this.stopListening = assets.onReconnect?.(() => this.retryFailed()) ?? null;
+  }
+
+  /** The connection is back: every art that failed is asked for again now, once, without waiting for the retry time. */
+  private retryFailed(): void {
+    if (this.destroyed) return;
+    for (const [hash, art] of this.textures) if (art.failedAt !== undefined) this.textures.delete(hash);
+    for (const entry of this.entries.values()) {
+      const token = this.tokens.find((t) => t.art?.hash === entry.art && this.entries.get(t.id) === entry);
+      if (token !== undefined) this.showArt(entry, token);
+    }
+  }
 
   /** `cell`: the grid cell in world pixels, which sets the size of bars and nameplates; 0 sizes them by the token. */
   sync(tokens: readonly SharedToken[], mine: ReadonlySet<string>, selected: string | null, cell = 0): void {
@@ -150,6 +163,7 @@ export class TokenLayer {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.stopListening?.();
     for (const entry of this.entries.values()) entry.view.destroy();
     this.entries.clear();
     for (const art of this.textures.values()) releaseArt(art);

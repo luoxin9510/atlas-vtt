@@ -1,11 +1,13 @@
 import { parseAssetTicket, type AssetTicketMessage } from '../../protocol/index.ts';
 import type { BinaryHttp } from './binaryHttp.ts';
-import { assetUrl, tryUpload, type TableAccess } from './uploadAsset.ts';
+import { assetUrl, reasonOfStatus, tryUpload, type ImageCacheReason, type TableAccess } from './uploadAsset.ts';
 
 /** A hash whose upload failed is not tried again for this long. */
 export const RETRY_AFTER_MS = 60_000;
 /** A hash the relay answered 429 for is tried again after this long. */
 export const BUSY_RETRY_AFTER_MS = 10_000;
+/** A hash whose ticket the relay refused with 429 or 507 is not asked for again for this long, by any player. */
+export const MINT_REST_MS = 60_000;
 /** The relay lets a table have this many uploads in flight. */
 export const MAX_UPLOADS = 2;
 /** A ticket is not handed out again this close to its expiry. */
@@ -25,16 +27,36 @@ export class AssetTickets {
   private running = 0;
   private readonly waiting: (() => void)[] = [];
   private readonly minted = new Map<string, AssetTicketMessage>();
+  /** When each hash whose mint was refused (429, 507) may be asked for again. */
+  private readonly mintRests = new Map<string, number>();
+  private cache: ImageCacheReason | null = null;
 
-  constructor(private readonly http: BinaryHttp, private readonly table: TableAccess, private readonly now: () => number) {}
+  /** `onStatus` hears every change of `status`. */
+  constructor(private readonly http: BinaryHttp, private readonly table: TableAccess, private readonly now: () => number, private readonly onStatus: (status: ImageCacheReason | null) => void = () => undefined) {}
+
+  /** Why the relay's image cache cannot be used now, null while it can (or nothing failed yet). */
+  get status(): ImageCacheReason | null {
+    return this.cache;
+  }
+
+  private setStatus(next: ImageCacheReason | null): void {
+    if (next === this.cache) return;
+    this.cache = next;
+    this.onStatus(next);
+  }
 
   async ticket(hash: string, bytes: Uint8Array, player: string): Promise<AssetTicketMessage | null> {
     const key = `${hash}\n${player}`;
     const kept = this.minted.get(key);
     if (kept !== undefined && kept.expires - this.now() > REUSE_MARGIN_MS) return kept;
     if (!(await this.held(hash, bytes))) return null;
+    const restUntil = this.mintRests.get(hash);
+    if (restUntil !== undefined && this.now() < restUntil) return null;
     const ticket = await this.mint(hash, player);
-    if (ticket !== null) this.minted.set(key, ticket);
+    if (ticket !== null) {
+      this.minted.set(key, ticket);
+      this.setStatus(null);
+    }
     return ticket;
   }
 
@@ -44,6 +66,8 @@ export class AssetTickets {
     this.uploaded.clear();
     this.failed.clear();
     this.minted.clear();
+    this.mintRests.clear();
+    this.setStatus(null);
   }
 
   private async held(hash: string, bytes: Uint8Array): Promise<boolean> {
@@ -54,8 +78,13 @@ export class AssetTickets {
     if (upload === undefined) {
       upload = this.queued(() => tryUpload(this.http, this.table, hash, bytes).catch((): 'failed' => 'failed')).then((outcome) => {
         this.uploading.delete(hash);
-        if (outcome === 'ok') this.uploaded.add(hash);
-        else this.failed.set(hash, this.now() + (outcome === 'busy' ? BUSY_RETRY_AFTER_MS : RETRY_AFTER_MS));
+        if (outcome === 'ok') {
+          this.uploaded.add(hash);
+          this.setStatus(null);
+        } else {
+          this.failed.set(hash, this.now() + (outcome === 'busy' ? BUSY_RETRY_AFTER_MS : RETRY_AFTER_MS));
+          if (outcome !== 'failed') this.setStatus(outcome);
+        }
         return outcome === 'ok';
       });
       this.uploading.set(hash, upload);
@@ -83,6 +112,11 @@ export class AssetTickets {
     if (answer?.status !== 200 || typeof answer.json !== 'object' || answer.json === null) {
       // The relay lost the image (404): upload it again next time.
       if (answer?.status === 404) this.uploaded.delete(hash);
+      const reason = reasonOfStatus(answer?.status);
+      if (reason === 'full' || reason === 'busy') {
+        this.mintRests.set(hash, this.now() + MINT_REST_MS);
+        this.setStatus(reason);
+      } else if (reason !== null) this.setStatus(reason);
       return null;
     }
     return parseAssetTicket({ t: 'asset-ticket', hash, ...answer.json });

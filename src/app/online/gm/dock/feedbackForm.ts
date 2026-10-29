@@ -1,5 +1,6 @@
 import { FEEDBACK_KEPT_DAYS, MAX_FEEDBACK_TEXT, type FeedbackResult } from '../../protocol/index.ts';
 import { COMPANION_REPORTS_NOTE, type CompanionFeedback } from '../companionReports.ts';
+import { isSelfHosted } from '../servers.ts';
 import { textButton } from './controls.ts';
 import { t } from '../../../i18n';
 
@@ -32,6 +33,12 @@ const STATE_TEXT: Readonly<Record<FeedbackState, string>> = {
   failed: t('onlineDock.feedback.failed'),
 };
 
+/** The note's text: on a self-hosted server the feedback goes to its operator, not to the Atlas team. */
+function noteKey(diagnostics: boolean): 'onlineDock.feedback.noteDiagnostics' | 'onlineDock.feedback.noteMessage' | 'onlineDock.feedback.noteDiagnosticsOperator' | 'onlineDock.feedback.noteMessageOperator' {
+  if (isSelfHosted()) return diagnostics ? 'onlineDock.feedback.noteDiagnosticsOperator' : 'onlineDock.feedback.noteMessageOperator';
+  return diagnostics ? 'onlineDock.feedback.noteDiagnostics' : 'onlineDock.feedback.noteMessage';
+}
+
 /**
  * "Send feedback" in the online panel, above its footer: a message, the switch for diagnostics and, in
  * plain words, what goes out, then the switch for automatic error reports (the setting's twin) and what
@@ -53,7 +60,7 @@ export function renderFeedback(parent: HTMLElement, view: FeedbackView, actions:
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send();
   });
   checkbox(form, t('onlineDock.feedback.diagnostics'), 'feedback-diagnostics', view.diagnostics, (on) => actions.setFeedbackDiagnostics(on));
-  form.createDiv({ cls: 'atlas-online-help atlas-online-feedback__note', text: t(view.diagnostics ? 'onlineDock.feedback.noteDiagnostics' : 'onlineDock.feedback.noteMessage', { days: FEEDBACK_KEPT_DAYS }) });
+  form.createDiv({ cls: 'atlas-online-help atlas-online-feedback__note', text: t(noteKey(view.diagnostics), { days: FEEDBACK_KEPT_DAYS }) });
   const row = form.createDiv({ cls: 'atlas-online-feedback__actions' });
   row.createSpan({ cls: 'atlas-online-help atlas-online-feedback__status', text: STATE_TEXT[view.state], attr: { role: 'status' } });
   const button = textButton(row, t('onlineDock.feedback.send'), send, 'cta');

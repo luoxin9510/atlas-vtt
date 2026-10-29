@@ -91,13 +91,14 @@ describe('the menu', () => {
 
   it('shows the link, the status and the shared map while players are awaited', () => {
     expect(menuModel(snapshot({ status: 'connecting' }), scene({ isShared: false }), CAN_HOST)).toEqual({
-      kind: 'waiting', title: 'Online table', link: 'https://play.atlas-vtt.dev/#code', status: { text: 'Connecting…', tone: 'amber' }, isShared: false, gate: null, qr: false, imageShown: false, sharedNotes: 0, notesCapped: false, closing: null, updateAfter: false,
+      kind: 'waiting', title: 'Online table', link: 'https://play.atlas-vtt.dev/#code', status: { text: 'Connecting…', tone: 'amber' }, isShared: false, gate: null, qr: false, imageShown: false, imageCache: null, sharedNotes: 0, notesCapped: false, closing: null, updateAfter: false,
     });
+    expect(menuModel(snapshot({ status: 'connecting', imageCache: 'full' }), scene({ isShared: false }), CAN_HOST)).toMatchObject({ imageCache: 'full' });
     // The gates come along: the GM needs the code before the first player can join.
     // Who waits is not among it: a knock must not draw the menu anew under the GM's pointer.
     const gate = { code: '483912', requireCode: true, askToJoin: true, paused: false, pauseArmed: false };
     const waiting = [{ id: 'm'.repeat(20), name: 'Mira', answered: false, full: false, armed: false }];
-    expect(menuModel(snapshot({ gate: { ...gate, waiting } }), scene(), CAN_HOST)).toEqual({ kind: 'waiting', title: 'Online table', link: 'https://play.atlas-vtt.dev/#code', status: { text: 'Online, waiting for players', tone: 'green' }, isShared: true, gate, qr: false, imageShown: false, sharedNotes: 0, notesCapped: false, closing: null, updateAfter: false });
+    expect(menuModel(snapshot({ gate: { ...gate, waiting } }), scene(), CAN_HOST)).toEqual({ kind: 'waiting', title: 'Online table', link: 'https://play.atlas-vtt.dev/#code', status: { text: 'Online, waiting for players', tone: 'green' }, isShared: true, gate, qr: false, imageShown: false, imageCache: null, sharedNotes: 0, notesCapped: false, closing: null, updateAfter: false });
     // The QR card's state is part of the menu, whose button says whether it is open.
     expect(menuModel(snapshot(), scene(), CAN_HOST, true)).toMatchObject({ kind: 'waiting', qr: true });
     // An image shown before anyone joined has its line here too.
