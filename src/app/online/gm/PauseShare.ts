@@ -40,3 +40,24 @@ export class PauseShare {
     if (this.ports.levelOf(player) >= PAUSE_LEVEL) this.ports.send({ t: 'pause', paused: this.on }, player);
   }
 }
+
+/** The pause as the table shows it: a switch that also drops the drags in progress and tells the table's events. */
+export interface TablePause {
+  readonly paused: boolean;
+  set(on: boolean): void;
+}
+
+export function tablePause(share: PauseShare, hooks: { cancelDrags(): void; paused(on: boolean): void; changed(): void }): TablePause {
+  return {
+    get paused(): boolean {
+      return share.paused;
+    },
+    set: (on) => {
+      if (on === share.paused) return;
+      share.set(on);
+      if (on) hooks.cancelDrags();
+      hooks.paused(on);
+      hooks.changed();
+    },
+  };
+}

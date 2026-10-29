@@ -309,38 +309,41 @@ export class OnlineControl {
     this.keep(saved);
     this.ownership.bind(seats);
     this.campaigns.bound(saved.campaignId);
-    const table = new OnlineTable(this.app, saved.origin, saved, saved.mapPath, this.ownership, seats, saved.gate, saved.paused === true, {
-      status: () => {
-        // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
-        if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);
-        this.changed();
+    const table = new OnlineTable({
+      app: this.app, origin: saved.origin, table: saved, mapPath: saved.mapPath, ownership: this.ownership, seats, gate: saved.gate, paused: saved.paused === true, shelf: this.shelf, savedLog,
+      events: {
+        status: () => {
+          // A welcome says what the relay needs now; an older relay names nothing and needs nothing.
+          if (table.status === 'online') rememberMinLevel(this.app, table.minLevel ?? 0);
+          this.changed();
+        },
+        gate: (gate) => {
+          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, gate });
+        },
+        paused: (paused) => {
+          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, paused });
+        },
+        changed: () => this.changed(),
+        log: () => void (this.current === table && this.logs.keep(table.log.saved())),
+        mapPath: (mapPath) => {
+          if (this.current === table && this.saved !== null) this.keep({ ...this.saved, mapPath });
+        },
+        ended: (end) => {
+          if (this.current !== table) return;
+          this.current = null;
+          this.unbind();
+          this.syncShown();
+          // Whoever ends a table themselves decides what is played next (`stop`, `newLink`); a table the server closed, or another Obsidian took over, ends the play here.
+          if (end !== 'stopped') this.campaigns.stop();
+          // A table the server ended is gone; one the GM stopped was dropped by `stop`, one another Obsidian took over lives on there, and one that waits for an updated Atlas stays.
+          this.ended = end === 'stopped' || end === 'replaced' || end === 'outdated' ? null : end;
+          if (end === 'outdated') rememberMinLevel(this.app, GM_LEVEL + 1);
+          if (this.ended !== null) this.keep(null);
+          // The account page says why; the dock shows what the relay says of the account now.
+          if (end === 'no-access') void this.account.refresh(true);
+        },
       },
-      gate: (gate) => {
-        if (this.current === table && this.saved !== null) this.keep({ ...this.saved, gate });
-      },
-      paused: (paused) => {
-        if (this.current === table && this.saved !== null) this.keep({ ...this.saved, paused });
-      },
-      changed: () => this.changed(),
-      log: () => void (this.current === table && this.logs.keep(table.log.saved())),
-      mapPath: (mapPath) => {
-        if (this.current === table && this.saved !== null) this.keep({ ...this.saved, mapPath });
-      },
-      ended: (end) => {
-        if (this.current !== table) return;
-        this.current = null;
-        this.unbind();
-        this.syncShown();
-        // Whoever ends a table themselves decides what is played next (`stop`, `newLink`); a table the server closed, or another Obsidian took over, ends the play here.
-        if (end !== 'stopped') this.campaigns.stop();
-        // A table the server ended is gone; one the GM stopped was dropped by `stop`, one another Obsidian took over lives on there, and one that waits for an updated Atlas stays.
-        this.ended = end === 'stopped' || end === 'replaced' || end === 'outdated' ? null : end;
-        if (end === 'outdated') rememberMinLevel(this.app, GM_LEVEL + 1);
-        if (this.ended !== null) this.keep(null);
-        // The account page says why; the dock shows what the relay says of the account now.
-        if (end === 'no-access') void this.account.refresh(true);
-      },
-    }, this.shelf, savedLog);
+    });
     // The table's campaign is the one played while it runs: its rules, quests and world map are what players get.
     this.campaigns.play(saved.campaignId);
     // A campaign deleted while its table runs is played no longer (`recordCampaignPlay`, the campaign page), and takes its table with it.
