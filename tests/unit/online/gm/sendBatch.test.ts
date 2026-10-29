@@ -131,4 +131,48 @@ describe('the send queue towards a relay that takes batches', () => {
     time.advance(BATCH_MS);
     expect(sent.flatMap(carried)).toEqual([{ t: 'marks' }, { t: 'chunk' }]);
   });
+
+  it('leaves a dropped tag out of the next batch', () => {
+    const { queue, sent, time } = batching();
+    const lead = message({ t: 'lead' });
+    queue.push(lead.frame, '*', lead.entry);
+    const a1 = message({ t: 'A1' });
+    queue.push(a1.frame, '*', a1.entry, 'notes:h');
+    const b = message({ t: 'B' });
+    queue.push(b.frame, '*', b.entry);
+    const a2 = message({ t: 'A2' });
+    queue.push(a2.frame, '*', a2.entry, 'notes:h');
+    expect(queue.dropTagged('notes:h')).toBe(2);
+    time.advance(BATCH_MS);
+    expect(sent.slice(1).flatMap(carried)).toEqual([{ t: 'B' }]);
+  });
+
+  it('drops tagged frames held back while the socket drains', () => {
+    const { queue, sent, socket, time } = batching();
+    socket.bufferedAmount = BULK_BUFFERED + 1;
+    for (const t of ['A1', 'A2']) {
+      const next = message({ t });
+      queue.push(next.frame, '*', next.entry, 'notes:h');
+    }
+    expect(queue.dropTagged('notes:h')).toBe(2);
+    socket.bufferedAmount = 0;
+    time.advance(3 * BATCH_MS);
+    expect(sent.flatMap(carried)).toEqual([]);
+    expect(queue.length).toBe(0);
+  });
+
+  it('drops the tagged rest of a full batch', () => {
+    const { queue, sent, time } = batching();
+    const lead = message({ t: 'lead' });
+    queue.push(lead.frame, '*', lead.entry);
+    for (let index = 0; index < MAX_BATCH_SENDS + 5; index += 1) {
+      const next = message({ t: 'tagged', index });
+      queue.push(next.frame, '*', next.entry, 'notes:h');
+    }
+    const plain = message({ t: 'plain' });
+    queue.push(plain.frame, '*', plain.entry);
+    expect(queue.dropTagged('notes:h')).toBe(MAX_BATCH_SENDS + 5);
+    time.advance(3 * BATCH_MS);
+    expect(sent.flatMap(carried)).toEqual([{ t: 'lead' }, { t: 'plain' }]);
+  });
 });

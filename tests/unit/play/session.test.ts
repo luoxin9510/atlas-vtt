@@ -192,6 +192,26 @@ describe('Session', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('leaving clears the shared notes', () => {
+    const note = { id: 'a'.repeat(24), title: 'T', text: { hash: 'c'.repeat(64), size: 1, mime: 'text/markdown' } };
+    const { session, sockets } = setup();
+    const welcomeWithNote = (socket: FakeSocket): void => {
+      socket.onopen?.();
+      socket.receive({ v: 1, t: 'welcome', role: 'player', id: 'p1', key: KEY, gmOnline: true });
+      socket.receive({ v: 1, t: 'game', body: { t: 'client', level: 3 } });
+      socket.receive({ v: 1, t: 'game', body: { t: 'notes', notes: [note] } });
+    };
+    session.join({ name: 'Ann', code: '123456' });
+    welcomeWithNote(sockets[0]!);
+    expect(session.store.getState().notes).toEqual([note]);
+    session.join({ name: 'Ann', key: KEY });
+    expect(session.store.getState().notes).toEqual([]);
+    welcomeWithNote(sockets[1]!);
+    expect(session.store.getState().notes).toEqual([note]);
+    session.backToForm();
+    expect(session.store.getState().notes).toEqual([]);
+  });
+
   it('forgets the seat when the relay says no access or superseded after a key was sent', () => {
     for (const code of [CLOSE.noAccess, CLOSE.superseded]) {
       const storage = memoryStorage();
