@@ -184,6 +184,8 @@ Uploaded images (`ASSET_DIR`) are cache for running tables and need no backup.
 
 Filled in after each real deployment.
 
+Note: a bundle packed on macOS carries `LIBARCHIVE.xattr.com.apple.provenance` headers, which GNU tar reports as "Ignoring unknown extended header keyword". They are harmless.
+
 | Date | Node | Bundle commit | Probe lines |
 | --- | --- | --- | --- |
-| | | | |
+| 2026-10-29 | 22.23.1 (NodeSource) | cfaeda21 | Not run yet. Local `curl` of the relay and `https://<hostname>/` through the tunnel both answer 200 with the CSP and `no-cache`. |
