@@ -85,7 +85,8 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 - An escaped `\<!--` in a note cuts the copy there although it is only text (known over-hide; fails closed, pinned in `playerCopy.test.ts`).
 - ~~The settings page re-renders when the server address changes, which can drop focus in the field.~~ (done: the address change no longer redraws the settings tab; wave D)
 - The `-fork` version suffix silences the upstream update notice and the changelog's release matching (intended; written in FORK_GUIDE).
-- `main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.
+- ~~`main.ts` (316 lines) and `OnlineFeature.ts` (356 lines) are over the ~300 line guideline.~~ (done: `OnlineFeature.ts` is 265 lines, its commands and old-data handling moved to `featureCommands.ts` and `featureLegacy.ts`; the settings-tab wiring left `main.ts` for `src/app/plugin/settingsTab.ts`, so `main.ts` is 297 lines; wave D)
+- The rest of `main.ts` belongs to upstream (308 lines there); the fork only keeps its settings-tab wiring out of it.
 
 ## Wave C residuals (open)
 Deferred minors from the relay hardening wave and the ticket pruning; the SDD ledger has the detail.
