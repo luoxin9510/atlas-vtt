@@ -1,9 +1,10 @@
+import { PassThrough } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { PLAYER_ID_PATTERN } from '../../../../src/app/online/protocol/identity.ts';
 import { isHash } from '../../../../src/app/online/protocol/asset.ts';
 import { TABLE_CODE_PATTERN } from '../../../../src/app/online/protocol/relay.ts';
 import type { RelayConfig } from '../config.ts';
-import { bearerOf, readBody, send } from '../httpUtil.ts';
+import { bearerOf, readBody, refuseAndDrain, send } from '../httpUtil.ts';
 import { clientAddress, MintRateLimit, UploadRateLimit } from '../limits.ts';
 import type { TableRegistry } from '../tables.ts';
 import type { AssetStore, PartResult } from './assetStore.ts';
@@ -27,7 +28,7 @@ interface UploadContext {
 
 /**
  * `PUT .../parts/{index}`, `POST .../complete`, `POST .../tickets` (mints a 120 s download ticket for a player) and `GET .../assets/{hash}` (resume status) of a table, each with the table secret as Bearer.
- * A refusal before the body is read closes the connection, so a client still streaming is cut off.
+ * A refusal before the body is read is answered first and the body then drained within a bound (`refuseAndDrain`), so a client still streaming sees the status.
  */
 export function createUploadRoutes({ config, tables, store }: UploadContext): UploadRoutes {
   const rate = new UploadRateLimit();
@@ -42,14 +43,24 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     return method === wanted ? { code, hash, part: part === undefined ? null : Number(part), complete: complete === 'complete', mint: complete === 'tickets' } : null;
   }
 
-  function refuse(res: ServerResponse, status: number): void {
-    res.setHeader('connection', 'close');
-    send(res, status, { error: REASONS[status] ?? 'failed' });
+  function refuse(req: IncomingMessage, res: ServerResponse, status: number): void {
+    refuseAndDrain(req, res, status, { error: REASONS[status] ?? 'failed' });
   }
 
-  function answer(res: ServerResponse, result: PartResult, ok: unknown): void {
+  function answer(req: IncomingMessage, res: ServerResponse, result: PartResult, ok: unknown): void {
     if (result.status === 200) send(res, 200, ok);
-    else refuse(res, result.status);
+    else refuse(req, res, result.status);
+  }
+
+  /** Writes a part from a relay stream, so a failing write destroys that stream and not the request, which is then drained. */
+  function writePart(req: IncomingMessage, code: string, hash: string, index: number): Promise<PartResult> {
+    const relayed = new PassThrough();
+    req.pipe(relayed);
+    // A client that aborts ends the relayed stream with an error, as it did when the request itself was written from.
+    req.once('close', () => {
+      if (!req.readableEnded) relayed.destroy(new Error('aborted'));
+    });
+    return store.writePart(code, hash, index, relayed);
   }
 
   async function mint(req: IncomingMessage, res: ServerResponse, code: string, hash: string): Promise<void> {
@@ -62,8 +73,8 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     } catch {
       player = undefined;
     }
-    if (typeof player !== 'string' || !PLAYER_ID_PATTERN.test(player)) return refuse(res, 400);
-    if (!store.has(code, hash)) return refuse(res, 404);
+    if (typeof player !== 'string' || !PLAYER_ID_PATTERN.test(player)) return refuse(req, res, 400);
+    if (!store.has(code, hash)) return refuse(req, res, 404);
     const expires = Date.now() + TICKET_TTL_MS;
     send(res, 200, { url: `/api/assets/${hash}?t=${mintTicket(tables.ensureTicketKey(), code, player, hash, expires)}`, expires });
   }
@@ -72,17 +83,16 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     matches: (method, path) => parse(method, path) !== null,
     async handle(req, res, method, path): Promise<void> {
       const route = parse(method, path);
-      if (route === null) return refuse(res, 404);
-      if (!(route.mint ? mintRate : rate).allow(clientAddress(req, config.trustProxy))) return refuse(res, 429);
+      if (route === null) return refuse(req, res, 404);
+      if (!(route.mint ? mintRate : rate).allow(clientAddress(req, config.trustProxy))) return refuse(req, res, 429);
       if (!tables.checkSecret(route.code, bearerOf(req))) {
-        res.setHeader('connection', 'close');
-        return send(res, 401, { error: 'unauthorized' });
+        return refuseAndDrain(req, res, 401, { error: 'unauthorized' });
       }
       if (route.part !== null) {
-        return answer(res, await store.writePart(route.code, route.hash, route.part, req), {});
+        return answer(req, res, await writePart(req, route.code, route.hash, route.part), {});
       }
       if (route.mint) return mint(req, res, route.code, route.hash);
-      if (route.complete) return answer(res, await store.complete(route.code, route.hash), { hash: route.hash });
+      if (route.complete) return answer(req, res, await store.complete(route.code, route.hash), { hash: route.hash });
       send(res, 200, store.status(route.code, route.hash));
     },
   };
