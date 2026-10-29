@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { gunzipSync } from 'node:zlib';
 import { join, relative, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -55,17 +56,42 @@ describe('relay bundle', () => {
     expect(readFileSync(join(out, 'package-lock.json'), 'utf8')).toContain('"node_modules/ws"');
   });
 
+  /** A copy of apps/relay and the protocol with one extra relay file, bundled with --source-root. */
+  function strayTree(name: string, content: string): string {
+    const tree = join(work, name);
+    cpSync(join(root, 'apps', 'relay'), join(tree, 'apps', 'relay'), { recursive: true, filter: (source) => !source.includes('node_modules') });
+    cpSync(join(root, 'src', 'app', 'online', 'protocol'), join(tree, 'src', 'app', 'online', 'protocol'), { recursive: true });
+    writeFileSync(join(tree, 'apps', 'relay', 'src', '__stray.ts'), content);
+    return tree;
+  }
+
   it('fails loudly when an import leaves the relay and the protocol', () => {
-    const stray = join(root, 'apps', 'relay', 'src', '__stray.ts');
-    writeFileSync(stray, "import '../../../src/app/online/other.ts';\n");
-    try {
-      const result = bundle(['--play-dist', join(work, 'play-dist'), '--out', join(work, 'bad')]);
-      expect(result.status).not.toBe(0);
-      expect(String(result.stderr)).toContain('leaves apps/relay and src/app/online/protocol');
-    } finally {
-      rmSync(stray, { force: true });
-    }
+    const tree = strayTree('tree-relative', "import '../../../src/app/online/other.ts';\n");
+    const result = bundle(['--play-dist', join(work, 'play-dist'), '--out', join(work, 'bad'), '--source-root', tree]);
+    expect(result.status).not.toBe(0);
+    expect(String(result.stderr)).toContain('leaves apps/relay and src/app/online/protocol');
+    expect(existsSync(join(root, 'apps', 'relay', 'src', '__stray.ts'))).toBe(false);
   }, 60_000);
+
+  it('fails on a bare import other than ws and node:*', () => {
+    const tree = strayTree('tree-bare', "import x from 'left-pad';\nexport default x;\n");
+    const result = bundle(['--play-dist', join(work, 'play-dist'), '--out', join(work, 'bad2'), '--source-root', tree]);
+    expect(result.status).not.toBe(0);
+    expect(String(result.stderr)).toContain("bare import 'left-pad'");
+  }, 60_000);
+
+  it('allows ws and node:* bare imports', () => {
+    const tree = strayTree('tree-ok', "import { WebSocket } from 'ws';\nimport { join } from 'node:path';\nexport const x = [WebSocket, join];\n");
+    const result = bundle(['--play-dist', join(work, 'play-dist'), '--out', join(work, 'ok'), '--source-root', tree]);
+    expect(result.status).toBe(0);
+  }, 120_000);
+
+  it('packs a tgz without AppleDouble files or xattr pax headers', () => {
+    const raw = gunzipSync(readFileSync(`${out}.tgz`));
+    expect(raw.includes('LIBARCHIVE.xattr')).toBe(false);
+    expect(raw.includes('SCHILY.xattr')).toBe(false);
+    expect(raw.includes('._')).toBe(false);
+  });
 
   it('starts from the bundle and serves index.html at /', async () => {
     symlinkSync(join(root, 'node_modules'), join(out, 'node_modules'));

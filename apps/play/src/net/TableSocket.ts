@@ -90,6 +90,7 @@ export class TableSocket {
     const socket = this.socket;
     if (socket === null) {
       this.clearTimer('retryTimer');
+      this.attempt = 0;
       this.connect();
       return;
     }
@@ -100,7 +101,8 @@ export class TableSocket {
       return;
     }
     socket.send(KEEPALIVE_PING);
-    this.armDead();
+    // A pending dead timer keeps its deadline: re-arming on every wake would push the detection back.
+    if (this.timers.deadTimer === null) this.armDead();
   }
 
   stop(): void {

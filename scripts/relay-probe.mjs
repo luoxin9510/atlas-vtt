@@ -1,7 +1,7 @@
 // Checks a deployed relay from the outside.
-//   HOST_KEY=... node scripts/relay-probe.mjs <origin> [--quick]
+//   HOST_KEY=... node scripts/relay-probe.mjs <origin> [--quick] [--insecure]
 // The host key comes from the environment only. Nothing secret (host key, table secret, tickets, player link) is printed.
-// --quick skips the 110 s idle check.
+// --quick skips the 110 s idle check. A non-loopback http: origin sends the host key in clear text and is refused unless --insecure is given.
 import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 
@@ -13,7 +13,21 @@ const quick = args.includes('--quick');
 const origin = args.find((arg) => !arg.startsWith('--'))?.replace(/\/$/, '');
 const hostKey = process.env.HOST_KEY;
 if (origin === undefined || hostKey === undefined || hostKey === '') {
-  console.error('usage: HOST_KEY=<key> node scripts/relay-probe.mjs <origin> [--quick]');
+  console.error('usage: HOST_KEY=<key> node scripts/relay-probe.mjs <origin> [--quick] [--insecure]');
+  process.exit(2);
+}
+/** Same rule as the GM side (src/app/online/gm/cleartext.ts): localhost, 127.0.0.0/8, [::1]. */
+function loopbackHost(host) {
+  return host === 'localhost' || host === '[::1]' || /^127(\.\d{1,3}){3}$/.test(host);
+}
+let parsed = null;
+try { parsed = new URL(origin); } catch { /* reported below */ }
+if (parsed === null) {
+  console.error('the origin is not a URL');
+  process.exit(2);
+}
+if (parsed.protocol === 'http:' && !loopbackHost(parsed.hostname) && !args.includes('--insecure')) {
+  console.error('refusing to send the host key over cleartext http: to a non-local origin; use https:, or pass --insecure to accept the risk');
   process.exit(2);
 }
 
