@@ -26,7 +26,6 @@ export const onlineGm: Translation = {
   'onlineGm.account.signedInRefused': '已登录为 {account}。{reason}',
   'onlineGm.account.signedInPlan': '已登录为 {account} · {plan}',
   'onlineGm.account.signedOut': '尚未登录。请用你的 Atlas 账户登录，以主持联机桌。',
-  'onlineGm.account.heading': '联机账户',
   'onlineGm.account.name': 'Atlas 账户',
   'onlineGm.account.signOut': '退出登录',
   'onlineGm.account.signIn': '登录',

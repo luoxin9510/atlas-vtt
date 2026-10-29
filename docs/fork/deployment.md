@@ -163,6 +163,8 @@ secret, ticket or player link):
 HOST_KEY=... npm run probe:relay -- https://play.example.com
 ```
 
+`probe:relay` refuses a plain `http:` address that is not loopback (`localhost`, `[::1]`, `127.x.x.x`) unless `--insecure` is given, because the host key would travel in clear text.
+
 It creates a table, joins one player (sending the `Origin` a browser would), sends a 320 KiB GM frame and checks it
 arrives whole, waits 110 s and checks both sockets are still open, uploads one 8 MiB part and completes it, and
 ends the table. One line per check, `PASS` or `FAIL`; the exit code is 0 only if all pass. `--quick` skips the

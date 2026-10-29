@@ -86,6 +86,8 @@ npm run bundle:relay                                  # dist/relay-bundle(.tgz):
 HOST_KEY=... npm run probe:relay -- https://play.example.com   # remote checks (--quick skips the 110 s idle wait)
 ```
 
+`probe:relay` refuses a plain `http:` address that is not loopback (`localhost`, `[::1]`, `127.x.x.x`) unless `--insecure` is given, because the host key would travel in clear text.
+
 Environment variables and the reverse proxy note are in `apps/relay/README.md`; deploying is in `docs/fork/deployment.md`.
 
 The relay also keeps the GM's map and token images (`ASSET_DIR`, 2 GiB per table, 10 GiB per

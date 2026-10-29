@@ -27,7 +27,6 @@ export const onlineGm = {
   'onlineGm.account.signedInRefused': 'Signed in as {account}. {reason}',
   'onlineGm.account.signedInPlan': 'Signed in as {account} · {plan}',
   'onlineGm.account.signedOut': 'Not signed in. Sign in to host online tables with your Atlas account.',
-  'onlineGm.account.heading': 'Online account',
   'onlineGm.account.name': 'Atlas account',
   'onlineGm.account.signOut': 'Sign out',
   'onlineGm.account.signIn': 'Sign in',

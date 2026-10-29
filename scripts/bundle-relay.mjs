@@ -98,7 +98,14 @@ function main() {
 
   const tgz = `${out}.tgz`;
   rmSync(tgz, { force: true });
-  run('tar', [...tarFlags(), '-czf', tgz, '-C', out, '.'], { env: { ...process.env, COPYFILE_DISABLE: '1' } });
+  const tarEnv = { ...process.env, COPYFILE_DISABLE: '1' };
+  const tarArgs = ['-czf', tgz, '-C', out, '.'];
+  const flags = tarFlags();
+  // A tar that rejects the metadata flags exits non-zero: try once more without them.
+  if (flags.length === 0 || spawnSync('tar', [...flags, ...tarArgs], { stdio: 'inherit', env: tarEnv }).status !== 0) {
+    if (flags.length > 0) rmSync(tgz, { force: true });
+    run('tar', tarArgs, { env: tarEnv });
+  }
   const files = walk(out).map((file) => relative(out, file)).sort();
   console.log(files.join('\n'));
   console.log(`\n${files.length} files, ${(statSync(tgz).size / 1024 / 1024).toFixed(2)} MiB: ${tgz}`);
