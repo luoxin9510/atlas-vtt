@@ -208,7 +208,7 @@ describe('tightening', () => {
 	});
 
 	it('drops an image caption that is the file name', async () => {
-		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]', '![Secret%20Map.png](Secret%20Map.png)', '![Secret%20Map](Secret%20Map.png)', '![Secret Map.png](Secret%20Map.png)', '![%53ecret.png](Secret.png)']) {
+		for (const text of ['![Secret.png](Secret.png)', '![secret](Folder/Secret.png)', '![[Secret.png|Secret.png]]', '![[my secret.png|My_Secret]]', '![Secret%20Map.png](Secret%20Map.png)', '![Secret%20Map](Secret%20Map.png)', '![Secret Map.png](Secret%20Map.png)', '![%53ecret.png](Secret.png)', '![Sécret](Sécret.png)', '![Folder/Secret.png](Folder/Secret.png)', '![Secret%2520Map](Secret%20Map.png)', '![[Folder/Secret.png|Folder/Secret]]']) {
 			expect(await copy(text), text).toMatch(/^!\[\]\(atlas-asset:/);
 		}
 		expect(await copy('![[Secret.png|The Secret]]')).toMatch(/^!\[The Secret\]/);
@@ -228,6 +228,33 @@ describe('tightening', () => {
 		expect(await copy('a [[Secret|a]b]] c')).toBe('a  c\n');
 		expect(await copy('a [[Secret#h]b]] c')).toBe('a  c\n');
 		expect(await copy('a [[Secret never closed')).toBe('a\n');
+	});
+
+	it('drops a broken wikilink that spans sibling nodes', async () => {
+		for (const text of ['[[Secret [x](https://a.b) rest]] tail', 'a [[Secret `code` more x rest']) {
+			const out = await copy(text);
+			expect(out, text).not.toContain('Secret');
+			expect(out, text).not.toContain('rest');
+			expect(out, text).not.toContain(']]');
+		}
+		// a span does not cross a block: the next paragraph is kept as typed
+		expect(await copy('[[Secret *em* more\n\nnext]] tail')).not.toContain('Secret');
+		expect(await copy('a ![[Secret.png unclosed')).not.toContain('!');
+	});
+
+	it('refuses an image ref whose hash is not lowercase hex', async () => {
+		for (const hash of ['Z'.repeat(64), 'a'.repeat(63) + ')', 'A'.repeat(64)]) {
+			const result = await copyForPlayers(parseNote('![[A.png]]'), { ...targets, image: async () => ({ hash, size: 1, mime: 'image/png' }) });
+			expect(result.markdown, hash).toBe('');
+			expect(result.images.size, hash).toBe(0);
+		}
+	});
+
+	it('cuts the copy at an unclosed inline html comment', async () => {
+		const out = await copy('a <!-- unclosed SECRET\n\nSECRET2');
+		expect(out).not.toContain('SECRET');
+		expect(out).not.toContain('<!--');
+		expect(out).toContain('a');
 	});
 });
 

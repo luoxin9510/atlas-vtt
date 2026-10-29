@@ -45,10 +45,6 @@ function drop(node: Nodes, copy: Copy): [] {
 
 async function inline(node: PhrasingContent, copy: Copy, inLink: boolean): Promise<PhrasingContent[]> {
 	switch (node.type) {
-		case 'text': {
-			const value = withoutBrokenWikiLinks(node.value);
-			return value !== '' && safe(value, copy) ? [{ type: 'text', value }] : [];
-		}
 		case 'inlineCode':
 			return [{ type: 'inlineCode', value: node.value }];
 		case 'break':
@@ -77,13 +73,30 @@ async function inline(node: PhrasingContent, copy: Copy, inLink: boolean): Promi
 
 async function phrasing(nodes: readonly PhrasingContent[], copy: Copy, inLink: boolean): Promise<PhrasingContent[]> {
 	const out: PhrasingContent[] = [];
+	/** Inside a `[[` the parser did not take as a link: everything up to its `]]` is the typed target. */
+	let open = false;
 	for (let index = 0; index < nodes.length; index++) {
 		if (copy.cut) break;
 		const node = nodes[index]!;
 		if (node.type === 'html') {
 			const end = htmlEnd(nodes, index);
-			for (const hidden of nodes.slice(index, end)) drop(hidden, copy);
+			for (const hidden of nodes.slice(index, end)) {
+				if (isOpenHtmlComment(hidden)) copy.cut = true;
+				drop(hidden, copy);
+			}
 			index = end - 1;
+			continue;
+		}
+		if (node.type === 'text') {
+			const cutAt = node.value.indexOf('<!--');
+			if (cutAt >= 0) copy.cut = true;
+			const result = withoutBrokenWikiLinks(cutAt < 0 ? node.value : node.value.slice(0, cutAt), open);
+			open = result.open;
+			if (result.text !== '' && safe(result.text, copy)) out.push({ type: 'text', value: result.text });
+			continue;
+		}
+		if (open) {
+			drop(node, copy);
 			continue;
 		}
 		out.push(...(await inline(node, copy, inLink)));
@@ -118,21 +131,41 @@ async function markdownLink(url: string, text: string, children: PhrasingContent
 	return children.length > 0 ? children : noteLink(note.id, note.title, copy, inLink);
 }
 
-/** Drops each `[[` up to its `]]` (or the end of the text): a wikilink the parser did not take must not show its typed target. */
-function withoutBrokenWikiLinks(value: string): string {
-	let out = value;
-	for (let start = out.indexOf('[['); start >= 0; start = out.indexOf('[[')) {
-		const end = out.indexOf(']]', start + 2);
-		out = out.slice(0, start) + (end < 0 ? '' : out.slice(end + 2));
+/**
+ * Drops each `[[` up to its `]]` (or, with `open` set on return, to the end of the text): a wikilink the parser
+ * did not take must not show its typed target. `open` says the text starts inside such a `[[`. A `!` before it goes too.
+ */
+function withoutBrokenWikiLinks(value: string, open: boolean): { text: string; open: boolean } {
+	let text = '';
+	let position = 0;
+	if (open) {
+		const close = value.indexOf(']]');
+		if (close < 0) return { text: '', open: true };
+		position = close + 2;
 	}
-	return out;
+	for (;;) {
+		const start = value.indexOf('[[', position);
+		if (start < 0) return { text: text + value.slice(position), open: false };
+		const before = value.slice(position, start);
+		text += before.endsWith('!') ? before.slice(0, -1) : before;
+		const close = value.indexOf(']]', start + 2);
+		if (close < 0) return { text, open: true };
+		position = close + 2;
+	}
+}
+
+/** Whether a raw html node opens a comment it never closes. */
+function isOpenHtmlComment(node: Nodes): boolean {
+	return node.type === 'html' && node.value.startsWith('<!--') && !node.value.includes('-->');
 }
 
 function imageNode(ref: Parameters<typeof assetImageHref>[0], path: string, written: string, copy: Copy): PhrasingContent[] {
+	const href = assetImageHref(ref);
+	if (assetImageOf(href) === null) return [];
 	const caption = namesTheFile(written, path) ? '' : written;
 	if (!safe(caption, copy)) return [];
 	if (!copy.images.has(ref.hash)) copy.images.set(ref.hash, path);
-	return [{ type: 'image', url: assetImageHref(ref), alt: caption, title: null }];
+	return [{ type: 'image', url: href, alt: caption, title: null }];
 }
 
 async function markdownImage(url: string, alt: string, copy: Copy): Promise<PhrasingContent[]> {
