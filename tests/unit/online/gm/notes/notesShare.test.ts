@@ -372,6 +372,24 @@ describe('NotesShare', () => {
         expect(reads).toHaveBeenCalledTimes(5);
       });
 
+      it('withdraws a note at once when a title its copy names is gone, whatever an old failure left behind', async () => {
+        table = await started({ 'A.md': shared('See [[B|b]] and [[C|c]].'), 'B.md': shared('B.'), 'C.md': 'Not shared.' });
+        const reads = vi.spyOn(table.vault.app.vault, 'read').mockRejectedValueOnce(new Error('busy'));
+        reads.mockClear();
+        table.vault.write('A.md', shared('See [[B|b]] and [[C|c]]!'));
+        await settled();
+        expect(titles(table)).toEqual(['B']);
+        table.vault.write('C.md', shared('C.'));
+        await settled();
+        expect(titles(table)).toEqual(['A', 'B', 'C']);
+        table.dropped.length = 0;
+        table.vault.write('C.md', 'Not shared.');
+        expect(titles(table)).toEqual(['B']);
+        await settled();
+        expect(titles(table)).toEqual(['A', 'B']);
+        expect(await table.text(idOf(table, 'A'))).toBe(`See [b](atlas-note:${idOf(table, 'B')}) and c!`);
+      });
+
       it('does not retry a copy that is too large', async () => {
         const time = clock();
         table = await started({ 'Keep.md': shared('Short.') }, { maxBytes: 64, timers: time });

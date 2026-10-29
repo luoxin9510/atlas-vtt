@@ -57,4 +57,16 @@ describe('FailedReads', () => {
     expect(time.pending).toBe(0);
     expect(failed.skip('b.md', 's1')).toBe(false);
   });
+
+  it('forgets the attempts too, once a timer has fired', () => {
+    for (const forget of [(failed: FailedReads): void => failed.clear('a.md'), (failed: FailedReads): void => failed.retain(new Set()), (failed: FailedReads): void => failed.clearAll()]) {
+      const time = clock();
+      const failed = new FailedReads(time, () => undefined, [10]);
+      failed.mark('a.md', 's1', true);
+      time.advance(10);
+      forget(failed);
+      failed.mark('a.md', 's1', true);
+      expect(time.pending).toBe(1);
+    }
+  });
 });

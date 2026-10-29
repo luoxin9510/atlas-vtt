@@ -51,11 +51,15 @@ export class FailedReads {
 
   /** Forgets every note not in `keep`. */
   retain(keep: ReadonlySet<string>): void {
-    for (const path of [...this.stamps.keys(), ...this.timers.keys()]) if (!keep.has(path)) this.clear(path);
+    for (const path of this.known()) if (!keep.has(path)) this.clear(path);
   }
 
   clearAll(): void {
-    for (const path of [...this.stamps.keys(), ...this.timers.keys()]) this.clear(path);
+    for (const path of this.known()) this.clear(path);
+  }
+
+  private known(): string[] {
+    return [...new Set([...this.stamps.keys(), ...this.timers.keys(), ...this.attempts.keys()])];
   }
 
   private cancel(path: string): void {

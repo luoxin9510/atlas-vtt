@@ -198,12 +198,12 @@ export class NotesShare {
     const reads: Array<readonly [string, LinkState]> = [];
     for (const path of shared) {
       const state = linkState(this.ports.app.metadataCache.resolvedLinks[path] ?? {}, (target) => this.set.info(target));
-      if (dirty.has(path)) this.failed.clear(path);
-      else if (this.failed.skip(path, this.stamp(path, state.key))) continue;
       const entry = this.entries.get(path);
       const reading = this.building.get(path);
-      // A title the copy may show that is gone or changed withdraws it now; a link that only appeared leaves it listed until it is read again.
+      // A title the copy may show that is gone or changed withdraws it now, whatever a failed read left; a link that only appeared leaves it listed until it is read again.
       if (entry !== undefined && ![...entry.shown].every((pair) => state.shown.has(pair))) removed = this.entries.delete(path) || removed;
+      if (dirty.has(path)) this.failed.clear(path);
+      else if (this.failed.skip(path, this.stamp(path, state.key))) continue;
       if (dirty.has(path) || (reading !== undefined ? reading !== state.key : entry?.linkKey !== state.key)) reads.push([path, state]);
     }
     if (removed) this.settle();
@@ -245,6 +245,7 @@ export class NotesShare {
       const ref = { hash: await sha256Hex(bytes), size: bytes.length, mime: TEXT_MIME_TYPE };
       if (this.turns.get(path) !== turn || this.epoch !== epoch || this.set.info(path)?.id !== info.id) return;
       this.entries.set(path, { id: info.id, title: info.title, group: info.group, ref, bytes, images: copy.images, linkKey: key, shown: state.shown, embeds: source.includes('![') });
+      this.failed.clear(path);
       this.settle();
     } catch {
       // Nothing is logged: it would name the note.
