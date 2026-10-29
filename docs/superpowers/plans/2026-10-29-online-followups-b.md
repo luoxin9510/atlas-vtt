@@ -198,9 +198,32 @@
   - drop the `knockStack` `NAME` note.
 - [ ] **Step 5: Commit** `Tests: split the relay players suite; update follow-ups`.
 
+### Task 9: Settings refresh on Obsidian 1.13+ and a fork plugin id for local installs (found in the phone test)
+
+**Files:**
+- Modify: `src/app/settings/AtlasSettingTab.ts`, `main.ts` (the `AtlasSettingTab` wiring), `src/app/plugin/onlinePlay.ts`, `scripts/copy-plugin.js`, `scripts/worktree-targets.js`, `docs/fork/FORK_GUIDE.md` (Dev vault section)
+- Test: `tests/unit/settings/atlasSettingTab.test.ts` (create if missing), `tests/unit/online/onlinePlaySwitch.test.ts`, a unit test for the manifest derivation
+
+**Interfaces:**
+- `AtlasSettingTab.refresh(): void`: calls Obsidian's `update()` where it exists (1.13+); older Obsidian re-renders through `display()` while the tab is shown.
+- `registerOnlinePlay(plugin, settings, onSectionsChanged: () => void)`: called when the feature becomes ready, when the experimental switch loads or unloads it, and on `serverChanged`.
+- `forkManifest(manifest: Manifest): Manifest` in `scripts/forkManifest.js`: `id: 'atlas-vtt-fork'`, `name: 'Atlas VTT (fork)'`, `version: <version>-fork`, description + `' Self-hosted online fork (luoxin9510/atlas-vtt).'`, every other field as is.
+
+- [ ] **Step 1: Failing tests:**
+  - a tab built with sections that grow after construction shows them after `refresh()` (fake `update`);
+  - `registerOnlinePlay` calls `onSectionsChanged` once the data was read and when the switch turns it off;
+  - `forkManifest` gives the exact values above and leaves `minAppVersion` and `author` alone.
+- [ ] **Step 2:** Implement.
+  - `copy-plugin.js` writes `forkManifest(root manifest)` and copies into `.obsidian/plugins/atlas-vtt-fork/`, the target folder named in `worktree-targets.js`.
+  - The repository's `manifest.json` is never changed (fork rule).
+  - FORK_GUIDE explains why the installed id differs: the community store would "update" `atlas-vtt` to the official release. It also says never to enable both.
+- [ ] **Step 3:** Run tsc, lint, and the unit tests for settings, online and scripts. Do NOT run `npm run build`; the controller installs.
+- [ ] **Step 4: Commit** `Fix online settings on Obsidian 1.13+; install the fork under its own id`.
+
 ## Rulings in this plan
 
 - An unclosed inline `<!--` fails closed: it cuts the copy like an unclosed `%%`. This is chosen over matching Obsidian's rendering. If wrong, a note with a stray `<!--` shows less to players.
 - A frontmatter block closed by `...`, or preceded by a blank line, stays visible as text. That matches CommonMark and how Obsidian detects frontmatter: it must start at byte 0 and close with `---`. The controller checks this against Obsidian before the final review; if Obsidian hides it, Task 2's rule extends to it.
 - A default callout title is the type with its first letter capitalised and is not translated, as in Obsidian.
 - A failed read is retried 3 times (after 2 s, 10 s and 60 s), only for read errors and never for oversize notes.
+- Local installs use the plugin id `atlas-vtt-fork` (user request 2026-10-29: never run the official release again). The repository manifest keeps `atlas-vtt`, so upstream merges stay clean.
