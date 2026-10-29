@@ -81,7 +81,8 @@ describe('crash handler', () => {
     const error = Object.assign(new TypeError('bad thing'), { body: 'SECRET-BODY', headers: { authorization: 'SECRET-KEY' } });
     crashHandlers(log, exit).onException(error);
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log).toHaveBeenCalledWith('relay crashed (uncaughtException): TypeError: bad thing');
+    expect(log).toHaveBeenCalledWith('relay crashed (uncaughtException): TypeError');
+    expect(String(log.mock.calls[0]?.[0])).not.toContain('bad thing');
     expect(String(log.mock.calls[0]?.[0])).not.toContain('SECRET');
     expect(exit).toHaveBeenCalledWith(1);
   });
@@ -92,6 +93,18 @@ describe('crash handler', () => {
     expect([process.listenerCount('uncaughtException'), process.listenerCount('unhandledRejection')]).toEqual([before[0]! + 1, before[1]! + 1]);
     remove();
     expect([process.listenerCount('uncaughtException'), process.listenerCount('unhandledRejection')]).toEqual(before);
+  });
+
+  it('names a string error code but never the message', () => {
+    const error = Object.assign(new Error('ENOENT: open /secret/path'), { code: 'ENOENT' });
+    expect(crashLine('uncaughtException', error)).toBe('relay crashed (uncaughtException): Error ENOENT');
+  });
+
+  it('still exits when logging throws', () => {
+    const exit = vi.fn();
+    const log = vi.fn(() => { throw new Error('log failed'); });
+    expect(() => crashHandlers(log, exit).onRejection(new Error('x'))).toThrow('log failed');
+    expect(exit).toHaveBeenCalledWith(1);
   });
 
   it('handles a rejection with a non-error value without printing it', () => {
