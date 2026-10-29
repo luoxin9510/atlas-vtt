@@ -108,9 +108,16 @@ its `.obsidian` folder already exists, and it reads extra vaults from
 `ATLAS_DEV_VAULTS`. `.envrc` (direnv, gitignored) exports
 `ATLAS_DEV_VAULTS="$PWD/dev-vault"`, so `npm run dev` and `npm run build`
 copy `main.js`, `styles.css` and `manifest.json` into
-`dev-vault/.obsidian/plugins/atlas-vtt/`. Without direnv, prefix the command:
+`dev-vault/.obsidian/plugins/atlas-vtt-fork/`. Without direnv, prefix the command:
 `ATLAS_DEV_VAULTS="$PWD/dev-vault" npm run dev`. Open `dev-vault` as a vault
 in Obsidian and enable community plugins once.
+
+Local installs carry the id `atlas-vtt-fork` (name "Atlas VTT (fork)", version
+`<version>-fork`). `scripts/copy-plugin.js` writes that manifest through
+`scripts/forkManifest.js`; the repository's `manifest.json` keeps `atlas-vtt`
+and is never changed, so upstream merges stay clean. The reason: the community
+store would "update" a plugin installed as `atlas-vtt` to the official
+release, replacing this fork. Never enable both plugins in one vault.
 
 ## Conventions distilled from upstream (summary, not a replacement)
 

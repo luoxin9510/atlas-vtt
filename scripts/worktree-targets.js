@@ -90,16 +90,16 @@ function getPluginTargetDirs(
 
   const workspaceVaultRoot = findNearestVaultRoot(projectRoot, exists);
   if (workspaceVaultRoot) {
-    addTarget('workspace-vault', path.join(workspaceVaultRoot, '.obsidian/plugins/atlas-vtt'));
+    addTarget('workspace-vault', path.join(workspaceVaultRoot, '.obsidian/plugins/atlas-vtt-fork'));
   }
 
-  addTarget('test-vault', path.join(mainRoot, 'test-vault/.obsidian/plugins/atlas-vtt'));
+  addTarget('test-vault', path.join(mainRoot, 'test-vault/.obsidian/plugins/atlas-vtt-fork'));
 
   // Extra vaults to copy builds into, e.g. ATLAS_DEV_VAULTS="/path/to/VaultA:/path/to/VaultB"
   (process.env.ATLAS_DEV_VAULTS || '')
     .split(path.delimiter)
     .filter(Boolean)
-    .forEach((vaultRoot) => addTarget(path.basename(vaultRoot), path.join(vaultRoot, '.obsidian/plugins/atlas-vtt')));
+    .forEach((vaultRoot) => addTarget(path.basename(vaultRoot), path.join(vaultRoot, '.obsidian/plugins/atlas-vtt-fork')));
 
   // Never create a vault: only copy into vaults that already exist on this machine.
   return targets.filter((target) => exists(path.resolve(target.dirPath, '../..')));

@@ -78,7 +78,7 @@ describe('worktree target resolution', () => {
     expect(targets).toEqual([
       {
         label: 'test-vault',
-        dirPath: path.join('/repo/main', 'test-vault/.obsidian/plugins/atlas-vtt'),
+        dirPath: path.join('/repo/main', 'test-vault/.obsidian/plugins/atlas-vtt-fork'),
       },
     ]);
   });
@@ -100,11 +100,11 @@ describe('worktree target resolution', () => {
     expect(targets).toEqual([
       {
         label: 'workspace-vault',
-        dirPath: path.join('/Users/tester/Github', '.obsidian/plugins/atlas-vtt'),
+        dirPath: path.join('/Users/tester/Github', '.obsidian/plugins/atlas-vtt-fork'),
       },
       {
         label: 'test-vault',
-        dirPath: path.join('/Users/tester/Github/atlas-vtt', 'test-vault/.obsidian/plugins/atlas-vtt'),
+        dirPath: path.join('/Users/tester/Github/atlas-vtt', 'test-vault/.obsidian/plugins/atlas-vtt-fork'),
       },
     ]);
   });

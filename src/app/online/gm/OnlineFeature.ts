@@ -81,7 +81,7 @@ export class OnlineFeature extends Component {
   private ready = false;
   private readonly commands = new Map<OnlineCommandId, (checking: boolean) => boolean>();
 
-  constructor(private readonly plugin: Plugin, private readonly data: OnlineDataFile) {
+  constructor(private readonly plugin: Plugin, private readonly data: OnlineDataFile, private readonly onSectionsChanged: () => void = () => undefined) {
     super();
     this.app = plugin.app;
     const campaigns = this.campaigns();
@@ -104,6 +104,11 @@ export class OnlineFeature extends Component {
   /** Online play's sections of Atlas's settings; none until its data was read, so no row can save over it. */
   settingsSections(): AtlasSettingSection[] {
     return this.ready ? onlineSettingsSections(this) : [];
+  }
+
+  /** The server section changed what the settings show (the host key row comes and goes). */
+  sectionsChanged(): void {
+    this.onSectionsChanged();
   }
 
   /** Runs one of online play's commands, or checks whether it can run now. */
@@ -138,6 +143,8 @@ export class OnlineFeature extends Component {
     // The module-wide server address goes with this feature.
     this.register(() => setServerOrigin(null));
     this.ready = true;
+    // Obsidian 1.13+ reads the settings' sections once: tell it these exist now.
+    this.onSectionsChanged();
     const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
     const campaigns = this.campaigns();
     const ownership = new Ownership(playedSeats(campaigns));

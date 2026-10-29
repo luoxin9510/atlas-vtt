@@ -199,9 +199,10 @@ export default class AtlasVTTPlugin extends Plugin {
     this.globalAssetManager = new GlobalAssetManagerService(this.app);
     this.imageDisplayService = new ImageDisplayService(this.app);
 
-    const onlinePlay = registerOnlinePlay(this, this.settingsService);
+    let settingTab: AtlasSettingTab | null = null;
+    const onlinePlay = registerOnlinePlay(this, this.settingsService, () => settingTab?.refresh());
     this.onlinePlay = onlinePlay;
-    this.addSettingTab(new AtlasSettingTab(this.app, this, () => [
+    settingTab = new AtlasSettingTab(this.app, this, () => [
       languageSettingsSection(deviceStorage()),
       navigationSettingsSection(this.settingsService),
       diceSettingsSection(this.settingsService),
@@ -212,7 +213,8 @@ export default class AtlasVTTPlugin extends Plugin {
       changelogSettingsSection(this.settingsService, changelogService, this.manifest.version, updateWatch),
       ...onlinePlay.settingsSections(),
       supportSettingsSection(issueReporter),
-    ]));
+    ]);
+    this.addSettingTab(settingTab);
     this.registerEditorSuggest(new HeaderAutocompleteSuggest(this.app));
     registerAtlasLinks(this);
     registerAtlasLeafSync(this);
