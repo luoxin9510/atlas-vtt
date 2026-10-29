@@ -73,6 +73,8 @@ function pump(socket: WebSocket, box: Outbox): void {
     box.budget.release(payload);
     feed(socket, box, payload.text);
   }
+  // A drained outbox holds nothing: the budget must not pick it.
+  if (box.queue.length === 0) box.budget.forget(socket);
   const closing = box.closing;
   if (closing !== null && box.queue.length === 0 && socket.readyState === WebSocket.OPEN) {
     clearTimeout(closing.timer);
@@ -96,7 +98,10 @@ export function closeWhenSent(socket: WebSocket, code: number, reason?: string):
   if (box.closing !== null) return;
   const timer = setTimeout(() => {
     dropOutbox(socket);
-    if (socket.readyState === WebSocket.OPEN) socket.close(code, reason);
+    if (socket.readyState !== WebSocket.OPEN) return;
+    socket.close(code, reason);
+    // The peer reads nothing: the close frame has had its chance; cut the connection and free ws's buffer.
+    setTimeout(() => socket.terminate(), OVERLOAD_TERMINATE_MS).unref();
   }, CLOSE_FLUSH_MS);
   timer.unref();
   box.closing = { code, reason, timer };

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { WebSocket } from 'ws';
 import { CLOSE } from '../../../src/app/online/protocol/relay.ts';
 import { Backlog, payloadOf } from '../../../apps/relay/src/backlog.ts';
-import { queuedBytes } from '../../../apps/relay/src/routing.ts';
+import { pushPayload, queuedBytes } from '../../../apps/relay/src/routing.ts';
 import { CODE, joined } from './playerHarness.ts';
 import { useTables } from './tableSuite.ts';
 
@@ -99,9 +100,9 @@ describe('the relay-wide budget', () => {
     const { gm, relay, seats } = await seat(2, { maxTotalBacklogBytes: 4 * MIB });
     const [a, b] = seats as [Joined, Joined];
     const closing = vi.spyOn(relay.links.peek(CODE)!.players.get(b.id)!.socket, 'close');
-    for (let i = 0; i < 200 && !left(gm, b.id); i += 1) {
+    for (let i = 0; i < 200 && closing.mock.calls.length === 0; i += 1) {
       await gm.send({ t: 'send', to: b.id, body: CHUNK });
-      if (i % 3 === 0) await gm.send({ t: 'send', to: a.id, body: CHUNK });
+      if (i % 8 === 0) await gm.send({ t: 'send', to: a.id, body: CHUNK });
     }
     await vi.waitFor(() => expect(left(gm, b.id)).toBe(true), { timeout: 10_000 });
     expect(left(gm, a.id)).toBe(false);
@@ -142,5 +143,36 @@ describe('Backlog accounting', () => {
     expect(budget.victim()).toBe(gm.socket);
     budget.forget(gm.socket);
     expect(budget.victim()).toBeNull();
+  });
+});
+
+describe('the budget and idle sockets', () => {
+  function fake(): { socket: WebSocket; close: ReturnType<typeof vi.fn>; sent: Array<() => void>; buffered(amount: number): void } {
+    const close = vi.fn();
+    const sent: Array<() => void> = [];
+    const state = { readyState: 1, bufferedAmount: 0, close, terminate: vi.fn(), send: (_text: string, done: () => void): void => void sent.push(done) };
+    return { socket: state as unknown as WebSocket, close, sent, buffered: (amount) => void (state.bufferedAmount = amount) };
+  }
+
+  it('closes the GM with 1013, and no idle player, when the GM holds the backlog', () => {
+    const budget = new Backlog(1 * MIB);
+    const limits = { perSocket: 64 * MIB, budget };
+    const players = [fake(), fake()];
+    for (const player of players) {
+      // The player had a queue once, and it has drained since.
+      pushPayload(player.socket, payloadOf('hello'), limits);
+      player.buffered(2 * MIB);
+      pushPayload(player.socket, payloadOf('late'), limits);
+      player.buffered(0);
+      player.sent[0]?.();
+    }
+    expect(budget.bytes).toBe(0);
+    const gm = fake();
+    budget.markGm(gm.socket);
+    gm.buffered(2 * MIB);
+    pushPayload(gm.socket, payloadOf('x'.repeat(3 * MIB)), limits);
+    expect(gm.close).toHaveBeenCalledWith(1013);
+    for (const player of players) expect(player.close).not.toHaveBeenCalled();
+    expect(budget.bytes).toBe(0);
   });
 });

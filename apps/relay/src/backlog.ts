@@ -24,7 +24,7 @@ export interface Held {
  * The relay-wide memory budget. `bytes` is the sum over distinct payloads that at least one outbox
  * holds: a payload is added when its first holder queues it and removed when its last holder sends it,
  * drops it, or is dropped itself. When `bytes` passes `limit`, `victim` names the socket to cut off:
- * the largest backlog among non-GM sockets, the GM's own socket only when nothing else is queued.
+ * the largest backlog among non-GM sockets that have bytes queued, the GM's own socket only when no such player has any.
  */
 export class Backlog {
   readonly limit: number;
@@ -59,7 +59,7 @@ export class Backlog {
     if (payload.refs === 0) this.#bytes -= payload.text.length;
   }
 
-  /** The socket has nothing queued any more (or is gone). */
+  /** The socket has nothing queued any more (or is gone): it is no candidate for `victim`. */
   forget(socket: WebSocket): void {
     this.#held.delete(socket);
   }
@@ -68,13 +68,14 @@ export class Backlog {
     return this.#bytes > this.limit;
   }
 
-  /** The socket with the largest backlog (queued plus buffered), players before the GM; null when nothing is queued. */
+  /** The socket with the largest backlog (queued plus buffered) among those with queued bytes, players before the GM; null when no outbox holds a payload. */
   victim(): WebSocket | null {
     let players: WebSocket | null = null;
     let gm: WebSocket | null = null;
     let playersSize = -1;
     let gmSize = -1;
     for (const [socket, box] of this.#held) {
+      if (box.queued <= 0) continue;
       const size = box.queued + socket.bufferedAmount;
       if (this.#gms.has(socket)) {
         if (size > gmSize) [gm, gmSize] = [socket, size];
