@@ -23,21 +23,34 @@ function heldParts(json: unknown): ReadonlySet<number> | null | undefined {
   return Array.isArray(parts) && parts.every((part) => typeof part === 'number') ? new Set<number>(parts) : undefined;
 }
 
-/** How an upload ended: `busy` when the relay said 429 (try again soon), `failed` for anything else. */
-export type UploadOutcome = 'ok' | 'busy' | 'failed';
+/** Why the relay's image cache cannot take an image: its disk is full (507), it is busy (429), it refuses the image (413/415/422) or cannot be reached. */
+export type ImageCacheReason = 'full' | 'busy' | 'refused' | 'unreachable';
+
+/** How an upload ended: a reason where the cache is unavailable, `failed` for anything else (a 5xx, a malformed answer). */
+export type UploadOutcome = 'ok' | ImageCacheReason | 'failed';
+
+/** The reason an answer's status stands for; null for a status that says nothing about the cache (a 5xx, a 404). `undefined` and 0 are no answer. */
+export function reasonOfStatus(status: number | undefined): ImageCacheReason | null {
+  if (status === undefined || status === 0) return 'unreachable';
+  if (status === 507) return 'full';
+  if (status === 429) return 'busy';
+  return status === 413 || status === 415 || status === 422 ? 'refused' : null;
+}
+
+const outcomeOf = (status: number | undefined): UploadOutcome => reasonOfStatus(status) ?? 'failed';
 
 /** A part is tried again after a network error or a 5xx other than 507; 429, 507 and the other 4xx end it at once. */
 async function putPart(http: BinaryHttp, table: TableAccess, hash: string, index: number, bytes: Uint8Array): Promise<UploadOutcome> {
   const slice = bytes.slice(index * PART_BYTES, (index + 1) * PART_BYTES);
+  let last: number | undefined;
   for (let attempt = 0; attempt < TRIES; attempt += 1) {
     const answer = await http({ url: assetUrl(table, hash, `/parts/${index}`), method: 'PUT', secret: table.secret, body: slice.buffer }).catch(() => null);
     if (answer?.status === 200) return 'ok';
-    if (answer !== null && (answer.status === 429 || (answer.status >= 400 && answer.status < 500) || answer.status === 507)) return answer.status === 429 ? 'busy' : 'failed';
+    last = answer?.status;
+    if (answer !== null && (answer.status === 429 || (answer.status >= 400 && answer.status < 500) || answer.status === 507)) return outcomeOf(answer.status);
   }
-  return 'failed';
+  return outcomeOf(last);
 }
-
-const outcomeOf = (status: number | undefined): UploadOutcome => (status === 429 ? 'busy' : 'failed');
 
 /**
  * Puts the image `hash` (`bytes`) into the table's server cache: asks which parts the relay holds,

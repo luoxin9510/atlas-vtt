@@ -4,6 +4,7 @@ import { showNotice } from '../../ui/notice';
 import { randomHex } from '../../utils/randomHex';
 import { ArmedCards } from './armedCards.ts';
 import { AssetTickets } from './assetUpload/AssetTickets.ts';
+import type { ImageCacheReason } from './assetUpload/uploadAsset.ts';
 import { obsidianBinaryHttp } from './assetUpload/binaryHttp.ts';
 import { scaleInWindow } from './assetVariants.ts';
 import { ATLAS_VIEW_TYPE, type SceneStore } from './atlasView.ts';
@@ -86,12 +87,16 @@ export class OnlineTable {
   /** The fork level each player's app declared. */
   private readonly forkClients: ForkClients;
   private readonly pauseShare: PauseShare;
+  /** Why the relay's image cache cannot be used now (images go over the socket); null while it can. */
+  get imageCache(): ImageCacheReason | null {
+    return this.tickets.status;
+  }
   /** Download tickets of the images this table keeps on the server. */
   private readonly tickets: AssetTickets;
 
   constructor(app: App, origin: string, table: CreatedTable, mapPath: string | null, ownership: Ownership, seats: TableSeats, gate: GateSettings, paused: boolean, events: OnlineTableEvents, shelf: BookShelf, savedLog?: unknown) {
     this.app = app;
-    this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now());
+    this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now(), () => events.changed());
     this.forkClients = new ForkClients((player) => {
       this.pauseShare.client(player);
       this.notes.client(player);
