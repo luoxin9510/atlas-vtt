@@ -1,6 +1,6 @@
 import type { AtlasSettingSection } from '../../settings/settingSections';
 import type { AccountControl } from './account/AccountControl.ts';
-import { accountSections } from './account/accountSettings.ts';
+import { accountRows } from './account/accountSettings.ts';
 import { COMPANION_REPORTS_NOTE } from './companionReports.ts';
 import { normalizeServerOrigin } from './servers.ts';
 import { serverSections } from './serverSettings.ts';
@@ -29,16 +29,17 @@ export interface OnlineSettingsHost {
   saveSettings(): Promise<void>;
 }
 
-/** Online play's sections of Atlas's settings: the account and error reports. */
+/** Online play's sections of Atlas's settings: the server and account, shared notes and error reports. */
 export function onlineSettingsSections(host: OnlineSettingsHost): AtlasSettingSection[] {
   const save = async (change: (settings: OnlineSettings) => void): Promise<void> => {
     change(host.settings);
     await host.saveSettings();
   };
   const settings = host.settings;
+  // The account row sits in the server section and shows or hides with the server setting, so no heading is left empty.
+  const server = serverSections(host).map((section) => ({ ...section, rows: [...section.rows, ...accountRows(host.account)] }));
   return [
-    ...serverSections(host),
-    ...accountSections(host.account),
+    ...server,
     {
       heading: t('onlineGm.notes.heading'),
       rows: [{ name: t('onlineGm.notes.name'), desc: t('onlineGm.notes.desc'), render: () => undefined }],

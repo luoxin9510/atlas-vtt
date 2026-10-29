@@ -11,10 +11,11 @@ export function applyServerSetting(settings: OnlineSettings): void {
 }
 
 export const SERVER_ADDRESS_HELP = t('onlineGm.server.addressHelp');
+const SERVER_ADDRESS_CLEARTEXT_HELP = t('onlineGm.server.addressHelpCleartext');
 export const SERVER_ADDRESS_INVALID = t('onlineGm.server.addressInvalid');
 /** The address row's description: its help, and the warning while the address would send the host key in clear text. */
 function addressDesc(origin: string): string {
-  return isCleartextRemote(origin) ? `${SERVER_ADDRESS_HELP} ${t('onlineGm.server.cleartextWarning')}` : SERVER_ADDRESS_HELP;
+  return isCleartextRemote(origin) ? SERVER_ADDRESS_CLEARTEXT_HELP : SERVER_ADDRESS_HELP;
 }
 
 const HOST_KEY_HELP = t('onlineGm.server.hostKeyHelp');

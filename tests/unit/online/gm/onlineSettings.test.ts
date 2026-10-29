@@ -3,7 +3,7 @@ import { Setting } from 'obsidian';
 import { describe, expect, it } from 'vitest';
 import { AccountControl } from '../../../../src/app/online/gm/account/AccountControl.ts';
 import type { HttpRequest, HttpResponse } from '../../../../src/app/online/gm/account/http.ts';
-import { relayOrigin, setServerOrigin } from '../../../../src/app/online/gm/servers.ts';
+import { relayOrigin, setServerOrigin, UPSTREAM_RELAY_ORIGIN } from '../../../../src/app/online/gm/servers.ts';
 import { DEFAULT_SETTINGS, onlineSettingsSections, readSettings, type OnlineSettings } from '../../../../src/app/online/gm/settings.ts';
 import { useUpstreamServer } from './upstreamServer.ts';
 
@@ -80,7 +80,7 @@ describe('online play\'s settings', () => {
 
   it('have the account and error reports, and neither a key that creates tables nor the relay\'s account data', () => {
     const drawn = draw(host({ status: 200, json: { account: MARA, access: null, reason: 'no-access' } }));
-    expect(drawn.headings).toEqual(['Online server', 'Online account', 'Shared notes', 'Online diagnostics']);
+    expect(drawn.headings).toEqual(['Online server', 'Shared notes', 'Online diagnostics']);
     expect(drawn.names).toEqual(['Online server address', 'Host key', 'Atlas account', 'How notes are shared', 'Send error reports']);
   });
 
@@ -178,10 +178,23 @@ describe('online play\'s settings', () => {
     expect(row.descEl.textContent).not.toContain(warning);
   });
 
-  it('list no account row, only the host key, when a self-hosted server is set', () => {
+  it('show the account row only while Atlas\'s own server is set, following the address in the same open tab', () => {
     setServerOrigin('https://tables.example.com');
-    const drawn = draw(host({ status: 200, json: {} }));
+    const of = host({ status: 200, json: {} });
+    const drawn = draw(of);
+    // Self-hosted: the host key is the Host key row's, and no account row (or heading) is shown.
     expect(drawn.headings).toEqual(['Online server', 'Shared notes', 'Online diagnostics']);
-    expect(drawn.names).toEqual(['Online server address', 'Host key', 'How notes are shared', 'Send error reports']);
+    const account = drawn.row('Atlas account');
+    const shown = (): boolean => account.settingEl.style.display !== 'none';
+    expect(shown()).toBe(false);
+    expect(drawn.row('Host key').settingEl.style.display).not.toBe('none');
+
+    typed(drawn.row('Online server address'), UPSTREAM_RELAY_ORIGIN);
+    expect(shown()).toBe(true);
+    expect(buttonsOf(account)).toContain('Open account page');
+    expect(drawn.row('Host key').settingEl.style.display).toBe('none');
+
+    typed(drawn.row('Online server address'), 'https://tables.example.com');
+    expect(shown()).toBe(false);
   });
 });
