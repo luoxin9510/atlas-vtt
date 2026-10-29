@@ -43,6 +43,8 @@ Whatever sits in front of the relay must do all of these. Check each one with th
 7. **A phone on mobile data.** Open the player link on a phone with Wi-Fi off, join, and watch a map load. Carrier
    networks are where idle timeouts and middleboxes show up.
 
+The relay sets its own HTTP limits (not configurable): 20 s for request headers, 300 s per request (an 8 MiB part upload fits down to about 28 KB/s), 95 s keep-alive (above cloudflared's 90 s idle), and at most 512 open connections, WebSockets included. WebSockets are not cut by the request timeouts. After an uncaught error the relay logs one line (name and message) and exits with code 1; the unit's `Restart=on-failure` brings it back in 3 s.
+
 ## 3. Prepare the server
 
 ```sh

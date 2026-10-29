@@ -1,11 +1,12 @@
 import { realpath } from 'node:fs/promises';
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import type { RelayConfig } from './config.ts';
 import { AssetStore, assetLimitsOf, SWEEP_INTERVAL_MS } from './assets/assetStore.ts';
 import { createHandler } from './http.ts';
 import { TableLinks } from './gmLink.ts';
+import { SERVER_LIMITS, type ServerLimits } from './serverLimits.ts';
 import { createSocketServer } from './socket.ts';
 import { TableRegistry } from './tables.ts';
 
@@ -15,6 +16,8 @@ export interface RunningRelay {
   readonly tables: TableRegistry;
   readonly links: TableLinks;
   readonly assets: AssetStore;
+  /** The HTTP server (for tests: its timeouts and cap). */
+  readonly httpServer: Server;
   /** How many TCP connections the HTTP server holds open right now (for tests and diagnostics). */
   openConnections(): Promise<number>;
   close(): Promise<void>;
@@ -26,8 +29,8 @@ async function realRoot(dir: string): Promise<string> {
   return realpath(absolute).catch(() => absolute);
 }
 
-/** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). */
-export async function startRelay(config: RelayConfig, log?: (line: string) => void): Promise<RunningRelay> {
+/** Starts the relay: HTTP and the table sockets. `log` gets one line per request (method, path without query, status). `limits` is for tests. */
+export async function startRelay(config: RelayConfig, log?: (line: string) => void, limits: ServerLimits = SERVER_LIMITS): Promise<RunningRelay> {
   const tables = new TableRegistry({ statePath: config.statePath, maxPlayers: config.maxPlayers, unhostedTableMs: config.timing.unhostedTableMs, log });
   tables.ensureTicketKey();
   const assets = await AssetStore.open(config.assetDir ?? join(dirname(config.statePath), 'assets'), assetLimitsOf(config), Date.now);
@@ -45,7 +48,11 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
   const handler = createHandler({ config: { ...config, staticDir }, tables, assets, log });
   const links = new TableLinks(tables, config.timing, config.maxBacklogBytes, config.maxTotalBacklogBytes);
   const sockets = createSocketServer(tables, links, config, log);
-  const server = createServer(handler);
+  const server = createServer({ connectionsCheckingInterval: limits.checkIntervalMs }, handler);
+  server.headersTimeout = limits.headersTimeoutMs;
+  server.requestTimeout = limits.requestTimeoutMs;
+  server.keepAliveTimeout = limits.keepAliveTimeoutMs;
+  server.maxConnections = limits.maxConnections;
   server.on('upgrade', (req, socket, head) => sockets.upgrade(req, socket, head));
   try {
     await new Promise<void>((done, fail) => {
@@ -67,6 +74,7 @@ export async function startRelay(config: RelayConfig, log?: (line: string) => vo
     tables,
     links,
     assets,
+    httpServer: server,
     openConnections: () => new Promise<number>((done, fail) => server.getConnections((error, count) => (error === null ? done(count) : fail(error)))),
     async close(): Promise<void> {
       clearInterval(sweeper);
