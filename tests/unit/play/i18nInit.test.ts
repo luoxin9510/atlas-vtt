@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { t } from '../../../src/app/i18n/index.ts';
 import { zh } from '../../../src/app/i18n/locales/zh/index.ts';
 import type { Translation } from '../../../src/app/i18n/types.ts';
-import { initLanguage } from '../../../apps/play/src/i18nInit.ts';
+import { LANGUAGE_LOAD_TIMEOUT_MS, initLanguage } from '../../../apps/play/src/i18nInit.ts';
 
 function storage(value: string | null): { getItem(key: string): string | null; setItem(key: string, value: string): void } {
   return { getItem: () => value, setItem: () => undefined };
@@ -29,7 +29,23 @@ describe('initLanguage', () => {
   it('falls back to English when the chunk fails', async () => {
     const l = { zh: vi.fn(() => Promise.reject(new Error('offline'))) };
     await expect(initLanguage(storage('zh'), 'zh-CN', l)).resolves.toBe('en');
-    expect(t('onlinePlay.tab.notes')).not.toBe('笔记');
+    expect(t('onlinePlay.app.title')).toBe('Atlas online table');
+  });
+
+  it('speaks Chinese by default', async () => {
+    await expect(initLanguage(null, 'en-US', loaders())).resolves.toBe('zh');
+  });
+
+  it('falls back to English when the chunk never arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = initLanguage(storage('zh'), 'en-US', { zh: () => new Promise<Translation>(() => undefined) });
+      await vi.advanceTimersByTimeAsync(LANGUAGE_LOAD_TIMEOUT_MS);
+      await expect(pending).resolves.toBe('en');
+      expect(t('onlinePlay.app.title')).toBe('Atlas online table');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('calls no loader for English', async () => {

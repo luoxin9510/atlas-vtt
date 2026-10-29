@@ -1,4 +1,5 @@
 import { initLanguage } from './i18nInit.ts';
+import { getLocale, t } from '../../../src/app/i18n/index.ts';
 import './theme.scss';
 import { browserStorage } from './browserStorage.ts';
 import { installDomHost } from '../../../src/app/host/dom.ts';
@@ -37,16 +38,15 @@ function onPageWake(wake: () => void): () => void {
 
 async function start(): Promise<void> {
   await initLanguage(browserStorage(), navigator.language);
-  const [{ createRoot }, { t, getLocale }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
+  const [{ createRoot }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
     import('react-dom/client'),
-    import('../../../src/app/i18n/index.ts'),
     import('./app/PlayApp.tsx'),
     import('./app/session.ts'),
     import('./scene/lowPower.ts'),
     import('./net/browserSocket.ts'),
   ]);
   const language = getLocale();
-  document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
+  document.documentElement.lang = language === 'zh' ? 'zh-CN' : language;
   document.title = t('onlinePlay.app.title');
   const storage = browserStorage();
   const secure = globalThis.crypto?.subtle !== undefined;
