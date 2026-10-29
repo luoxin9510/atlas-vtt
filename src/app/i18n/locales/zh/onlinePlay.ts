@@ -3,10 +3,10 @@ import type { Translation } from '../../types';
 export const onlinePlay: Translation = {
   'onlinePlay.app.title': 'Atlas 联机桌',
   'onlinePlay.legal.source': '源代码',
-  'onlinePlay.legal.licence': '许可证 (AGPL-3.0)',
+  'onlinePlay.legal.licence': '许可证（AGPL-3.0）',
   'onlinePlay.lit.preparing': '正在准备光照…',
   'onlinePlay.lit.unsupported': '此设备无法显示动态光照',
-  'onlinePlay.close.badSecret': '主持人密钥无效',
+  'onlinePlay.close.badSecret': '主持密钥无效',
   'onlinePlay.close.replaced': '你已从另一个标签页或设备加入此桌',
   'onlinePlay.close.full': '这桌已满',
   'onlinePlay.close.tooLarge': '有一条消息对此桌来说太大了',
@@ -92,6 +92,6 @@ export const onlinePlay: Translation = {
   'onlinePlay.initiative.opponents': '对手',
   'onlinePlay.players.gm': '主持人',
   'onlinePlay.players.you': '你',
-  'onlinePlay.players.away': '离开',
+  'onlinePlay.players.away': '暂离',
   'onlinePlay.turn.banner': '轮到你了！',
 };

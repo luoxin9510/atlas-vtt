@@ -19,7 +19,6 @@ Plan 2; pick them up when touching the code nearby.
 
 ## Plugin (`src/app/online`)
 - `OnlineControl.ts` is about 390 lines (over the ~300 guideline); extract the start / stray-table logic.
-- zh polish: `请求{button}` spacing, `由 你 发现`, `线上玩家` -> `联机玩家`; add 悄悄话, 讨论串, 中转服务器 to `zh-glossary.md`.
 - `knockStack.ts`: `NAME` constant sits between imports; `inviteQr.ts` trailing piece class; `aroundToken` drops the name if a translator drops the placeholder (covered by the placeholder test).
 
 ## Tests

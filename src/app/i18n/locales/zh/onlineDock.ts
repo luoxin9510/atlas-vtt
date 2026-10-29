@@ -74,7 +74,7 @@ export const onlineDock: Translation = {
   'onlineDock.knock.admit': '允许加入',
   'onlineDock.knock.region': '向主持人提出请求的玩家',
   'onlineDock.rest.nothing': '没有可恢复的内容',
-  'onlineDock.rest.label': '{character} 请求{button}',
+  'onlineDock.rest.label': '{character} 请求 {button}',
   'onlineDock.rest.approve': '批准',
   'onlineDock.seatsNote': '联机桌已满 · {seats}',
   'onlineDock.seats': { other: '{count} 个座位' },

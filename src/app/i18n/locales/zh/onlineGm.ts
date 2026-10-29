@@ -77,7 +77,7 @@ export const onlineGm: Translation = {
   'onlineGm.end.refused': '服务器关闭了联机桌。',
   'onlineGm.end.closing': '这个联机桌将于 {when} 关闭。你的账户的联机游玩权限已结束。',
   'onlineGm.lost.closed': '共享的地图已关闭。玩家会等它重新打开。',
-  'onlineGm.lost.unpresented': 'Atlas 没有展示任何地图。线上玩家会等你在玩家视图上展示地图。',
+  'onlineGm.lost.unpresented': 'Atlas 没有展示任何地图。联机玩家会等你在玩家视图上展示地图。',
   'onlineGm.start.noServer': '请先在 Atlas 设置中设置联机服务器地址。',
   'onlineGm.start.noHostKey': '请先在 Atlas 设置中设置主持密钥。',
   'onlineGm.start.noMapTab': '请先打开一个 Atlas 地图标签页。',

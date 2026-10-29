@@ -27,7 +27,7 @@ export const onlineLog: Translation = {
   'onlineLog.editMessage': '编辑消息',
   'onlineLog.editHint': 'Enter 保存 · Esc 取消',
   'onlineLog.found.read': '阅读',
-  'onlineLog.found.by': '由 {finder} 发现',
+  'onlineLog.found.by': '由{finder}发现',
   'onlineLog.found.readTitle': '阅读 {title}',
   'onlineLog.help.advantage': '优势：保留最高的',
   'onlineLog.help.keepThree': '保留最高的三个',
