@@ -4,6 +4,9 @@ This is `luoxin9510/atlas-vtt`, a personal learning fork of
 [ByteMirror/atlas-vtt](https://github.com/ByteMirror/atlas-vtt) (AGPL-3.0-only).
 It is loaded into every Claude Code session through `CLAUDE.local.md`.
 
+> **Reply to the user in Chinese (简体中文), always**, including progress notes,
+> questions and final reports. Code, identifiers, commits, PR text and fork docs stay English.
+
 The upstream `CLAUDE.md` (about 230 KB) is **excluded from automatic loading**
 (`claudeMdExcludes` in `.claude/settings.local.json`) because it would fill a
 large part of the context in every session. It is still the authority on how
@@ -31,20 +34,35 @@ grep -n '^#\{1,2\} ' CLAUDE.md          # list the sections and their lines
   `CLA.md` or attributions.
 - `src/app/online/`, `apps/` and the online protocol are fork-owned: no upstream
   merges there, and conflicts resolve to the fork (spec 6.6).
-- Never change `manifest.json`, `versions.json` or plugin ids.
+- Never change `manifest.json` or `versions.json`; the repository's plugin id stays
+  `atlas-vtt` (local installs use `atlas-vtt-fork`, see Dev vault). Code that looks Atlas
+  up in the plugin registry or the command list uses `atlasPluginId()` /
+  `atlasCommandId()` (`src/app/plugin/pluginId.ts`), never the literal id.
 - Fork documentation is English and lives under `docs/fork/`.
-- Commit at the end of each phase with a clear message. Never push unless the
-  user asks.
-- Work in the phases the user defines. At the end of a phase: stop, summarize
-  what was done and found, and wait for confirmation.
+- Never push to `upstream`, never open PRs against ByteMirror, never commit to `main`.
 - Report failures with their root cause. Change source code to make a check
   pass only when the fix is trivial and environment-related; otherwise ask.
+- Ask before touching the VPS or Cloudflare (deploys included), and never print or
+  copy secrets (`~/Developer/vps-setup/.env`, host keys, tickets, table secrets).
+
+## How work is done
+
+- Larger work goes design → plan → execution: specs in `docs/superpowers/specs/`, plans in
+  `docs/superpowers/plans/`, executed task by task (subagent per task, a review per task, a
+  final whole-branch review). Ledgers live in `.superpowers/sdd/<plan>/` (gitignored).
+- Each plan runs on a `feature/*` branch with one commit per task. When a plan is done and the
+  full gate is green, push the branch and open a PR into `fork/work` (stack on the previous
+  feature branch while its PR is open). Merging is the user's decision.
+- The full gate: `npx tsc --noEmit`, `npm run lint`, `npm run check:play`, `npm run check:relay`,
+  `npm run check:boundaries`, `npx vitest run --project unit`.
+- Open follow-ups are tracked in `docs/fork/online-followups.md`; strike items when done.
 
 ## Branches and remotes
 
 - `origin` = the fork, `upstream` = ByteMirror/atlas-vtt.
 - `main` mirrors `upstream/main` (stable releases) and carries no fork commits.
-- Fork work happens on `fork/work`, branched from `main`.
+- Fork work happens on `fork/work`, branched from `main`; features arrive there through
+  PRs from `feature/*` branches.
 - Upstream develops on `beta`; `main` only receives promotions. To sync:
   `git fetch upstream && git switch main && git merge --ff-only upstream/main`,
   then rebase or merge `fork/work` onto it.
@@ -119,9 +137,20 @@ and is never changed, so upstream merges stay clean. The reason: the community
 store would "update" a plugin installed as `atlas-vtt` to the official
 release, replacing this fork. Never enable both plugins in one vault.
 
-A new id starts with a fresh `data.json`: Atlas settings from an old `atlas-vtt` folder are not carried over.
+A new id starts with a fresh `data.json`: Atlas settings from an old `atlas-vtt` folder are not
+carried over (copy `data.json` across by hand when switching a vault).
 
 The `-fork` version suffix turns off the upstream update notice and the changelog's release matching (`releaseBaseVersion('0.9.1-fork')` is null); this is intended.
+
+Online play is an **experimental feature, off by default**: switch it on in the Atlas command
+palette's Experimental features page (setting `experimental.onlinePlay`); dynamic lighting is
+`experimental.dynamicLighting`. Its settings sections ("联机服务器", "共享笔记", "联机诊断") appear
+only while it is on. On Obsidian 1.13+ the settings tab caches its definitions, so a change of
+sections must call `AtlasSettingTab.refresh()` (wired through `onSectionsChanged`).
+
+Testing inside Obsidian: the `obsidian` CLI drives a registered vault, for example
+`obsidian vault=dev-vault plugin:reload id=atlas-vtt-fork`, `obsidian vault=dev-vault eval code="…"`,
+`obsidian vault=dev-vault dev:errors`. `dev:screenshot` does not capture the Pixi map background.
 
 ## Conventions distilled from upstream (summary, not a replacement)
 
@@ -155,6 +184,7 @@ mechanical work to subagents and keep judgment in the main session:
 | Run checks and report (`npm ci`, build, test, lint, git), grep and summarize, inventories (missing keys, hard-coded strings, file lists), mechanical bulk edits | `haiku` |
 | Work that needs to understand code: architecture drafts, tracing types and read/write paths, schema drafts, first-pass translations | `sonnet` |
 | Decisions, user communication, reviewing subagent output, key edits | main session |
+| Final whole-branch review of a plan | `opus` |
 
 Give subagents self-contained prompts (paths, rules from this guide, the exact
 output format) and ask for conclusions with `file:line` references, not raw
@@ -177,8 +207,14 @@ rules must keep those green.
 
 ## Working with the user
 
-- The user writes Chinese; answer in Chinese. Code, commits and fork docs are
-  English.
-- Fork documents so far: `ARCHITECTURE.md`, `i18n-zh-gap.md`,
-  `zh-glossary.md`, `atlasmap-format.md`, `atlasmap.schema.json`
-  (added phase by phase).
+- The user writes Chinese; **always reply in Chinese**. Code, commits and fork docs are English.
+- Fork documents (`docs/fork/`):
+  - `ARCHITECTURE.md`: architecture overview.
+  - `zh-glossary.md`, `i18n-zh-gap.md`: the Chinese localization.
+  - `atlasmap-format.md`, `atlasmap.schema.json`, `schema/` and `examples/`: the scene file format.
+  - `online-contract.md`: the wire protocol and relay contract.
+  - `online-strings.md`: the online UI text inventory.
+  - `online-followups.md`: open and finished follow-ups.
+  - `deployment.md`: deploying, updating and probing the relay.
+  - `research/`: background notes.
+- The design is `docs/superpowers/specs/2026-10-26-self-hosted-online-design.md`.
