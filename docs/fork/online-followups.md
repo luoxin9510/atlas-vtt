@@ -40,7 +40,6 @@ Plan 2; pick them up when touching the code nearby.
 - The end-to-end test fakes Atlas's player settings (`getLocalPlayerViewSettings`) and wires Atlas's real `DiceTool` into the fake tab; if Atlas's plugin surface changes, `tests/unit/play/endToEnd.test.ts` is the place that breaks first.
 - The Chromium launch args (`--use-angle=swiftshader`, `--enable-unsafe-swiftshader`) are kept so Pixi gets WebGL on machines without a GPU; the test also passed without them on the development Mac.
 - Render on change via the shared `RenderScheduler` instead of a continuous ticker (battery); a 100 ms idle input interval.
-- The main chunk is about 542 kB (all locales): split it for mainland mobile networks.
 - ~~No open timeout (10 s) and no dead-socket check while waiting for the first frame~~ (done: `OPEN_TIMEOUT_MS`).
 - ~~No `visibilitychange` / `online` hook to reconnect promptly after a phone wakes~~ (done: `TableSocket.wake()`, called by `Session`).
 - Tokens outside the map rect are not covered by the fog sprite (including the whole-map cover for invalid fog).

@@ -1,4 +1,4 @@
-import './i18nInit.ts';
+import { initLanguage } from './i18nInit.ts';
 import './theme.scss';
 import { browserStorage } from './browserStorage.ts';
 import { installDomHost } from '../../../src/app/host/dom.ts';
@@ -36,6 +36,7 @@ function onPageWake(wake: () => void): () => void {
 }
 
 async function start(): Promise<void> {
+  await initLanguage(browserStorage(), navigator.language);
   const [{ createRoot }, { t, getLocale }, { PlayApp }, { Session, tableCodeOf }, { loadLowPower, deviceEnv }, { openBrowserSocket }] = await Promise.all([
     import('react-dom/client'),
     import('../../../src/app/i18n/index.ts'),
