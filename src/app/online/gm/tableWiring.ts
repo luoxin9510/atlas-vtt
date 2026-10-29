@@ -119,8 +119,13 @@ export function connectionHandlers(ports: ConnectionPorts): TableEvents {
   };
 }
 
+/** The players who play a character at the table now. */
+export interface RestPlayers {
+  playersOf(characterId: string): readonly string[];
+}
+
 /** Every rest that reaches a character of this table the GM's Atlas takes while it runs is logged: approved requests and the GM's own. Returns what stops it. */
-export function logRests(log: TableLog, ownership: Ownership, books: { playersOf(characterId: string): readonly string[] }): () => void {
+export function logRests(log: TableLog, ownership: Ownership, books: RestPlayers): () => void {
   // The players of a character (a library token's id): the campaign's player it was given to, and whoever plays it at the table now.
   const playersOfCharacter = (characterId: string): string[] => {
     const owner = ownership.ownerOfCharacter(characterId);

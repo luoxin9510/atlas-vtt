@@ -7,13 +7,10 @@ import type { ImageCacheReason } from './assetUpload/uploadAsset.ts';
 import { obsidianBinaryHttp } from './assetUpload/binaryHttp.ts';
 import type { SceneStore } from './atlasView.ts';
 import type { BookRests } from './book/bookRests.ts';
-import type { BookShelf } from './book/BookShelf.ts';
-import type { TableSeats } from './campaignSeats.ts';
 import type { TableBook } from './book/tableBook.ts';
 import { companionTimers, every } from './companionTimers.ts';
-import type { CreatedTable } from './createdTable.ts';
 import type { ImageShare } from './image/ImageShare.ts';
-import type { TableGate, GateSettings } from './joinGate.ts';
+import type { TableGate } from './joinGate.ts';
 import { gmRoll, type GmRollDraft, type GmRollRefusal } from './log/gmRolls.ts';
 import type { TableLog } from './log/TableLog.ts';
 import type { Ownership } from './ownership.ts';
@@ -31,23 +28,7 @@ import { buildShares } from './tableShares.ts';
 import { connectionHandlers, logRests, sceneWatch } from './tableWiring.ts';
 import type { FoundShare } from './pins/FoundShare.ts';
 import type { NotesShare } from './notes/NotesShare.ts';
-
-export type { OnlineTableEvents };
-
-/** Everything a running table is made from. */
-export interface OnlineTableOptions {
-  readonly app: App;
-  readonly origin: string;
-  readonly table: CreatedTable;
-  readonly mapPath: string | null;
-  readonly ownership: Ownership;
-  readonly seats: TableSeats;
-  readonly gate: GateSettings;
-  readonly paused: boolean;
-  readonly events: OnlineTableEvents;
-  readonly shelf: BookShelf;
-  readonly savedLog?: unknown;
-}
+import type { OnlineTableOptions } from './onlineTableOptions.ts';
 
 /** How often the presented tab is looked for, and the shared one checked. */
 const WATCH_MS = 1_000;
@@ -109,10 +90,7 @@ export class OnlineTable {
     const { app, origin, table, mapPath, ownership, seats, gate, paused, events, shelf, savedLog } = options;
     this.app = app;
     this.tickets = new AssetTickets(obsidianBinaryHttp, { origin, code: table.code, secret: table.secret }, () => Date.now(), () => events.changed());
-    this.forkClients = new ForkClients((player) => {
-      this.pauseShare.client(player);
-      this.notes.client(player);
-    });
+    this.forkClients = new ForkClients((player) => void (this.pauseShare.client(player), this.notes.client(player)));
     const pauseShare = new PauseShare({
       players: () => ownership.onlinePlayers(),
       levelOf: (player) => this.forkClients.levelOf(player),

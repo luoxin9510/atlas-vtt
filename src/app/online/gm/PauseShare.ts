@@ -47,6 +47,7 @@ export interface TablePause {
   set(on: boolean): void;
 }
 
+/** Wraps the share as the table's `pause`: setting it to a new value also cancels drags and tells the table's events. */
 export function tablePause(share: PauseShare, hooks: { cancelDrags(): void; paused(on: boolean): void; changed(): void }): TablePause {
   return {
     get paused(): boolean {
