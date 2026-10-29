@@ -72,7 +72,7 @@ export class PlayerLink {
 
   decline(state: TableState, id: string): void {
     const knock = this.#takeKnock(state, id);
-    if (knock !== undefined) closeWhenSent(knock.socket, CLOSE.declined);;
+    if (knock !== undefined) closeWhenSent(knock.socket, CLOSE.declined);
   }
 
   /** The GM removes a player: their key stops working and their socket closes. */

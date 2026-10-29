@@ -6,7 +6,7 @@ Plan 2; pick them up when touching the code nearby.
 
 ## Relay (`apps/relay`)
 - ~~Re-POST while the state write fails kicks the live GM, then answers 503 (`http.ts`, `tables.ts`): `replaced` fires before `flush()`. Rare; the GM retries.~~ (done: a failed write rolls back before the live GM is touched; wave C)
-- ~~Oversize `POST /api/tables` body resets the connection instead of answering 400 (`http.ts`).~~ (done: answers 400; wave C)
+- ~~Oversize `POST /api/tables` body resets the connection instead of answering 400 (`http.ts`).~~ (done: answers 413; wave C)
 - ~~`/api/me` has only the host-key lockout, no per-minute limit.~~ (done: per-minute limit added; wave C)
 - ~~Static serving follows symlinks inside `STATIC_DIR` (operator-controlled); use `realpath` to be strict.~~ (done: root and entries are checked with `realpath`, dotfiles through symlinks refused; wave C)
 - ~~`persist.ts` does not guard `__proto__` ids or codes when reading its own state file.~~ (done: guarded when reading the state file; wave C)
@@ -88,8 +88,9 @@ Deferred minors from the notes work; none lets hidden text reach a player.
 
 ## Wave C residuals (open)
 Deferred minors from the relay hardening wave and the ticket pruning; the SDD ledger has the detail.
-- Overlapping failed re-POSTs: the rollback of the first can interfere with the second.
-- `readBody` never settles when the client goes silent without closing (the server timeouts end it).
+- Overlapping failed re-POSTs: the rollback of the first can interfere with the second (fix later by serialising `createDurable` per code).
+- `readBody` hangs only for a client that stays connected but sends nothing; the 300 s `requestTimeout` ends it.
+- The relay-wide backlog budget does not count bytes already handed to ws (in flight, about 1.3 MiB per socket at most).
 - Minting past the oversize limit is not covered by a test.
 - `MeRateLimit` behind a proxy (`TRUST_PROXY=cf`) is not covered by a test.
 - Upload resume of an already complete image (`200`) is not bounded by the drain limit, and the `writePart` reject path is not covered.

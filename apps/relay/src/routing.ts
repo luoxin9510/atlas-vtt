@@ -51,10 +51,12 @@ function outboxOf(socket: WebSocket, budget: Backlog): Outbox {
   return box;
 }
 
-/** Closes the socket 1013 and cuts it off shortly after (its buffer is freed even if the peer never answers). */
+/** Closes the socket 1013 (or with the code of a close already pending) and cuts it off shortly after (its buffer is freed even if the peer never answers). */
 export function overload(socket: WebSocket): void {
   if (socket.readyState !== WebSocket.OPEN) return dropOutbox(socket);
-  socket.close(CLOSE_OVERLOADED);
+  const pending = outboxes.get(socket)?.closing ?? null;
+  if (pending === null) socket.close(CLOSE_OVERLOADED);
+  else socket.close(pending.code, pending.reason);
   dropOutbox(socket);
   setTimeout(() => socket.terminate(), OVERLOAD_TERMINATE_MS).unref();
 }

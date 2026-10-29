@@ -75,7 +75,7 @@ describe('relay server limits', () => {
 });
 
 describe('crash handler', () => {
-  it('logs one line with name and message only, then exits with 1', () => {
+  it('logs one line with the error name only, never the message, then exits with 1', () => {
     const log = vi.fn();
     const exit = vi.fn();
     const error = Object.assign(new TypeError('bad thing'), { body: 'SECRET-BODY', headers: { authorization: 'SECRET-KEY' } });

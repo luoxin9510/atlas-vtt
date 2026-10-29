@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { WebSocket } from 'ws';
 import { CLOSE } from '../../../src/app/online/protocol/relay.ts';
 import { Backlog, payloadOf } from '../../../apps/relay/src/backlog.ts';
-import { pushPayload, queuedBytes } from '../../../apps/relay/src/routing.ts';
+import { overload, pushPayload, queuedBytes } from '../../../apps/relay/src/routing.ts';
 import { CODE, joined } from './playerHarness.ts';
 import { useTables } from './tableSuite.ts';
 
@@ -50,6 +50,16 @@ describe('a close after queued frames', () => {
     player.hear();
     expect(await player.closed).toBe(CLOSE.ended);
     expect(games(player.frames)).toBe(40);
+  }, 20_000);
+
+  it('keeps the code of a pending kick when the socket is then shed for overload', async () => {
+    const { gm, relay, id, player } = await backlogged(40);
+    const server = relay.links.peek(CODE)!.players.get(id)!.socket;
+    await gm.send({ t: 'kick', id });
+    await vi.waitFor(() => expect(relay.links.peek(CODE)!.players.get(id)).toBeUndefined());
+    overload(server);
+    player.hear();
+    expect(await player.closed).toBe(CLOSE.kicked);
   }, 20_000);
 
   it('closes within 5 s when the peer never reads, and frees the queue', async () => {
