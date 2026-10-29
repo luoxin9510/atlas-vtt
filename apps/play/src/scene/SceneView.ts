@@ -8,7 +8,7 @@ import { GridSystem } from '../../../../src/app/grid/GridSystem.ts';
 import type { SharedFog } from '../../../../src/app/online/protocol/fog.ts';
 import type { PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import type { SharedGrid } from '../../../../src/app/online/protocol/mapLayers.ts';
-import type { AssetLoader, LoadedAsset } from '../assets/AssetLoader.ts';
+import type { AssetLoader, LoadedAsset, ReconnectSignal } from '../assets/AssetLoader.ts';
 import { canRunLighting } from '../lighting/lightingProbe.ts';
 import type { TableState, TableStoreApi } from '../state/tableStore.ts';
 import { CanvasInput } from './canvasInput.ts';
@@ -76,7 +76,7 @@ export class SceneView {
   constructor(
     private readonly canvasHost: HTMLElement,
     private readonly store: TableStoreApi,
-    private readonly assets: Pick<AssetLoader, 'load' | 'cancel'>,
+    private readonly assets: Pick<AssetLoader, 'load' | 'cancel'> & ReconnectSignal,
     private readonly lowPower: boolean,
     private readonly onGesture: (g: Gesture) => void = () => undefined,
     private readonly onDrawn: (drawn: boolean) => void = () => undefined,

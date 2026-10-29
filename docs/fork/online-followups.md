@@ -46,7 +46,6 @@ Plan 2; pick them up when touching the code nearby.
 - CSP `connect-src 'self'` against older iOS Safari (CSP3 `ws:` matching): check on the M6 phone test.
 - Other players see a content-free "secret roll" line for gm/blind/self rolls (upstream behaviour; it reveals that a hidden roll happened).
 - Deferred minors from the per-task reviews: close-reason test weakness, unused `now` option, unguarded second welcome, part-to-yourCode routing, hash-only download keys, `blobCache` `forget()` not closing, no GPU destroy test, card stays open over a fogged own token, `JSON.stringify(ui)` per sync, condition icon letters, badges / pin-found not drawn, row `key=index`, `rollRefusal` only in the dice tab, tab `aria-controls`, `BlobPart` cast, composer draft lost on tab switch, e2e `serve()` port race, roll count by JSON substring and a fixed sleep, swiftshader args, `endToEnd.test.ts` size.
-- Token and initiative art that fails while the table is unreachable is not asked for again until the token list changes (only the map download retries).
 - The `OnlineTable` wiring of fork levels (`forkClients.forget` on `left`, a `client` after a GM re-welcome) is tested only through `ForkClients` and the Node end-to-end test, not through `OnlineTable` itself (no harness).
 - `.atlas-play-reason` is styled only inside `.atlas-play-join`; the send-failed notice, the dice tray refusal and the refused screen show it unstyled.
 - `SceneView.sync` calls `coarsePointer()` (`matchMedia`) on every store update; evaluate it once.

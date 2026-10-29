@@ -62,6 +62,9 @@ function decode(data: string): Uint8Array | null {
   }
 }
 
+/** What a user of `load` may also have: the signal to ask again once the connection is back (absent in tests that do not need it). */
+export type ReconnectSignal = Partial<Pick<AssetLoader, 'onReconnect'>>;
+
 /** Fetches assets by hash from the GM in chunks, verifies them by SHA-256 and keeps them in a cache. */
 export class AssetLoader {
   private readonly downloads = new Map<string, Download>();
@@ -72,6 +75,7 @@ export class AssetLoader {
   private readonly fallenBack = new Set<string>();
   /** Whether the GM can be asked now (joined, GM online); asks and re-asks wait for it. */
   private connected = true;
+  private readonly reconnectListeners = new Set<() => void>();
 
   constructor(private readonly ports: LoaderPorts) {}
 
@@ -281,8 +285,16 @@ export class AssetLoader {
 
   /** Tells the loader whether the GM can be asked; losing the connection gives up every download. */
   setConnected(on: boolean): void {
+    const wasOff = !this.connected;
     this.connected = on;
     if (!on) this.cancelAll();
+    else if (wasOff) for (const listener of [...this.reconnectListeners]) listener();
+  }
+
+  /** Calls `listener` each time the connection comes back after it was lost; users of `load` that got null ask again then. Returns the way to stop listening. */
+  onReconnect(listener: () => void): () => void {
+    this.reconnectListeners.add(listener);
+    return () => void this.reconnectListeners.delete(listener);
   }
 
   /** Gives up every download (the connection is gone). */
