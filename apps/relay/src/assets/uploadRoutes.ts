@@ -52,15 +52,25 @@ export function createUploadRoutes({ config, tables, store }: UploadContext): Up
     else refuse(req, res, result.status);
   }
 
-  /** Writes a part from a relay stream, so a failing write destroys that stream and not the request, which is then drained. */
-  function writePart(req: IncomingMessage, code: string, hash: string, index: number): Promise<PartResult> {
+  /**
+   * Writes a part from a relay stream, so a failing write destroys that stream and not the request, which is then drained.
+   * The stream has an error handler from the start (the store attaches its own only after some awaits, and an abort can come
+   * before), and a refusal unpipes it so the request is not held back by a stream nobody reads.
+   */
+  async function writePart(req: IncomingMessage, code: string, hash: string, index: number): Promise<PartResult> {
     const relayed = new PassThrough();
+    relayed.on('error', () => undefined);
     req.pipe(relayed);
-    // A client that aborts ends the relayed stream with an error, as it did when the request itself was written from.
+    // A client that aborts ends the relayed stream, as it did when the request itself was written from.
     req.once('close', () => {
       if (!req.readableEnded) relayed.destroy(new Error('aborted'));
     });
-    return store.writePart(code, hash, index, relayed);
+    const result = await store.writePart(code, hash, index, relayed);
+    if (result.status !== 200) {
+      req.unpipe(relayed);
+      relayed.destroy();
+    }
+    return result;
   }
 
   async function mint(req: IncomingMessage, res: ServerResponse, code: string, hash: string): Promise<void> {

@@ -20,11 +20,20 @@ function post(origin: string, code: string): Promise<Response> {
 function chunked(origin: string, size: number): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     let answered = false;
+    let seen: { status: number; body: string } | null = null;
+    let sent = false;
+    // Done when the response has ended and the upload is over, so nothing is writing when the relay closes.
+    const settle = (): void => {
+      if (seen !== null && sent) resolve(seen);
+    };
     const req = request(`${origin}/api/tables`, { method: 'POST', headers: { authorization: `Bearer ${TEST_HOST_KEY}`, origin: TEST_PUBLIC_ORIGIN, 'transfer-encoding': 'chunked' } }, (res) => {
       answered = true;
-      const seen = { status: res.statusCode ?? 0, body: '' };
-      res.on('data', (part: Buffer) => (seen.body += part.toString()));
-      res.on('end', () => resolve(seen));
+      const got = { status: res.statusCode ?? 0, body: '' };
+      res.on('data', (part: Buffer) => (got.body += part.toString()));
+      res.on('end', () => {
+        seen = got;
+        settle();
+      });
       res.on('error', reject);
     });
     req.on('error', reject);
@@ -35,6 +44,8 @@ function chunked(origin: string, size: number): Promise<{ status: number; body: 
         await new Promise<void>((next) => setImmediate(next));
       }
       req.end();
+      sent = true;
+      settle();
     })();
   });
 }

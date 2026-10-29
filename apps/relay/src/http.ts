@@ -63,13 +63,15 @@ export function createHandler(context: HttpContext): RequestHandler {
   }
 
   async function createTable(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    // Whatever the answer is, a refusal ends the connection: a body still being streamed is not read on.
+    // Until the host key has passed, a refusal ends the connection: a body still being streamed by an unauthenticated client is not read on.
     res.setHeader('connection', 'close');
     if (Number(req.headers['content-length'] ?? 0) > MAX_BODY) return send(res, 413, { error: 'too-large' });
     if (!originAllowed(req, config)) return send(res, 403, { error: 'origin' });
     const address = clientAddress(req, config.trustProxy);
     if (!lock.isLocked(address) && !rate.allow(address)) return send(res, 429, { error: 'rate-limited' });
     if (!authorize(req, res, address)) return;
+    // Authenticated: from here a refusal (the 413 of a body that turns out too long) is answered and the body drained, see `readBody`.
+    res.removeHeader('connection');
     const text = await readBody(req, res);
     if (text === null) return;
     const code = codeIn(text);
@@ -82,7 +84,6 @@ export function createHandler(context: HttpContext): RequestHandler {
     }
     if (table === 'full') return send(res, 429, { error: 'too-many-tables' });
     if (!SECRET_PATTERN.test(table.secret)) return send(res, 500);
-    res.removeHeader('connection');
     send(res, 201, table);
   }
 
@@ -107,8 +108,8 @@ export function createHandler(context: HttpContext): RequestHandler {
     const method = req.method ?? 'GET';
     const path = (req.url ?? '/').split('?')[0] ?? '/';
     res.on('finish', () => context.log?.(`${method} ${path} ${res.statusCode}`));
-    // Only POST /api/tables reads a body (4 KiB at most), and the image routes stream theirs (they close the connection themselves when they
-    // refuse). Every other answer to a request that may carry one closes the connection, so whatever a client goes on streaming (the
+    // Only POST /api/tables reads a body (4 KiB at most), and the image routes stream theirs (a refusal there is answered and drained, see
+    // `refuseAndDrain`). Every other answer to a request that may carry one closes the connection, so whatever a client goes on streaming (the
     // unauthenticated sinks, a refusal, a 404) is cut off instead of drained.
     const streams = uploads?.matches(method, path) === true;
     if (method !== 'GET' && method !== 'HEAD' && !(method === 'POST' && path === '/api/tables') && !streams) res.setHeader('connection', 'close');

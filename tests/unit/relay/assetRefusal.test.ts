@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { REFUSED_DRAIN_BYTES } from '../../../apps/relay/src/httpUtil.ts';
 import { removeTestState, startTestRelay, TEST_HOST_KEY, TEST_PUBLIC_ORIGIN } from './relayHarness.ts';
 
@@ -14,12 +14,12 @@ const running: Array<{ close(): Promise<void> }> = [];
 
 type Relay = Awaited<ReturnType<typeof startTestRelay>>;
 
-async function start(overrides: Parameters<typeof startTestRelay>[0] = {}): Promise<{ relay: Relay; secret: string }> {
+async function start(overrides: Parameters<typeof startTestRelay>[0] = {}): Promise<{ relay: Relay; secret: string; assetDir: string }> {
   const assetDir = mkdtempSync(join(tmpdir(), 'atlas-refusal-'));
   const relay = await startTestRelay({ assetDir, ...overrides });
   running.push(relay);
   const created = await fetch(`${relay.origin}/api/tables`, { method: 'POST', headers: { authorization: `Bearer ${TEST_HOST_KEY}`, origin: TEST_PUBLIC_ORIGIN }, body: JSON.stringify({ code: CODE }) });
-  return { relay, secret: ((await created.json()) as { secret: string }).secret };
+  return { relay, secret: ((await created.json()) as { secret: string }).secret, assetDir };
 }
 
 afterEach(async () => {
@@ -34,7 +34,7 @@ interface Outcome {
 }
 
 /** Streams `size` bytes (starting with `head`) in 16 KiB pieces as a chunked PUT of part 0. `stopOnAnswer` ends the upload once the response has arrived. */
-function stream(relay: Relay, secret: string, head: Buffer, size: number, stopOnAnswer: boolean): Promise<Outcome> {
+function stream(relay: Relay, secret: string, head: Buffer, size: number, stopOnAnswer: boolean, index = 0): Promise<Outcome> {
   return new Promise((resolve) => {
     let status: number | null = null;
     let body = '';
@@ -50,7 +50,7 @@ function stream(relay: Relay, secret: string, head: Buffer, size: number, stopOn
       settled = true;
       resolve({ status, body, error: failure });
     };
-    const req = request(`${relay.origin}/api/tables/${CODE}/assets/${HASH}/parts/0`, { method: 'PUT', headers: { authorization: `Bearer ${secret}`, 'transfer-encoding': 'chunked' } }, (res) => {
+    const req = request(`${relay.origin}/api/tables/${CODE}/assets/${HASH}/parts/${index}`, { method: 'PUT', headers: { authorization: `Bearer ${secret}`, 'transfer-encoding': 'chunked' } }, (res) => {
       status = res.statusCode ?? 0;
       res.on('data', (part: Buffer) => (body += part.toString()));
       res.on('end', () => {
@@ -103,4 +103,73 @@ describe('uploads refused before their body is read', () => {
     expect(outcome.status === 415 || outcome.error !== null).toBe(true);
     expect((await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } })).status).toBe(200);
   }, 30_000);
+});
+
+describe('refusals made before the body is consumed', () => {
+  it('answers 400 to a streamed bad part index', async () => {
+    const { relay, secret } = await start();
+    expect(await stream(relay, secret, PNG_HEAD, 4 * 1024 * 1024, false, 999)).toEqual({ status: 400, body: '{"error":"bad-request"}', error: null });
+  });
+
+  it('answers 401 to a streamed upload with the wrong secret', async () => {
+    const { relay } = await start();
+    expect(await stream(relay, 'wrong', PNG_HEAD, 4 * 1024 * 1024, true)).toEqual({ status: 401, body: '{"error":"unauthorized"}', error: null });
+  });
+
+  it('answers 200 to a streamed part of an image that is already complete', async () => {
+    const { relay, secret } = await start();
+    const hash = createHash('sha256').update(PNG_HEAD).digest('hex');
+    const url = `${relay.origin}/api/tables/${CODE}/assets/${hash}`;
+    expect((await fetch(`${url}/parts/0`, { method: 'PUT', headers: { authorization: `Bearer ${secret}` }, body: PNG_HEAD })).status).toBe(200);
+    expect((await fetch(`${url}/complete`, { method: 'POST', headers: { authorization: `Bearer ${secret}` } })).status).toBe(200);
+    const again = await new Promise<Outcome>((resolve) => {
+      let status: number | null = null;
+      const req = request(`${url}/parts/0`, { method: 'PUT', headers: { authorization: `Bearer ${secret}`, 'transfer-encoding': 'chunked' } }, (res) => {
+        status = res.statusCode ?? 0;
+        res.resume();
+      });
+      // Done when the whole body has been sent and the answer has come, so nothing is writing when the relay closes.
+      req.on('close', () => resolve({ status, body: '', error: null }));
+      req.on('error', (error) => resolve({ status, body: '', error: error.message }));
+      req.end(Buffer.alloc(4 * 1024 * 1024, 0x20));
+    });
+    expect(again).toEqual({ status: 200, body: '', error: null });
+  });
+
+  it('answers 429 to a streamed third concurrent upload', async () => {
+    const { relay, secret } = await start();
+    const open: Array<ReturnType<typeof request>> = [];
+    for (const index of [1, 2]) {
+      const req = request(`${relay.origin}/api/tables/${CODE}/assets/${HASH}/parts/${index}`, { method: 'PUT', headers: { authorization: `Bearer ${secret}`, 'content-length': '100' } });
+      req.on('error', () => undefined);
+      req.write(PNG_HEAD);
+      open.push(req);
+    }
+    await vi.waitFor(() => expect(relay.assets.inFlight(CODE)).toBe(2));
+    expect(await stream(relay, secret, PNG_HEAD, 4 * 1024 * 1024, false, 3)).toEqual({ status: 429, body: '{"error":"busy"}', error: null });
+    for (const req of open) req.destroy();
+  });
+});
+
+describe('a client that aborts an upload', () => {
+  it.each([1, 3, 20])('after %i chunks of 16 KiB leaves the relay up, no partial file and no quota used', async (chunks) => {
+    const { relay, secret, assetDir } = await start();
+    await new Promise<void>((resolve) => {
+      const req = request(`${relay.origin}/api/tables/${CODE}/assets/${HASH}/parts/0`, { method: 'PUT', headers: { authorization: `Bearer ${secret}`, 'transfer-encoding': 'chunked' } });
+      req.on('error', () => undefined);
+      req.on('close', () => resolve());
+      // Piece by piece, each waiting for the previous one, as a real upload does; then the connection drops.
+      void (async (): Promise<void> => {
+        for (let i = 0; i < chunks; i += 1) {
+          await new Promise<void>((next) => req.write(i === 0 ? Buffer.concat([PNG_HEAD, Buffer.alloc(16 * 1024 - PNG_HEAD.length)]) : Buffer.alloc(16 * 1024, 0x20), () => next()));
+          await new Promise<void>((next) => setImmediate(next));
+        }
+        req.destroy();
+      })();
+    });
+    await vi.waitFor(() => expect(relay.assets.inFlight(CODE)).toBe(0));
+    expect((await fetch(`${relay.origin}/api/tables/${CODE}/assets/${HASH}`, { headers: { authorization: `Bearer ${secret}` } })).status).toBe(200);
+    const files = (readdirSync(assetDir, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
+    expect(files).toEqual([]);
+  });
 });
