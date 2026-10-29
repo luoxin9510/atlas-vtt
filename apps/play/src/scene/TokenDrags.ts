@@ -2,6 +2,7 @@ import type { Point } from '../../../../src/app/grid/hexGeometry.ts';
 import type { PlayerMessage } from '../../../../src/app/online/protocol/index.ts';
 import type { TableStore } from '../state/tableStore.ts';
 import { DragController } from './DragController.ts';
+export { canDrag } from './DragController.ts';
 import type { Gesture } from './gestures.ts';
 import { TokenOverrides } from './liveTokens.ts';
 import type { TokenLayer } from './TokenLayer.ts';

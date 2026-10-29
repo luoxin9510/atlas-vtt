@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GmMessage, PlayerMessage } from '../../../src/app/online/protocol/index.ts';
 import type { SharedToken } from '../../../src/app/online/protocol/tokens.ts';
-import { DragController } from '../../../apps/play/src/scene/DragController.ts';
+import { canDrag, DragController } from '../../../apps/play/src/scene/DragController.ts';
 import { createTableStore, type TableStoreApi } from '../../../apps/play/src/state/tableStore.ts';
 
 const MAP = { hash: 'a'.repeat(64), size: 10, type: 'image/png' };
@@ -43,6 +43,25 @@ const start = (id = 'a', x = 100, y = 100): void => {
   controller.handle({ kind: 'drag-move', id, x, y });
 };
 const sentOf = (type: string): PlayerMessage[] => sent.filter((m) => m.t === type);
+
+describe('canDrag', () => {
+  const rows: Array<[string, SharedToken[], string[], boolean, boolean, boolean]> = [
+    ['own and free', [token('a')], ['a'], false, true, true],
+    ['paused', [token('a')], ['a'], true, true, false],
+    ['held', [token('a', { held: true })], ['a'], false, true, false],
+    ['foreign', [token('a')], [], false, true, false],
+    ['missing token', [], ['a'], false, true, false],
+    ['no scene', [token('a')], ['a'], false, false, false],
+  ];
+  it.each(rows)('%s', (_name, tokens, mine, paused, withScene, expected) => {
+    if (withScene) load(tokens, SQUARE, mine);
+    store.setState({ paused });
+    expect(canDrag(store.getState(), 'a')).toBe(expected);
+    controller.handle({ kind: 'drag-token', id: 'a' });
+    controller.handle({ kind: 'drag-move', id: 'a', x: 120, y: 100 });
+    expect(sentOf('drag').length > 0).toBe(expected);
+  });
+});
 
 describe('DragController', () => {
   it('sends at most a drag every 100 ms: moves every 10 ms for 0.9 s are ten drags, ending on the latest point', () => {

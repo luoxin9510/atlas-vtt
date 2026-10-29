@@ -21,7 +21,7 @@ describe('CanvasInput', () => {
     const gestures: Gesture[] = [];
     const resumed: boolean[] = [];
     const input = new CanvasInput({
-      host, canvas, now: () => 0, tokenAt: () => null, isMine: () => false,
+      host, canvas, now: () => 0, tokenAt: () => null, canDrag: () => false,
       onGesture: (g) => gestures.push(g), setCameraDrag: (on) => resumed.push(on),
     });
     cleanup.push(() => { input.destroy(); host.remove(); });
@@ -41,7 +41,7 @@ describe('CanvasInput', () => {
     const gestures: Gesture[] = [];
     const camera: boolean[] = [];
     const input = new CanvasInput({
-      host, canvas, now: () => 0, tokenAt: () => 'mine', isMine: () => true,
+      host, canvas, now: () => 0, tokenAt: () => 'mine', canDrag: () => true,
       onGesture: (g) => gestures.push(g), setCameraDrag: (on) => camera.push(on),
     });
     cleanup.push(() => { input.destroy(); host.remove(); });
@@ -74,5 +74,24 @@ describe('CanvasInput', () => {
     fire(host, 'pointerdown', 2, 200, 200);
     expect(gestures.map((g) => g.kind)).toEqual(['drag-token', 'drag-move', 'drag-cancel', 'pinch']);
     expect(camera.at(-1)).toBe(true);
+  });
+
+  it('a press on a token the player may not drag leaves the camera on and pans', () => {
+    const host = document.createElement('div');
+    const canvas = document.createElement('canvas');
+    host.appendChild(canvas);
+    document.body.appendChild(host);
+    const gestures: Gesture[] = [];
+    const camera: boolean[] = [];
+    const input = new CanvasInput({
+      host, canvas, now: () => 0, tokenAt: () => 'mine', canDrag: () => false,
+      onGesture: (g) => gestures.push(g), setCameraDrag: (on) => camera.push(on),
+    });
+    cleanup.push(() => { input.destroy(); host.remove(); });
+    fire(host, 'pointerdown', 1, 20, 20);
+    fire(host, 'pointermove', 1, 60, 20);
+    fire(host, 'pointerup', 1, 60, 20);
+    expect(camera).not.toContain(false);
+    expect(gestures.map((g) => g.kind)).toEqual(['pan']);
   });
 });

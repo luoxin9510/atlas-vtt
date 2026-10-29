@@ -14,7 +14,7 @@ export interface PointerSample { id: number; x: number; y: number; button: numbe
 export interface GestureOptions {
   now(): number;
   tokenAt(x: number, y: number): string | null;
-  isMine(id: string): boolean;
+  canDrag(id: string): boolean;
   onGesture(g: Gesture): void;
 }
 
@@ -70,7 +70,7 @@ export class GestureRecognizer {
     if (!this.pending || this.pinching) return;
     if (Math.hypot(p.x - p.startX, p.y - p.startY) < MOVE_SLOP_PX) return;
     this.pending = false;
-    if (p.token !== null && this.options.isMine(p.token)) {
+    if (p.token !== null && this.options.canDrag(p.token)) {
       this.dragging = { pointer: e.id, token: p.token };
       this.options.onGesture({ kind: 'drag-token', id: p.token });
       this.options.onGesture({ kind: 'drag-move', id: p.token, x: p.x, y: p.y });

@@ -11,7 +11,7 @@ beforeEach(() => {
   recognizer = new GestureRecognizer({
     now: () => time,
     tokenAt: (x, y) => (x < 50 && y < 50 ? 'mine' : x >= 100 && x < 150 ? 'theirs' : null),
-    isMine: (id) => id === 'mine',
+    canDrag: (id) => id === 'mine',
     onGesture: (g) => seen.push(g),
   });
 });
@@ -86,6 +86,14 @@ describe('GestureRecognizer', () => {
     recognizer.up(p(1, 200, 200));
     expect(seen).toEqual([]);
   });
+  it('an own token that may not be dragged pans', () => {
+    const local: Gesture[] = [];
+    const r = new GestureRecognizer({ now: () => 0, tokenAt: () => 'mine', canDrag: () => false, onGesture: (g) => local.push(g) });
+    r.down(p(1, 10, 10));
+    r.move(p(1, 40, 10));
+    expect(local.map((g) => g.kind)).toEqual(['pan']);
+  });
+
   describe('dragging an own token', () => {
     const drag = (): void => {
       recognizer.down(p(1, 10, 10));
