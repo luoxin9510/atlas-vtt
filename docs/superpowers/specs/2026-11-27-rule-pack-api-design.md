@@ -70,3 +70,24 @@ commercial game names in code, tests or docs.
 
 P3b (how a contest's dice are thrown in 3D, online display) and P3c (portrait formats, conflicts on
 re-import) get a short grill of their own before they start.
+
+## P3b decisions (grill 2026-11-28, all recommendations accepted)
+
+16. P3b holds contests plus three follow-ups: how a moved target was built, entry extras rolling as
+    a check, and a re-register signal for rule packs.
+17. A contest shows as two 3D panels in the roll stack, each with its own check line; once both
+    landed, a verdict line under the second ("<name> wins" / "Tie").
+18. The GM's log keeps a contest as one entry (both rolls and the verdict); online likewise. Older
+    player apps see two ordinary rolls without the verdict.
+19. Contest text: `A 对 B` and `A against B`, accepted in every UI language; each side is a check
+    (`3d6 vs 12`) or a bare target (`12` = the set's default roll vs 12).
+20. Sides are named after their statblock/token when started from a statblock; typed contests name
+    them "First side" / "Second side" (zh 第一方 / 第二方).
+21. With GM-only on, both rolls of a contest are GM-only, like any roll.
+22. When modifiers moved a target, a second line shows how: "Target 15 → 17 (Agility +2)" (names
+    where known), in the 3D panel, card, log and online log.
+23. Number extras of entries (an attack's skill) take the same "roll as a check" option as value
+    blocks.
+24. Each time Atlas is ready (also after it is reloaded) it triggers the workspace event
+    `atlas-vtt:rule-packs-ready`; packs re-register on it (a pack's old interface object is stale
+    after a reload).
