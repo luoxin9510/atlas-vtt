@@ -14,6 +14,7 @@ import { ROLL_MODE_INFO } from './rollModes.ts';
 import { RowShell } from './RowShell.tsx';
 import { SpeakerFace } from './SpeakerFace.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { CheckLine } from '../../react/components/dice/RollVerdict';
 import { t } from '../../i18n';
 
 export interface RollRowProps extends Omit<RowFlags, 'editing'> {
@@ -78,6 +79,7 @@ export const RollRow = memo(function RollRow({ entry, face, portrait, time, thre
             <span className="atlas-online-log__roll-equals" aria-hidden="true">=</span>
             <span className="atlas-online-log__roll-total">{roll.total}</span>
           </div>
+          <CheckLine result={roll} className="atlas-online-log__roll-check" />
           <button type="button" className="atlas-online-log__roll-toggle" aria-expanded={open} aria-controls={dice} onClick={() => setOpen(!open)}>
             <ChevronDown className={classes('atlas-online-log__roll-chevron', open && 'is-open')} />
             {t('onlineLog.help.dice')}

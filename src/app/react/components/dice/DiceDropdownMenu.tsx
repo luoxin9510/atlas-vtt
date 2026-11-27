@@ -3,6 +3,11 @@ import { cn } from 'src/utils/cn';
 import { useKeepInView } from '../../../packages/components/primitives/useKeepInView';
 import { DiceTool, type RollOptions } from '../../../tools/DiceTool';
 import { DiceTray, type TrayAdvantage } from './DiceTray';
+import { DiceFormulaInput } from './DiceFormulaInput';
+import { specOfText } from '../../../tools/buildRoll';
+import { completeFormula } from '../../../tools/completeFormula';
+import { bareDieFaces } from '../../../gameSystems/diceSets';
+import { t } from '../../../i18n';
 import type { AdvantageSide } from '../../../types/diceSetTypes';
 import { advantageSidesFor, ruledSides } from '../../../tools/diceAdvantage';
 import { useAtlasUI } from '../../root/AtlasUIContext';
@@ -28,6 +33,13 @@ function trayAdvantage(diceTool: DiceTool): TrayAdvantage | undefined {
 function rollOptions(side: AdvantageSide | null, gmOnly: boolean): RollOptions | undefined {
   if (!side && !gmOnly) return undefined;
   return { ...(side && { advantage: side }), ...(gmOnly && { visibility: 'gm' as const }) };
+}
+
+/** The parser's message for text that is no formula or check of the tool's dice, or null where it can be rolled. */
+function formulaRefusal(diceTool: DiceTool, text: string): string | null {
+  const rules = diceTool.rollingDice();
+  const parsed = completeFormula(specOfText(text, bareDieFaces(rules)).formula, rules);
+  return parsed.ok ? null : t(`dice.formulaError.${parsed.code}`);
 }
 
 export function DiceDropdownMenu({ diceTool, isOpen, onToggle, triggerRef }: DiceDropdownMenuProps): React.ReactElement | null {
@@ -73,6 +85,17 @@ export function DiceDropdownMenu({ diceTool, isOpen, onToggle, triggerRef }: Dic
       style={keepInView.style}
     >
       <div className="atlas-dice-panel">
+        <DiceFormulaInput
+          validate={(text) => formulaRefusal(diceTool, text)}
+          onRoll={(text) => {
+            const options = rollOptions(null, gmOnly?.on === true);
+            const rolled = options ? diceTool.rollDice(text, undefined, undefined, options) : diceTool.rollDice(text);
+            if (!rolled) return false;
+            onToggle();
+            return true;
+          }}
+          onClose={onToggle}
+        />
         <DiceTray
           onRoll={(formula, side) => {
             const options = rollOptions(side, gmOnly?.on === true);

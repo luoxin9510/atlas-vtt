@@ -6,6 +6,9 @@ vi.mock('../../src/app/atlasViewType', () => ({ ATLAS_VIEW_TYPE: 'atlas-vtt' }))
 
 import { attachDiceRolling, linkDiceIn } from '../../src/app/services/statblockDiceLinks';
 import { splitDiceSegments, toRollFormula } from '../../src/app/services/statblockDiceText';
+import { EventEmitter } from 'events';
+import { DiceTool } from '../../src/app/tools/DiceTool';
+import type { DiceRollResult } from '../../src/app/types/diceTypes';
 import { rollStatblockDice } from '../../src/app/services/statblockRolls';
 
 interface Roll {
@@ -96,6 +99,43 @@ describe('linkDiceIn + attachDiceRolling', () => {
       tokenImagePath: 'tokens/toad.png',
       abilityName: 'Bite',
     });
+
+    dispose();
+  });
+
+  it('links check text as one roll that rolls the check', () => {
+    const rolls: Roll[] = [];
+    const el = host('<div>Climb: 3d6 vs 14 or 1d20+5 ≥ 15 to hold</div>');
+    linkDiceIn(el);
+    const dispose = attachDiceRolling(el, fakeApp(rolls), () => ({}));
+
+    const links = [...el.querySelectorAll<HTMLElement>('.atlas-dice-link')];
+    expect(links.map((link) => link.textContent)).toEqual(['3d6 vs 14', '1d20+5 ≥ 15']);
+    expect(el.textContent).toBe('Climb: 3d6 vs 14 or 1d20+5 ≥ 15 to hold');
+    links[0]!.click();
+    links[1]!.click();
+    expect(rolls.map((roll) => roll.formula)).toEqual(['3d6 vs 14', '1d20+5≥15']);
+
+    dispose();
+  });
+
+  it('shows the check result when the link rolls on a real dice tool', () => {
+    const results: DiceRollResult[] = [];
+    const tool = new DiceTool(new EventEmitter(), () => ({ defaultRoll: '1d20', crit: 'natural' }), {
+      random: () => 0.5, rollId: () => 'roll', roller: () => 'GM', onFormulaError: () => undefined,
+    });
+    const app = { workspace: { getLeavesOfType: () => [{ view: { serviceManager: { getToolController: () => ({ getDiceTool: () => ({ rollDice: (formula: string, source: unknown) => {
+      const result = tool.rollDice(formula, source as never);
+      if (result) results.push(result);
+      return result;
+    } }) }) } } }] } } as never;
+    const el = host('<div>Hold on 3d6 vs 14</div>');
+    linkDiceIn(el);
+    const dispose = attachDiceRolling(el, app, () => ({}));
+
+    el.querySelector<HTMLElement>('.atlas-dice-link')!.click();
+    expect(results).toHaveLength(1);
+    expect(results[0]!.check).toMatchObject({ target: 14 });
 
     dispose();
   });

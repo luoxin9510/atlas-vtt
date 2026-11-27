@@ -205,4 +205,22 @@ describe('rows', () => {
     expect(screen.getByRole('button', { name: 'for Dex save' })).toBeTruthy();
     expect(screen.getByText('Kara rolled privately')).toBeTruthy();
   });
+
+  it('show a check roll\'s verdict under its total, and style the crit from the check, not the dice', () => {
+    const check = { target: 14, direction: 'under' as const, margin: 3, success: true, crit: null, rule: 'builtin:margin' };
+    const checked = (n: number, crit: 'high' | 'low' | null, result: typeof check | (Omit<typeof check, 'crit' | 'success' | 'margin'> & { crit: 'failure'; success: false; margin: -2 })): RollEntry => ({
+      id: id(n), at: Date.now(), who: ME, name: 'Ash', kind: 'roll', token: null, roll: { ...shared(11, '3d6 vs 14'), id: `c${n}`, crit, check: result },
+    });
+    setup([checked(5, 'low', check), checked(6, 'high', { ...check, crit: 'failure', success: false, margin: -2 })]);
+    expect(screen.getByText('Success by 3')).toBeTruthy();
+    expect(screen.getByText('Critical failure by 2')).toBeTruthy();
+    const cards = document.querySelectorAll('.atlas-online-log__roll');
+    expect(cards[0]!.classList.contains('atlas-online-log__roll--crit-fail')).toBe(false);
+    expect(cards[1]!.classList.contains('atlas-online-log__roll--crit-fail')).toBe(true);
+  });
+
+  it('show no verdict line for a roll that was no check', () => {
+    setup([{ id: id(7), at: Date.now(), who: ME, name: 'Ash', kind: 'roll', token: null, roll: shared(12) }]);
+    expect(document.querySelector('.atlas-check-line')).toBeNull();
+  });
 });

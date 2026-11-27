@@ -97,6 +97,23 @@ export interface SharedDie {
   readonly colour?: string;
 }
 
+/**
+ * The verdict of a roll judged against a target (`3d6 vs 14`), as Atlas decided it. `margin` is signed:
+ * 0 or more succeeded by that much, below 0 failed by that much; `rule` names the check rule that ran.
+ * Added later: an older GM sends none, and an older page shows the total without the line.
+ */
+export interface SharedCheck {
+  readonly target: number;
+  readonly direction: 'under' | 'over';
+  readonly margin: number;
+  readonly success: boolean;
+  readonly crit: 'success' | 'failure' | null;
+  readonly rule: string;
+}
+
+/** The longest rule id a shared check names. */
+const MAX_CHECK_RULE = 64;
+
 /** A roll as players see it: Atlas's result without who rolled it, its source reduced to what players may know. */
 export interface SharedRoll {
   readonly id: string;
@@ -115,6 +132,8 @@ export interface SharedRoll {
    * GM sends none, and an older page reads `modifiers` alone.
    */
   readonly namedModifiers?: readonly SharedNamedModifier[];
+  /** The verdict where the roll was a check against a target. */
+  readonly check?: SharedCheck;
 }
 
 /** A constant of a roll written with a label: `+2[Proficiency]` is Proficiency, 2; a subtracted one is negative. */
@@ -232,6 +251,17 @@ function parseNamedModifiers(value: unknown, modifiers: number, linear: boolean)
   return Math.abs(plain) <= MAX_TOTAL ? entries : undefined;
 }
 
+/** A roll's check as a page reads it, or null for anything malformed. */
+function parseCheck(value: unknown): SharedCheck | null {
+  if (!isRecord(value)) return null;
+  const { target, direction, margin, success, crit, rule } = value;
+  if (!isInteger(target, -MAX_TOTAL, MAX_TOTAL) || !isInteger(margin, -MAX_TOTAL, MAX_TOTAL)) return null;
+  if (direction !== 'under' && direction !== 'over') return null;
+  if (typeof success !== 'boolean' || (crit !== 'success' && crit !== 'failure' && crit !== null)) return null;
+  if (!isText(rule, MAX_CHECK_RULE) || rule === '') return null;
+  return { target, direction, margin, success, crit, rule };
+}
+
 /** A shared roll as the client reads it, or null for anything malformed: nothing else reaches the dice. */
 export function parseSharedRoll(value: unknown): SharedRoll | null {
   if (!isRecord(value)) return null;
@@ -242,7 +272,8 @@ export function parseSharedRoll(value: unknown): SharedRoll | null {
   if (!Array.isArray(value.rolls) || value.rolls.length > MAX_ROLLED_DICE) return null;
   const rolls = value.rolls.map(parseDie);
   const source = parseSource(value.source);
-  if (rolls.some((die) => die === null) || source === null || (value.linear !== undefined && value.linear !== false)) return null;
+  const check = value.check === undefined ? undefined : parseCheck(value.check);
+  if (check === null || rolls.some((die) => die === null) || source === null || (value.linear !== undefined && value.linear !== false)) return null;
   const namedModifiers = parseNamedModifiers(value.namedModifiers, modifiers, value.linear !== false);
   return {
     id, timestamp, formula, rolls: rolls as SharedDie[], modifiers, total,
@@ -250,6 +281,7 @@ export function parseSharedRoll(value: unknown): SharedRoll | null {
     ...(namedModifiers !== undefined && { namedModifiers }),
     ...(crit !== undefined && { crit }),
     ...(source !== undefined && { source }),
+    ...(check !== undefined && { check }),
   };
 }
 

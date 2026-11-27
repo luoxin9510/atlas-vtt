@@ -24,6 +24,7 @@
  * number are filled in, so one left names none, and the roll beside it rolls nothing. An `@` inside
  * a word (an address) is none.
  */
+import { splitCheckText } from '../dice/parseCheck';
 import { parseFormula } from './parseFormula';
 
 /** A piece of a text: words, or a roll written in it with the formula a click on it rolls. */
@@ -80,9 +81,21 @@ function spelled(written: string): string {
     .replace(/\+[ \t]*-/g, '-');
 }
 
-/** A roll as written, as the formula the dice tool rolls: no spaces (but in a label), no label before it; a bare bonus stays bare. */
+/** A formula as written, as the dice tool rolls it: no spaces (but in a label), no label before it; a bare bonus stays bare. */
+function stripped(spelledFormula: string): string {
+  return spelledFormula.replace(/\s+(?![^[]*\])/g, '');
+}
+
+/**
+ * A roll as written, as the formula the dice tool rolls: no spaces (but in a label), no label before
+ * it; a bare bonus stays bare. A check (`3d6 vs 14`, `1d20 + 5 ≥ 15`) is split on its separator first,
+ * so its spaces go from the formula alone: `3d6 vs 14`, `1d20+5≥15`.
+ */
 export function toRollFormula(written: string): string {
-  return spelled(written).replace(/\s+(?![^[]*\])/g, '');
+  const text = spelled(written);
+  const check = splitCheckText(text);
+  if (check === null) return stripped(text);
+  return `${stripped(check.formula)}${check.mark === undefined ? ' vs ' : check.mark}${check.target}`;
 }
 
 /**
@@ -96,7 +109,17 @@ export function isRollFormula(formula: string, defaultFaces?: number): boolean {
 
 /** The formula a text written as one roll rolls, or null where it is no roll. */
 export function writtenRoll(written: string, defaultFaces?: number): string | null {
-  return isRollFormula(spelled(written), defaultFaces) ? toRollFormula(written) : null;
+  const text = spelled(written);
+  const check = splitCheckText(text);
+  return isRollFormula(check?.formula ?? text, defaultFaces) ? toRollFormula(written) : null;
+}
+
+/** A check's separator and target right after a roll in running text: `vs` between spaces, or `≤`/`≥`; the target ends before a letter, a digit or a decimal point's digits. */
+const CHECK_TAIL = /^(?:[ \t]+vs[ \t]+|[ \t]*[≤≥][ \t]*)[+-]?\d{1,9}(?![\p{L}\p{N}_]|\.\d)/iu;
+
+/** How many characters of `after` (the text right after a roll) are the check made of it, 0 for none. */
+function checkTail(after: string): number {
+  return CHECK_TAIL.exec(after)?.[0].length ?? 0;
 }
 
 /** The text in pieces as running text reads it, before a stray number sends it to be read whole. */
@@ -110,11 +133,12 @@ function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
   let at = 0;
   for (const found of text.matchAll(defaultFaces === undefined ? ROLLS : BARE_ROLLS)) {
     if (found.index > at) words(text.slice(at, found.index));
-    const end = found.index + found[0].length;
+    const end = found.index + found[0].length + checkTail(text.slice(found.index + found[0].length));
     const joined = REFERENCE_AFTER.test(text.slice(end)) || REFERENCE_BEFORE.test(text.slice(0, found.index));
-    const formula = joined ? null : writtenRoll(found[0], defaultFaces);
-    if (formula === null) words(found[0]);
-    else pieces.push({ text: found[0], formula });
+    const written = text.slice(found.index, end);
+    const formula = joined ? null : writtenRoll(written, defaultFaces);
+    if (formula === null) words(written);
+    else pieces.push({ text: written, formula });
     at = end;
   }
   if (at < text.length) words(text.slice(at));

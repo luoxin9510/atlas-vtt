@@ -42,9 +42,9 @@ describe('dice without faces in text rolls', () => {
     expect(writtenRoll('4d6kh3', 10)).toBe('4d6kh3');
   });
 
-  it('read check text as a roll followed by words, as faced dice are', () => {
-    expect(rolls('3d vs 12', 6)).toEqual([['3d', '3d']]);
-    expect(rolls('3d6 vs 12')).toEqual([['3d6', '3d6']]);
+  it('read check text as one roll, as faced dice are (task 6b: a check is no longer a roll followed by words)', () => {
+    expect(rolls('3d vs 12', 6)).toEqual([['3d vs 12', '3d vs 12']]);
+    expect(rolls('3d6 vs 12')).toEqual([['3d6 vs 12', '3d6 vs 12']]);
     expect(rolls('3d vs 12')).toEqual([]);
   });
 });

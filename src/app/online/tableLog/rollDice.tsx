@@ -1,5 +1,6 @@
 import type { SharedDie, SharedRoll } from '../protocol/index.ts';
 import type { ReactElement } from 'react';
+import { shownCrit } from '../../dice/checkLine';
 import { dieLabel } from '../../tools/diceLabels';
 import { classes } from './classes.ts';
 
@@ -65,8 +66,9 @@ export function RollDice({ roll, id }: { readonly roll: SharedRoll; readonly id?
   );
 }
 
-/** The class a roll's crit gives what shows its total. */
+/** The class a roll's crit gives what shows its total: the check's where the roll has one, else the dice's. */
 export function critClass(roll: SharedRoll, base: string): string | null {
-  if (roll.crit === 'high') return `${base}--crit-success`;
-  return roll.crit === 'low' ? `${base}--crit-fail` : null;
+  const crit = shownCrit(roll);
+  if (crit === 'high') return `${base}--crit-success`;
+  return crit === 'low' ? `${base}--crit-fail` : null;
 }

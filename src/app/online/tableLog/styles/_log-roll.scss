@@ -206,6 +206,26 @@
     text-decoration: line-through;
   }
 
+  // The check's verdict under the total; the player app does not load the plugin's verdict styles.
+  .atlas-online-log__roll-check {
+    display: block;
+    font-size: $font-ui-smaller;
+    font-weight: 600;
+    color: var(--text-muted);
+
+    &.atlas-check-line--success {
+      color: var(--color-green);
+    }
+
+    &.atlas-check-line--failure {
+      color: var(--color-red);
+    }
+
+    &.atlas-check-line--crit {
+      font-weight: 800;
+    }
+  }
+
   .atlas-online-log__roll-hidden {
     display: inline-flex;
     align-items: center;

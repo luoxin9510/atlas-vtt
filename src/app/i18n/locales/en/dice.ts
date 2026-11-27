@@ -40,4 +40,6 @@ export const dice = {
   'dice.check.critSuccess': 'Critical success',
   'dice.check.critFailure': 'Critical failure by {n}',
   'dice.gmOnlyRolls': 'GM only',
+  'dice.formulaInput.label': 'Dice formula or check',
+  'dice.formulaInput.placeholder': '3d6 vs 14',
 } as const satisfies Record<string, Message>;

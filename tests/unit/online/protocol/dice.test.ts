@@ -143,3 +143,31 @@ describe('advantage', () => {
     expect(parseGmMessage({ ...mine, dice: { ['f'.repeat(24)]: d20, [ALIAS]: 'd20' } })).toEqual(mine);
   });
 });
+
+describe('a shared roll\'s check', () => {
+  const check = { target: 14, direction: 'under', margin: 3, success: true, crit: null, rule: 'builtin:margin' } as const;
+  const rolled = { ...ROLL, formula: '3d6 vs 14', check };
+
+  it('is read back as it was written', () => {
+    expect(parseSharedRoll(JSON.parse(JSON.stringify(rolled)))).toEqual(rolled);
+    const crit = { ...check, margin: -2, success: false, crit: 'failure', direction: 'over' } as const;
+    expect(parseSharedRoll({ ...rolled, check: crit })).toEqual({ ...rolled, check: crit });
+  });
+
+  it('is absent from a roll that had none', () => {
+    expect(parseSharedRoll(ROLL)).not.toHaveProperty('check');
+  });
+
+  it('keeps no roll whose check is malformed', () => {
+    const bad: unknown[] = [
+      'yes', null, { ...check, target: 1.5 }, { ...check, target: 1_000_000_001 }, { ...check, margin: '3' }, { ...check, margin: -1_000_000_001 },
+      { ...check, direction: 'sideways' }, { ...check, success: 'true' }, { ...check, crit: 'high' }, { ...check, crit: undefined },
+      { ...check, rule: 7 }, { ...check, rule: 'x'.repeat(100) }, { ...check, rule: undefined },
+    ];
+    for (const entry of bad) expect(parseSharedRoll({ ...rolled, check: entry }), JSON.stringify(entry)).toBeNull();
+  });
+
+  it('drops keys it does not know', () => {
+    expect(parseSharedRoll({ ...rolled, check: { ...check, secret: 1 } })).toEqual(rolled);
+  });
+});
