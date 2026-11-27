@@ -103,6 +103,18 @@ describe('a statblock roll with armed values', () => {
     expect(store.armed('note:Mira.md')).toEqual([]);
   });
 
+  it('moves the target of a check the set rolls under, by the set the roll is thrown with', () => {
+    const app = appWith();
+    const store = ArmedBonuses.forApp(app);
+    store.toggle('note:Mira.md', PROFICIENCY);
+    const under = { dice: [{ count: 3, sides: 6 }], crit: 'none' as const, check: 'under' as const };
+    const thrown: string[] = [];
+    const rolls = offMap((formula) => thrown.push(formula));
+    const result = rollStatblockDice(app, '3d6 vs 14', { bonuses: mira() }, { ...rolls, rollingDice: () => under });
+    expect(thrown).toEqual(['3d6 vs 16']);
+    expect(result?.check).toMatchObject({ target: 16 });
+  });
+
   it('keeps the direction written with a check, and completes a bare bonus check with the set\'s dice', () => {
     const app = appWith();
     const store = ArmedBonuses.forApp(app);
@@ -114,7 +126,7 @@ describe('a statblock roll with armed values', () => {
 
   it('reads a bare die in a check by the faces of the set that opts in', () => {
     const armed = [{ id: PROFICIENCY, label: 'Proficiency', value: 2 }];
-    expect(withArmedBonuses('3d vs 14', armed, { defaultFaces: 6 })).toBe('3d+2[Proficiency] vs 14');
+    expect(withArmedBonuses('3d vs 14', armed, { dice: [{ count: 1, sides: 6 }], crit: 'none', check: 'over', bareDie: true })).toBe('3d+2[Proficiency] vs 14');
     expect(withArmedBonuses('3d vs 14', armed)).toBe('3d vs 14+2[Proficiency]');
   });
 });

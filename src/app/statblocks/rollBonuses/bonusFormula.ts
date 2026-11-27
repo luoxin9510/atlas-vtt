@@ -6,12 +6,13 @@
  * is rolled, so a value that takes it past a limit refuses the roll. Pure.
  */
 
-import { checkText, specOfText } from '../../tools/buildRoll';
 import { LABEL_CHARACTERS, LABEL_LENGTH } from '../../tools/formulaTerms';
 import { labelledConstant } from '../../tools/namedModifiers';
 import type { ArmableValues } from './armableValues';
 import type { ArmedBonus } from './armedBonuses';
-import type { RollParseOptions } from '../../tools/formulaTypes';
+import { withTargetModifier } from '../../tools/targetModifier';
+import type { DiceRules } from '../../types/diceRulesTypes';
+import type { RollingDice } from '../../types/diceSetTypes';
 
 const NOT_IN_LABEL = new RegExp(`[^${LABEL_CHARACTERS}]+`, 'gu');
 
@@ -42,13 +43,14 @@ export function armedValues(ids: readonly string[], shown: ArmableValues): Armed
 }
 
 /**
- * `formula` with every armed value added after it; a label that holds nothing a formula can write adds the number alone.
- * A check (`3d6 vs 14`) takes them in its formula, not after its target (`3d6+2 vs 14`); `options.defaultFaces` is what a die
- * written without faces has, as for reading the check.
+ * `formula` with every armed value added. A check (`3d6 vs 14`) takes them in its formula, not after its target
+ * (`1d20+2[Proficiency] vs 14`), except one that goes under (`rules`: written `≤`, else the set's direction),
+ * which takes their sum in its target (`3d6 vs 16`; `withTargetModifier`) and shows no labels. Armed values are
+ * always whole numbers, so all of them move; dice terms in the formula stay in it. A label that holds nothing
+ * a formula can write adds the number alone. `rules` also say how a die written without faces is read.
  */
-export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], options: RollParseOptions = {}): string {
+export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], rules?: DiceRules | RollingDice): string {
   if (armed.length === 0) return formula;
   const added = armed.map(({ label, value }) => labelledConstant({ label: formulaLabel(label), value })).join('');
-  const { formula: dice, check } = specOfText(formula, options);
-  return check ? checkText(dice + added, check.target, check.written) : formula + added;
+  return withTargetModifier(formula, armed.reduce((sum, { value }) => sum + value, 0), rules, added);
 }
