@@ -30,3 +30,9 @@ export function withTargetModifier(
   const direction = rules ? checkDirection(rollingRules(rules), check.written) : (check.written ?? 'over');
   return direction === 'under' ? checkText(formula, check.target + modifier, check.written) : checkText(formula + diceTerm, check.target, check.written);
 }
+
+/** A whole number typed as `-2`, `+3` or `3` (spaces around it allowed); null for anything else. */
+export function parseModifier(text: string): number | null {
+  const trimmed = text.trim();
+  return /^[+-]?\d+$/.test(trimmed) ? Number(trimmed) : null;
+}

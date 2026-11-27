@@ -27,6 +27,10 @@ import { t } from '../i18n';
 import { BONUS_ID_ATTRIBUTE } from '../statblocks/rollBonuses/armedBonuses';
 import { splitDiceSegments, toRollFormula } from './statblockDiceText';
 import type { RollParseOptions } from '../tools/formulaTypes';
+import { rollParseOptionsOf } from '../gameSystems/diceSets';
+import { specOfText } from '../tools/buildRoll';
+import { parseModifier, withTargetModifier } from '../tools/targetModifier';
+import { promptForText } from '../ui/textInputDialog';
 
 const LINK_CLASS = 'atlas-dice-link';
 
@@ -143,9 +147,12 @@ export function attachDiceRolling(
   const hitDice = (link: HTMLElement, formula: string): boolean =>
     onRollHitPoints !== undefined && /d\d/i.test(formula) && link.closest(HIT_POINTS_SELECTOR) !== null;
 
-  const roll = (link: HTMLElement, side: AdvantageSide | null): void => {
-    const formula = link.dataset.formula;
-    if (!formula) return;
+  const roll = (link: HTMLElement, side: AdvantageSide | null, modifier?: number): void => {
+    const linked = link.dataset.formula;
+    if (!linked) return;
+    // A one-off modifier goes where armed bonuses do (`withTargetModifier`); they are added after it.
+    const rules = modifier === undefined ? null : statblockRollingDice(app, getSource(), offMap?.());
+    const formula = modifier === undefined ? linked : withTargetModifier(linked, modifier, rules ?? undefined);
 
     const abilityName = abilityNameFor(link);
     if (hitDice(link, formula)) {
@@ -179,6 +186,20 @@ export function attachDiceRolling(
     roll(link, advantageSide(event.shiftKey, event.altKey));
   };
 
+  // Nothing is kept: each ask starts empty, and Escape or an invalid entry rolls nothing.
+  const askModifier = (link: HTMLElement): void => {
+    void promptForText({
+      title: t('dice.rollWithModifier'),
+      confirmLabel: t('dice.roll'),
+      placeholder: '-2',
+      singleLine: true,
+      validate: (text) => (parseModifier(text) === null ? t('dice.modifierInvalid') : null),
+    }).then((text) => {
+      const modifier = text === null ? null : parseModifier(text);
+      if (modifier !== null) roll(link, null, modifier);
+    });
+  };
+
   const onContextMenu = (event: MouseEvent): void => {
     const link = linkOf(event);
     const formula = link?.dataset.formula;
@@ -191,6 +212,9 @@ export function attachDiceRolling(
       { label: t('dice.roll'), side: null, roll: () => roll(link, null) },
       ...sides.map((side): RollChoice => ({ label: SIDE_LABELS[side](), side, roll: () => roll(link, side) })),
     ];
+    if (specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check) {
+      choices.push({ label: t('dice.rollWithModifier'), side: null, roll: () => askModifier(link) });
+    }
     // A menu key or Shift+F10 is no right button: the menu hangs from the link.
     const box = link.getBoundingClientRect();
     openMenu(choices, event.button === 2 ? { x: event.clientX, y: event.clientY } : { x: box.left, y: box.bottom }, link);
