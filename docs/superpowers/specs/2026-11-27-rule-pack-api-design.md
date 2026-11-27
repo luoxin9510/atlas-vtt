@@ -46,3 +46,26 @@ commercial game names in code, tests or docs.
 7. Presets, templates and dice sets stay vault files; a pack writes or updates its own on load.
 8. Three PRs: P3a (interface, `whenReady`, check rules, roll as a check, modifiers into the target,
    bundling P1's trailing `defaultFaces?` into one options object), P3b (contests), P3c (importers).
+
+## Decisions (round 2, all recommendations accepted)
+
+9. Roll as a check reads the leading integer of the value (`15 (DX+2)` → 15); a value without one gets
+   no link. Shift/Alt advantage keeps working where the set has an advantage rule.
+10. Right-clicking a check link offers "Roll with a modifier…": a small input takes `-2` and rolls once
+    with it (moving the target for `under`, decision 4). Armed bonuses still apply; nothing is remembered.
+11. Contests start three ways: right-click a check link → "Start a contest…", then click the opponent's
+    check link (Escape cancels); the dropdown input accepts `12 对 14` / `12 vs 14` shorthand and full
+    `3d6 vs 12 对 3d6 vs 14`; and `rollContest(a, b)` in the interface.
+12. Built-in contest rule: a success beats a failure; otherwise the larger margin wins; equal margins
+    are a tie, shown as such. Packs may register other contest rules.
+13. "Import character file…" opens the system file picker (several files); Atlas reads, never copies,
+    the files. The note records the source path and importer id; "Re-import" on the note or token
+    reads it again.
+14. Atlas asks for the collection (default: the open map's); notes go to its `characters/` folder,
+    portraits beside them, tokens into its token library (not placed on a map). Notes inside the
+    collection folder pick up the collection's system (bare dice and so on).
+15. Re-import keeps current damage (resources' current values, clamped to the new maximum), the
+    tokens' conditions, and the note body below the statblock; only imported fields are replaced.
+
+P3b (how a contest's dice are thrown in 3D, online display) and P3c (portrait formats, conflicts on
+re-import) get a short grill of their own before they start.
