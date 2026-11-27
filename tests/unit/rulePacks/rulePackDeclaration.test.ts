@@ -20,7 +20,8 @@ function errorsOf(source: string): string[] {
   return program.getSemanticDiagnostics(file).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
 }
 
-describe('docs/fork/rule-pack-api.d.ts', () => {
+// Each case builds a TypeScript program; under a full parallel run that can pass 5s.
+describe('docs/fork/rule-pack-api.d.ts', { timeout: 30_000 }, () => {
   it('is self-contained: no imports', () => {
     expect(readFileSync(declaration, 'utf8')).not.toMatch(/^\s*import\s|from\s+['"]/m);
   });
