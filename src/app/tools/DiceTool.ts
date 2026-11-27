@@ -27,6 +27,8 @@ export interface RollOptions {
 /** How a contest is rolled: the options of any roll, and who the two sides are. */
 export interface ContestOptions extends RollOptions {
   names?: ContestNames | undefined;
+  /** Which side of advantage each side is rolled with; a side not named here takes `advantage`. */
+  sideAdvantage?: { first?: AdvantageSide | undefined; second?: AdvantageSide | undefined } | undefined;
   /** What moved each side's target, as `targetSteps` does for one roll (which a contest ignores). */
   sideSteps?: { first?: readonly TargetStep[] | undefined; second?: readonly TargetStep[] | undefined } | undefined;
 }
@@ -108,13 +110,14 @@ export class DiceTool {
     first: string, second: string, source: DiceRollResult['source'] | undefined, origin: DiceRollOrigin | undefined, options: ContestOptions | undefined,
   ): [DiceRollResult, DiceRollResult] | null {
     const { rules } = rollingWith(this.getDiceRules(), options?.set);
+    const sideAdvantage = (side: 'first' | 'second'): AdvantageSide | undefined => options?.sideAdvantage?.[side] ?? options?.advantage;
     const pair = rollContestPair(first, second, rules, () => this.inputs.rollId(), options?.names, {
       precheck: (firstSpec, secondSpec) => {
-        const refused = refusalOf(firstSpec, rules, options?.advantage) ?? refusalOf(secondSpec, rules, options?.advantage);
+        const refused = refusalOf(firstSpec, rules, sideAdvantage('first')) ?? refusalOf(secondSpec, rules, sideAdvantage('second'));
         if (refused) this.inputs.onFormulaError(refused);
         return refused === null;
       },
-      rollSide: (spec, side) => this.parseAndRoll(spec, options, options?.sideSteps?.[side]),
+      rollSide: (spec, side) => this.parseAndRoll(spec, { ...options, advantage: sideAdvantage(side) }, options?.sideSteps?.[side]),
     });
     if (!pair) return null;
     this.record(pair[0], source, origin, options);

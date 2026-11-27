@@ -59,8 +59,8 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
     rollContest: (first, second, sources, options) => {
       const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
       const inputs = offlineDiceInputs();
-      const one = rollDiceFormula(first, rules, inputs, shown, undefined, false, options?.sideSteps?.first);
-      const two = one && rollDiceFormula(second, rules, inputs, shown, undefined, false, options?.sideSteps?.second);
+      const one = rollDiceFormula(first, rules, inputs, shown, options?.sideAdvantage?.first ?? options?.advantage, false, options?.sideSteps?.first);
+      const two = one && rollDiceFormula(second, rules, inputs, shown, options?.sideAdvantage?.second ?? options?.advantage, false, options?.sideSteps?.second);
       if (!one || !two) return null;
       markContest(one, two, inputs.rollId(), rules, options?.names);
       return [{ ...one, source: sources[0] }, { ...two, source: sources[1] }];

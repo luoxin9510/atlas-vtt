@@ -186,15 +186,16 @@ export function attachDiceRolling(
   };
 
   /** A link as one side of a contest: its check, and where it was clicked. */
-  const sideOf = (link: HTMLElement): ContestSide => ({
+  const sideOf = (link: HTMLElement, advantage?: AdvantageSide | null): ContestSide => ({
     formula: link.dataset.formula ?? '',
     source: { ...getSource(), abilityName: abilityNameFor(link), rolledBonus: rolledBonusOf(link) },
     offMap: offMap?.(),
+    ...(advantage && { advantage }),
   });
 
   /** A link activated: it answers a contest that waits, else rolls as given. */
   const activate = (link: HTMLElement, side: AdvantageSide | null): void => {
-    if (answerPendingContest(link, isCheck(link.dataset.formula ?? ''), () => sideOf(link))) return;
+    if (answerPendingContest(link, isCheck(link.dataset.formula ?? ''), () => sideOf(link, side))) return;
     roll(link, side);
   };
 

@@ -210,6 +210,8 @@ export interface ContestSide {
   formula: string;
   source: DiceRollSource;
   offMap?: OffMapRolls | null | undefined;
+  /** The side of advantage the click that chose this side asked for. */
+  advantage?: AdvantageSide | null | undefined;
 }
 
 /** Who a side is: its token, else its statblock's note. */
@@ -231,8 +233,10 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
   const set = templateDiceSet(app, first.source.statblockPath);
   const names = { first: sideName(first.source), second: sideName(second.source) };
   const sideSteps = { first: targetStepsFor(app, first.formula, armed[0], first.source, first.offMap), second: targetStepsFor(app, second.formula, armed[1], second.source, second.offMap) };
+  const sideAdvantage = { ...(first.advantage && { first: first.advantage }), ...(second.advantage && { second: second.advantage }) };
   const options: ContestOptions = {
     ...(set && { set }), ...((names.first || names.second) && { names }),
+    ...(Object.keys(sideAdvantage).length > 0 && { sideAdvantage }),
     ...((sideSteps.first.length > 0 || sideSteps.second.length > 0) && { sideSteps }),
   };
   const context = first.source.originContext;

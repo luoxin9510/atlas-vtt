@@ -48,6 +48,15 @@ describe('DiceTool.rollContest', () => {
     expect(first.contest).not.toHaveProperty('verdict');
   });
 
+  it('gives each side its own advantage: the second is rolled with it, the first as it was started', () => {
+    // First side: one d20 (10); second side: two d20, the best kept (4, 17)
+    const { tool } = setup(d20, scripted([10, 20], [4, 20], [17, 20]));
+    const [first, second] = tool.rollContest('+0 vs 12', '+0 vs 15', { sideAdvantage: { second: 'advantage' } })!;
+    expect(first.total).toBe(10);
+    expect(second.total).toBe(17);
+    expect(second.check).toMatchObject({ margin: 2, success: true });
+  });
+
   it('completes a bare target with the set default roll', () => {
     const { tool } = setup(underSet, scripted(...sixes(2, 2, 2, 5, 5, 5)));
     const [first, second] = tool.rollContest('12', '14')!;

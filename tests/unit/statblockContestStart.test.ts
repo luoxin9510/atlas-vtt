@@ -9,6 +9,7 @@ vi.mock('../../src/app/ui/notice', () => ({ showNotice }));
 import { BUILT_IN_DICE_SETS } from '../../src/app/gameSystems/builtInDiceSets';
 import { attachDiceRolling, linkDiceIn, type RollChoice } from '../../src/app/services/statblockDiceLinks';
 import type { DiceRollSource } from '../../src/app/services/statblockRolls';
+import { SettingsService } from '../../src/app/services/SettingsService';
 import { cancelPendingContest } from '../../src/app/services/pendingContest';
 import { ArmedBonuses } from '../../src/app/statblocks/rollBonuses/armedBonuses';
 import { bonusId } from '../../src/app/statblocks/rollBonuses/armableValues';
@@ -83,6 +84,34 @@ describe('starting a contest from a check link', () => {
     // The contest is done: the next click rolls as usual
     goblin.link.click();
     expect(rolled).toEqual(['3d6 vs 12']);
+  });
+
+  it('rolls the second side with the advantage of the click that answered, the first as it was started', async () => {
+    const { app, contests } = mapApp(under);
+    const goblin = card(app, '3d6 vs 12');
+    const ogre = card(app, '3d6 vs 14');
+    goblin.startContest();
+    await tick();
+    ogre.link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true }));
+    expect(contests[0]![2]).toEqual({ sideAdvantage: { second: 'advantage' } });
+  });
+
+  // Characterisation (decision 21): a statblock link roll ignores the tray's GM-only switch, and so does
+  // a contest started from links; neither path sets a visibility.
+  it('asks for no visibility, as a normal statblock link roll does, with the GM-only switch on', async () => {
+    const { app, rolled, contests } = mapApp(under);
+    const spy = vi.spyOn(SettingsService, 'forApp').mockReturnValue({ rollsGmOnly: () => true } as never);
+    try {
+      const goblin = card(app, '3d6 vs 12');
+      const ogre = card(app, '3d6 vs 14');
+      goblin.startContest();
+      await tick();
+      ogre.link.click();
+      expect(contests[0]![2]).not.toHaveProperty('visibility');
+      expect(rolled).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('names a side without a token by its statblock note', async () => {
