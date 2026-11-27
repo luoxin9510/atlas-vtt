@@ -37,8 +37,7 @@ import { presentedSceneOf, type PresentedSceneSource } from './src/app/services/
 import { AssetService } from './src/app/services/AssetService';
 import { SettingsService } from './src/app/services/SettingsService';
 import { addStarterTokens } from './src/app/services/starterTokens';
-import { migratePlayerResourceVisibility } from './src/app/resources/playerVisibilityMigration';
-import { storeLegacyCollectionResources } from './src/app/services/collectionScenes';
+import { carryOverTokenBars } from './src/app/plugin/tokenBarCarryOver';
 import type { WidgetSyncService } from './src/app/services/WidgetSyncService';
 import { registerDiceLookSync } from './src/app/plugin/diceLookSync';
 import { registerAccentColorSync } from './src/app/plugin/accentColorSync';
@@ -224,24 +223,11 @@ export default class AtlasVTTPlugin extends Plugin {
       registerStatusBarVisibility(this);
       this.changelogService?.showUpdates();
       runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
-      runInBackground(this.carryOverTokenBars(), 'Carrying over the token bar settings');
+      runInBackground(carryOverTokenBars(this.app, this.settingsService), 'Carrying over the token bar settings');
       runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
       // Last: settings, dice sets and the views exist, so packs waiting in `whenReady` may go on.
       this.packs.markReady();
     });
-  }
-
-  /**
-   * Once per collection and vault: the HP and secondary bars of collections saved before
-   * resources existed become their resources, and what the old player-window switches
-   * showed becomes "visible to players" on them.
-   */
-  private async carryOverTokenBars(): Promise<void> {
-    await this.settingsService.initialize();
-    const assets = AssetService.getInstance(this.app);
-    await assets.initialize();
-    await storeLegacyCollectionResources(this.app);
-    await migratePlayerResourceVisibility(this.settingsService, assets);
   }
 
   /** Obsidian calls this when `data.json` changed on disk, e.g. a sync brought another device's settings. */
