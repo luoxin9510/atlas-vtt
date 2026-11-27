@@ -3,7 +3,7 @@ import { LOG_ID_PATTERN } from './log.ts';
 import { MAX_SCENE_ID } from './moves.ts';
 import { PLAYER_ID_PATTERN } from './relay.ts';
 import { isRecord } from './shape.ts';
-import { parseTargetSteps, type SharedTargetStep } from './targetSteps.ts';
+import { isInteger, isText, MAX_TOTAL, parseCheck, parseContest, type SharedCheck, type SharedContest } from './rollVerdicts.ts';
 import { TOKEN_ID_PATTERN } from './tokens.ts';
 
 /** The longest formula a player may send: Atlas's dice parser takes no longer one. */
@@ -17,10 +17,6 @@ export const MAX_FACES = 1000;
 /** The longest ability name a shared roll carries. */
 export const MAX_ABILITY_NAME = 200;
 const MAX_ROLL_ID = 64;
-/** The largest total Atlas's grammar lets a formula make. */
-const MAX_TOTAL = 1_000_000_000;
-/** The widest margin a check holds: a target and a total, each within `MAX_TOTAL`, are that far apart at most. */
-const MAX_MARGIN = 2 * MAX_TOTAL;
 /** The longest label a die's term carries. */
 const MAX_DIE_LABEL = 24;
 /** The most labelled constants a shared roll names: Atlas's formula holds no more terms. */
@@ -100,41 +96,7 @@ export interface SharedDie {
   readonly colour?: string;
 }
 
-/**
- * The verdict of a roll judged against a target (`3d6 vs 14`), as Atlas decided it. `margin` is signed:
- * 0 or more succeeded by that much, below 0 failed by that much; `rule` names the check rule that ran.
- * Added later: an older GM sends none, and an older page shows the total without the line.
- */
-export interface SharedCheck {
-  readonly target: number;
-  readonly direction: 'under' | 'over';
-  readonly margin: number;
-  readonly success: boolean;
-  readonly crit: 'success' | 'failure' | null;
-  readonly rule: string;
-  /** Where the target stood before `targetSteps` moved it; set only with them (a check whose target was moved by modifiers). */
-  readonly baseTarget?: number;
-  /** What moved the target, in the order applied, each named or not; they add up from `baseTarget` to `target`. */
-  readonly targetSteps?: SharedTargetStep[];
-}
-
-/** The longest rule id a shared check names. */
-const MAX_CHECK_RULE = 64;
-
-/**
- * What marks a shared roll as one side of a contest (two checks rolled against each other): `id` is
- * shared by the two rolls, and the verdict, `winner` the side that won or null for a tie, is on the
- * second. The sides' names never travel: players see "First side" / "Second side". Added later: an
- * older GM sends none and an older page shows two ordinary rolls.
- */
-export interface SharedContest {
-  readonly id: string;
-  readonly side: 'first' | 'second';
-  readonly verdict?: { readonly winner: 'first' | 'second' | null; readonly rule: string };
-}
-
-/** The longest contest id a shared roll carries. */
-const MAX_CONTEST_ID = 64;
+export type { SharedCheck, SharedContest };
 
 /** A roll as players see it: Atlas's result without who rolled it, its source reduced to what players may know. */
 export interface SharedRoll {
@@ -187,8 +149,6 @@ export interface RollRefused {
 }
 
 const REFUSALS: readonly string[] = ['formula', 'rate', 'scene', 'unavailable'];
-const isInteger = (value: unknown, min: number, max: number): value is number => Number.isInteger(value) && (value as number) >= min && (value as number) <= max;
-const isText = (value: unknown, max: number): value is string => typeof value === 'string' && value.length <= max;
 
 function parseDiceGroup(value: unknown): SharedRollDice['dice'][number] | null {
   if (!isRecord(value) || !isInteger(value.count, 1, MAX_GROUP_DICE) || !isInteger(value.sides, 1, MAX_FACES)) return null;
@@ -273,31 +233,6 @@ function parseNamedModifiers(value: unknown, modifiers: number, linear: boolean)
   if (entries.length !== value.length) return undefined;
   const plain = entries.reduce((rest, entry) => rest - entry.value, modifiers);
   return Math.abs(plain) <= MAX_TOTAL ? entries : undefined;
-}
-
-/** A roll's check as a page reads it, or null for anything malformed or unknown. */
-function parseCheck(value: unknown): SharedCheck | null {
-  if (!isRecord(value)) return null;
-  const { target, direction, margin, success, crit, rule } = value;
-  if (!isInteger(target, -MAX_TOTAL, MAX_TOTAL) || !isInteger(margin, -MAX_MARGIN, MAX_MARGIN)) return null;
-  if (direction !== 'under' && direction !== 'over') return null;
-  if (typeof success !== 'boolean' || (crit !== 'success' && crit !== 'failure' && crit !== null)) return null;
-  if (!isText(rule, MAX_CHECK_RULE) || rule === '') return null;
-  // How a moved target was built is an extra: where it is unreadable, the check stays without it
-  const moved = parseTargetSteps(value.baseTarget, value.targetSteps, target, MAX_TOTAL);
-  return { target, direction, margin, success, crit, rule, ...moved };
-}
-
-/** A roll's contest as a page reads it, or null for anything malformed; the verdict is on the second side only. */
-function parseContest(value: unknown): SharedContest | null {
-  if (!isRecord(value)) return null;
-  const { id, side, verdict } = value;
-  if (!isText(id, MAX_CONTEST_ID) || id === '' || (side !== 'first' && side !== 'second')) return null;
-  if (verdict === undefined) return { id, side };
-  if (side !== 'second' || !isRecord(verdict)) return null;
-  const { winner, rule } = verdict;
-  if ((winner !== 'first' && winner !== 'second' && winner !== null) || !isText(rule, MAX_CHECK_RULE) || rule === '') return null;
-  return { id, side, verdict: { winner, rule } };
 }
 
 /** A shared roll as the client reads it, or null for anything malformed: nothing else reaches the dice. */
