@@ -33,7 +33,7 @@ export function referenceLabel(path: string): string {
 }
 
 /** The roll of the filled text between `from` and `to` with each reference added in it named, but one labelled already; null where none is, or the parser refuses it. */
-function namedRoll(filled: Filled, from: number, to: number): string | null {
+function namedRoll(filled: Filled, from: number, to: number, defaultFaces: number | undefined): string | null {
   let piece = filled.text.slice(from, to);
   let named = false;
   for (const reference of [...filled.filled].reverse()) {
@@ -45,18 +45,18 @@ function namedRoll(filled: Filled, from: number, to: number): string | null {
   }
   if (!named) return null;
   const formula = toRollFormula(piece);
-  const parsed = parseFormula(formula);
+  const parsed = parseFormula(formula, undefined, defaultFaces);
   return parsed.ok && parsed.linear ? formula : null;
 }
 
-/** Every roll of `text` once its references are filled in by `lookup`, in order (`rollPieces`), each with its references named where they may be. */
-export function referenceRolls(text: string, lookup: FieldLookup): ReferenceRoll[] {
+/** Every roll of `text` once its references are filled in by `lookup`, in order (`rollPieces`), each with its references named where they may be. `defaultFaces`: the faces of a die written without them. */
+export function referenceRolls(text: string, lookup: FieldLookup, defaultFaces?: number): ReferenceRoll[] {
   const filled = fillReferences(text, lookup);
   const rolls: ReferenceRoll[] = [];
   let at = 0;
-  for (const piece of rollPieces(filled.text)) {
+  for (const piece of rollPieces(filled.text, defaultFaces)) {
     const end = at + piece.text.length;
-    if (piece.formula !== null) rolls.push({ formula: piece.formula, named: filled.filled.length === 0 ? null : namedRoll(filled, at, end) });
+    if (piece.formula !== null) rolls.push({ formula: piece.formula, named: filled.filled.length === 0 ? null : namedRoll(filled, at, end, defaultFaces) });
     at = end;
   }
   return rolls;
@@ -66,14 +66,14 @@ export function referenceRolls(text: string, lookup: FieldLookup): ReferenceRoll
  * For the rolls of a statblock's values (strings at any depth) that name a reference, what the
  * card's link on the filled text rolls to the formula that names it. A formula another value rolls
  * without a name, or with another, is left out: a link cannot tell which value it stands in. Empty
- * where no value names a reference.
+ * where no value names a reference. `defaultFaces` as in `referenceRolls`.
  */
-export function namedReferenceRolls(values: readonly unknown[], lookup: FieldLookup): ReadonlyMap<string, string> {
+export function namedReferenceRolls(values: readonly unknown[], lookup: FieldLookup, defaultFaces?: number): ReadonlyMap<string, string> {
   const texts = values.flatMap(stringsIn);
   if (!texts.some(namesReference)) return new Map();
   const names = new Map<string, string | null>();
   for (const text of texts) {
-    for (const { formula, named } of referenceRolls(text, lookup)) {
+    for (const { formula, named } of referenceRolls(text, lookup, defaultFaces)) {
       const before = names.get(formula);
       names.set(formula, before === undefined || before === named ? named : null);
     }

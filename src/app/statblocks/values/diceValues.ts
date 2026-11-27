@@ -19,9 +19,9 @@ export function isDiceValue(text: string, defaultFaces?: number): boolean {
  * Whether a Dice value rolls once its `@` references are filled in by `lookup` (`1d8 + @str`): every
  * one must name a number, and the filled text must roll. The value itself keeps its references.
  */
-export function rollsWithReferences(text: string, lookup: FieldLookup): boolean {
+export function rollsWithReferences(text: string, lookup: FieldLookup, defaultFaces?: number): boolean {
   const filled = fillReferences(text, lookup);
-  return filled.unresolved.length === 0 && isDiceValue(filled.text);
+  return filled.unresolved.length === 0 && isDiceValue(filled.text, defaultFaces);
 }
 
 const sameTrace = (a: LookupTrace, b: LookupTrace): boolean => a.length === b.length && a.every((read, at) => read === b[at]);

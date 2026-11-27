@@ -6,6 +6,7 @@ import type { Lookups } from '../expressions/filters';
 import { slugify } from '../model/templateIds';
 import type { StatblockTemplate } from '../model/templateTypes';
 import type { FieldRecord } from '../values/fieldValues';
+import { statblockBareFaces } from '../resolve/statblockBareFaces';
 import { valueText } from '../values/valueText';
 import { BlockList } from './BlockView';
 import { StatblockHeader } from './StatblockHeader';
@@ -91,9 +92,11 @@ export function StatblockSheet({
   reveal = null,
   rollBonuses = 'live',
 }: StatblockSheetProps): React.JSX.Element {
+  // Dice written without faces (`1d+1`) are dice where the statblock's set opts in
+  const defaultFaces = app ? statblockBareFaces(app, template.diceSetId, undefined, sourcePath) : undefined;
   const state = useMemo(
-    () => sheetState({ template, record: fields, lookups, mode, token, folded }),
-    [template, fields, lookups, mode, token, folded],
+    () => sheetState({ template, record: fields, lookups, mode, token, folded, defaultFaces }),
+    [template, fields, lookups, mode, token, folded, defaultFaces],
   );
   const sheet = useMemo((): SheetContextValue => ({ state, app, sourcePath }), [state, app, sourcePath]);
   const openTabs = useOpenTabsState(template.layout, reveal);

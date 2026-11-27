@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { diceLinkProps } from '../../../services/statblockDiceLinks';
 import { bonusLink } from '../../values/valueRolls';
+import { SheetContext } from '../sheetContext';
 
 interface BonusLinkProps {
   /** The text the value shows. */
@@ -15,6 +16,7 @@ interface BonusLinkProps {
  * a whole number its text does not link itself (`2` rolls `+2`); as it is otherwise.
  */
 export function BonusLink({ text, rollable, children }: BonusLinkProps): React.JSX.Element {
-  const bonus = bonusLink(text, rollable);
+  // Dice written without faces count where the statblock's set opts in
+  const bonus = bonusLink(text, rollable, useContext(SheetContext)?.state.defaultFaces);
   return bonus === null ? <>{children}</> : <span {...diceLinkProps(bonus)}>{children}</span>;
 }

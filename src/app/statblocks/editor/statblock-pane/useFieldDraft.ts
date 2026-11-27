@@ -46,7 +46,7 @@ export function useFieldDraft(field: TemplateField, inputRef: RefObject<TextFiel
     draftRef.current = text;
     if (text === written.current.text) return;
     const base = written.current.read;
-    const next: FieldValue | undefined = valueForText(field, text);
+    const next: FieldValue | undefined = valueForText(field, text, pane.sheet.defaultFaces);
     written.current = { text, read: { value: next, key: field.key, viaFormerKey: false } };
     await pane.write(field, fieldPatches(field.key, base, next), { base: base.value, mine: next });
   }, [field, pane]);

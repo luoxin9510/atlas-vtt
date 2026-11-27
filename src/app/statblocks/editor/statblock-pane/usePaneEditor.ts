@@ -22,6 +22,7 @@ import { renderPaneTrack, renderPaneTracked } from './PaneTracked';
 import { renderPaneSlot } from './PaneSlot';
 import { renderPaneTable } from './PaneTable';
 import type { PendingCommit } from './paneTypes';
+import { statblockBareFaces } from '../../resolve/statblockBareFaces';
 import { fieldPatches } from './valuePatches';
 
 export interface PaneEditorOptions {
@@ -90,7 +91,8 @@ export function usePaneEditor(options: PaneEditorOptions): PaneEditor {
   const foldedNow = foldedIds(folded);
   if (!sameIds(foldedRef.current, foldedNow)) foldedRef.current = foldedNow;
   const foldedSet = foldedRef.current;
-  const sheet = useMemo(() => sheetState({ template, record, mode: 'editing', folded: foldedSet }), [template, record, foldedSet]);
+  const defaultFaces = statblockBareFaces(app, template.diceSetId, collectionId, notePath);
+  const sheet = useMemo(() => sheetState({ template, record, mode: 'editing', folded: foldedSet, defaultFaces }), [template, record, foldedSet, defaultFaces]);
   const spots = useMemo(() => editableSpots(template, sheet), [template, sheet]);
   const latest = useRef({ record, options, conflicts });
   latest.current = { record, options, conflicts };

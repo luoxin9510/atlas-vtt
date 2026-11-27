@@ -22,9 +22,9 @@ const STEPS: Readonly<Record<string, number>> = { ArrowUp: 1, ArrowDown: -1 };
 const PLAIN_TYPES: ReadonlySet<TemplateField['type']> = new Set(['number', 'dice']);
 
 /** "avg 13" for dice that roll; nothing for text that is not dice yet. */
-function averageHint(field: TemplateField, draft: string): string | null {
+function averageHint(field: TemplateField, draft: string, defaultFaces: number | undefined): string | null {
   if (field.type !== 'dice') return null;
-  const average = diceAverage(draft);
+  const average = diceAverage(draft, defaultFaces);
   return average === null ? null : `avg ${formatNumber(Math.round(average * 10) / 10)}`;
 }
 
@@ -35,9 +35,11 @@ function averageHint(field: TemplateField, draft: string): string | null {
  */
 export function TextValueInput({ field, autoFocus, placeholder }: ValueInputProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { draft, setDraft, onKey, focusProps } = useFieldDraft(field, inputRef, autoFocus);
-  const problem = valueProblem(field, draft);
-  const hint = averageHint(field, draft);
+  const { pane, draft, setDraft, onKey, focusProps } = useFieldDraft(field, inputRef, autoFocus);
+  // A die written without faces has those of the statblock's set where it opts in
+  const { defaultFaces } = pane.sheet;
+  const problem = valueProblem(field, draft, defaultFaces);
+  const hint = averageHint(field, draft, defaultFaces);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (onKey(event)) return;
