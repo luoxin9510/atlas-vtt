@@ -9,6 +9,7 @@ import { throwStyle } from '../../../dice3d/diceDisplay';
 import { diceSceneToShow } from '../../../dice3d/rollPresentation';
 import { warmDiceSounds } from '../../../dice3d/audio/diceSamples';
 import { playDiceReveal } from '../../../audio/diceRevealSound';
+import { shownCrit } from '../../../dice/checkLine';
 import { canShowDice, warmStages } from '../../../dice3d/stagePool';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import type { DiceRollOrigin } from '../../../types/diceRollOrigin';
@@ -88,7 +89,7 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
       // Without WebGL a stage stays blank (white on some systems), so the roll shows as a card
       if (!scene || !canShowDice(stageDoc)) {
         addToast(prepared);
-        if (cardSounds && !muted && !options.muted) void playDiceReveal(prepared.result.crit ?? null, CARD_VOLUME).catch(() => undefined);
+        if (cardSounds && !muted && !options.muted) void playDiceReveal(shownCrit(prepared.result), CARD_VOLUME).catch(() => undefined);
         return;
       }
       if (!muted && !options.muted) warmDiceSounds();
