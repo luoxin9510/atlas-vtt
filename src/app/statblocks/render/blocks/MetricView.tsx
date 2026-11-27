@@ -15,7 +15,8 @@ import { FieldPrompt, StandIn, ValueText } from '../values/ValueText';
 import { ValueEditingContext, ValueSlot } from '../valueSlot';
 import { useBlockChrome } from '../blockChrome';
 import { TrackedText, trackedShown } from '../values/trackedShown';
-import { rollModeOf, type FieldKey, type MetricBlock } from '../../model/templateTypes';
+import { type FieldKey, type MetricBlock } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import type { BlockViewProps } from './blockViewProps';
 import { t } from '../../../i18n';
 

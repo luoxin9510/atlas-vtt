@@ -19,8 +19,8 @@ export interface ValueRollOptions extends RollParseOptions { readonly checkRoll?
 /** A block's way of rolling its numbers: `true` is a bonus, as a block's `rollable` is. */
 export type RollSwitch = RollMode | boolean | undefined;
 
-/** The whole number a value starts with, a target (`15`, `15 (DX+2)`); no sign, no decimals, no dice (`2d6`). */
-const LEADING_NUMBER = /^\s*(\d{1,4})(?![\d.]|d)/i;
+/** The whole number a value starts with, a target (`15`, `15 (DX+2)`); no sign, no decimals, no dice (`2d6`); a period ending a sentence (`15.`) is allowed. */
+const LEADING_NUMBER = /^\s*(\d{1,4})(?:\.(?!\d)|(?![\d.]))(?!d)/i;
 
 /** The check a value rolls as the target of `checkRoll`, `15 (DX+2)` as `3d6 vs 15`; null without a leading number or a set. */
 function checkOf(text: string, checkRoll: string | undefined): string | null {

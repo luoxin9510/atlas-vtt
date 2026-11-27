@@ -1,7 +1,8 @@
 import React from 'react';
 import { diceLinkProps } from '../../../services/statblockDiceLinks';
 import { splitDiceSegments } from '../../../services/statblockDiceText';
-import { rollModeOf, type StatBlock } from '../../model/templateTypes';
+import { type StatBlock } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import { isDiceValue } from '../../values/diceValues';
 import type { BlockDisplay } from '../blockDisplay';
 import { bonusId } from '../../rollBonuses/armableValues';

@@ -1,6 +1,7 @@
 import React from 'react';
 import { t } from '../../../../i18n';
-import { rollModeOf, type MetricBlock, type PairsBlock, type ScoresBlock, type StatBlock, type TemplateBlock } from '../../../model/templateTypes';
+import { type MetricBlock, type PairsBlock, type ScoresBlock, type StatBlock, type TemplateBlock } from '../../../model/templateTypes';
+import { rollModeOf } from '../../../values/rollMode';
 import { editBlock } from '../inspector/blockEdits';
 import { SwitchSetting } from '../inspector/InspectorControls';
 import type { EditorSession } from '../sessionTypes';

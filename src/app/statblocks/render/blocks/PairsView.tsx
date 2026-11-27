@@ -1,5 +1,6 @@
 import React from 'react';
-import { rollModeOf, type PairsBlock } from '../../model/templateTypes';
+import { type PairsBlock } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import { bonusId, type ArmableValues } from '../../rollBonuses/armableValues';
 import { BONUS_ID_ATTRIBUTE } from '../../rollBonuses/armedBonuses';
 import { useRollBonusTarget } from '../../rollBonuses/rollBonusContext';

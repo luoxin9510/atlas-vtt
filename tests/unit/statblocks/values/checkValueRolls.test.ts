@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { rollStatblockDice, type OffMapRolls } from '../../../../src/app/services/statblockRolls';
 import { ArmedBonuses } from '../../../../src/app/statblocks/rollBonuses/armedBonuses';
-import { rollModeOf } from '../../../../src/app/statblocks/model/templateTypes';
+import { rollModeOf } from '../../../../src/app/statblocks/values/rollMode';
 import { bonusLink, valueRoll } from '../../../../src/app/statblocks/values/valueRolls';
 
 const UNDER = { checkRoll: '3d6' };
@@ -15,6 +15,13 @@ describe('a value rolled as a check', () => {
   it('reads only the leading number of a value with a note after it', () => {
     expect(valueRoll('15 (DX+2)', 'check', UNDER)).toBe('3d6 vs 15');
     expect(valueRoll('  9 / 12', 'check', UNDER)).toBe('3d6 vs 9');
+  });
+
+  it('reads a target that ends a sentence, but not a decimal or a dice term', () => {
+    expect(valueRoll('15.', 'check', UNDER)).toBe('3d6 vs 15');
+    expect(valueRoll('15. Wounded', 'check', UNDER)).toBe('3d6 vs 15');
+    expect(valueRoll('15.5', 'check', UNDER)).toBeNull();
+    expect(valueRoll('15d6', 'check', UNDER)).not.toBe('3d6 vs 15');
   });
 
   it('links nothing without a leading whole number, or where the set is not known', () => {

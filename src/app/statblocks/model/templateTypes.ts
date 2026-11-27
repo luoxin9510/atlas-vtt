@@ -270,12 +270,6 @@ export interface Rollable {
 
 /** How a block rolls a number it shows: as a bonus (`+2`) or as the target of a check (`vs 15`). */
 export type RollMode = 'bonus' | 'check';
-
-/** The way a block rolls its numbers (`rollAs`, else `rollable`), undefined where it rolls none. */
-export function rollModeOf(block: Rollable): RollMode | undefined {
-  if (block.rollAs === 'check') return 'check';
-  return block.rollable === true ? 'bonus' : undefined;
-}
 /**
  * `addsToRolls` ("Add to next roll"), on a Value, Metric or Labels and values: each whole number it shows gets a
  * switch on the card that arms it for the statblock's next roll, which adds it as a term named by its label

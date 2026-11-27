@@ -1,6 +1,7 @@
 import { noteTable } from '../../values/tableValues';
 import { cellOf, type TableColumn, type TableGrid } from '../../model/tableGrid';
-import { rollModeOf, type FieldValue, type RollMode, type ScoreColumn, type ScoresBlock, type TableCell, type TemplateField } from '../../model/templateTypes';
+import { type FieldValue, type RollMode, type ScoreColumn, type ScoresBlock, type TableCell, type TemplateField } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import { isEmptyValue } from '../../values/emptyValue';
 import { formatSigned, numericValue } from '../../values/numberText';
 import { pairValue } from '../../values/pairValues';

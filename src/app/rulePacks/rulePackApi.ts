@@ -11,6 +11,7 @@ import type { CheckDirection, CheckRule } from '../dice/checkTypes';
 import { diceSetOfCollection } from '../services/diceSets/collectionDiceSets';
 import { offlineDiceInputs } from '../services/offlineDiceInputs';
 import { openMapDiceTool } from '../services/statblockRolls';
+import { checkText } from '../tools/buildRoll';
 import { rollDiceFormula, rollingWith, type CheckOptions, type RollOptions } from '../tools/DiceTool';
 import type { DiceRollResult } from '../types/diceTypes';
 
@@ -49,11 +50,6 @@ export interface RulePackApi {
 }
 
 const BUILTIN_PREFIX = 'builtin:';
-
-/** The check text `formula` and `target` make: `vs` follows the dice set, `≤`/`≥` say the direction. */
-function checkText(formula: string, target: number, direction: CheckDirection | undefined): string {
-  return `${formula} ${direction === 'under' ? '≤' : direction === 'over' ? '≥' : 'vs'} ${target}`;
-}
 
 /** The options of the map's dice tool: only what was given, since an unset one is not the same as none. */
 function mapOptions(options: RulePackRollOptions | undefined): RollOptions | undefined {
