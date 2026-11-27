@@ -3,6 +3,7 @@ import { LOG_ID_PATTERN } from './log.ts';
 import { MAX_SCENE_ID } from './moves.ts';
 import { PLAYER_ID_PATTERN } from './relay.ts';
 import { isRecord } from './shape.ts';
+import { parseTargetSteps, type SharedTargetStep } from './targetSteps.ts';
 import { TOKEN_ID_PATTERN } from './tokens.ts';
 
 /** The longest formula a player may send: Atlas's dice parser takes no longer one. */
@@ -111,6 +112,10 @@ export interface SharedCheck {
   readonly success: boolean;
   readonly crit: 'success' | 'failure' | null;
   readonly rule: string;
+  /** Where the target stood before `targetSteps` moved it; set only with them (a check whose target was moved by modifiers). */
+  readonly baseTarget?: number;
+  /** What moved the target, in the order applied, each named or not; they add up from `baseTarget` to `target`. */
+  readonly targetSteps?: SharedTargetStep[];
 }
 
 /** The longest rule id a shared check names. */
@@ -278,7 +283,9 @@ function parseCheck(value: unknown): SharedCheck | null {
   if (direction !== 'under' && direction !== 'over') return null;
   if (typeof success !== 'boolean' || (crit !== 'success' && crit !== 'failure' && crit !== null)) return null;
   if (!isText(rule, MAX_CHECK_RULE) || rule === '') return null;
-  return { target, direction, margin, success, crit, rule };
+  // How a moved target was built is an extra: where it is unreadable, the check stays without it
+  const moved = parseTargetSteps(value.baseTarget, value.targetSteps, target, MAX_TOTAL);
+  return { target, direction, margin, success, crit, rule, ...moved };
 }
 
 /** A roll's contest as a page reads it, or null for anything malformed; the verdict is on the second side only. */

@@ -9,7 +9,7 @@ import type { RollingDice } from '../types/diceSetTypes';
 import { defaultDiceOf, getDiceCrit } from '../tools/diceCrit';
 import type { RolledDie } from '../tools/diceFormula';
 import { MARGIN_RULE_ID, checkRule, marginRule } from './checkRules';
-import type { CheckDirection, CheckResult, CheckRule, CheckRuleInput, CheckRuleOutcome } from './checkTypes';
+import type { CheckDirection, CheckResult, CheckRule, CheckRuleInput, CheckRuleOutcome, TargetStep } from './checkTypes';
 
 /**
  * Which way a check goes: the direction written (`≤`/`≥`), else the set's `check`, else under for
@@ -28,10 +28,12 @@ export interface EvaluateCheckInput {
   target: number;
   /** The direction written with the check, if any. */
   written?: CheckDirection;
+  /** What moved `target` from where the check was written; the result records them with the target they started from. */
+  steps?: readonly TargetStep[] | undefined;
 }
 
 /** The result of checking `total` against `target`; an unknown rule id falls back to `builtin:margin`. */
-export function evaluateCheck({ rolling, rolls, total, target, written }: EvaluateCheckInput): CheckResult {
+export function evaluateCheck({ rolling, rolls, total, target, written, steps }: EvaluateCheckInput): CheckResult {
   const rules = rollingRules(rolling);
   const direction = checkDirection(rules, written);
   const margin = direction === 'under' ? target - total : total - target;
@@ -46,8 +48,11 @@ export function evaluateCheck({ rolling, rolls, total, target, written }: Evalua
     diceCrit: getDiceCrit(rolls, rules),
   };
   const outcome = registered && rules.checkRule ? runRule(rules.checkRule, registered, input) : null;
-  if (outcome) return { target, direction, margin, ...outcome, rule: rules.checkRule ?? MARGIN_RULE_ID };
-  return { target, direction, margin, ...marginRule(input), rule: MARGIN_RULE_ID };
+  const moved = steps && steps.length > 0
+    ? { baseTarget: steps.reduce((base, step) => base - step.value, target), targetSteps: steps.map(({ label, value }) => ({ ...(label !== undefined && { label }), value })) }
+    : {};
+  if (outcome) return { target, direction, margin, ...outcome, rule: rules.checkRule ?? MARGIN_RULE_ID, ...moved };
+  return { target, direction, margin, ...marginRule(input), rule: MARGIN_RULE_ID, ...moved };
 }
 
 /** Rules that failed and were logged: each is logged once, not on every roll it judges. */

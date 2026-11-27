@@ -33,7 +33,7 @@ export function sharedRoll(result: DiceRollResult): SharedRoll {
       ...(success && { success }), ...(failure && { failure }), ...(label !== undefined && { label }), ...(name !== undefined && { name }), ...(colour !== undefined && { colour }),
     })),
     ...(crit !== undefined && { crit }),
-    ...(result.check !== undefined && { check: { target: result.check.target, direction: result.check.direction, margin: result.check.margin, success: result.check.success, crit: result.check.crit, rule: result.check.rule } }),
+    ...(result.check !== undefined && { check: { target: result.check.target, direction: result.check.direction, margin: result.check.margin, success: result.check.success, crit: result.check.crit, rule: result.check.rule, ...(result.check.baseTarget !== undefined && result.check.targetSteps !== undefined && { baseTarget: result.check.baseTarget, targetSteps: result.check.targetSteps.map(({ label, value }) => ({ ...(label !== undefined && { label }), value })) }) } }),
     // Who the sides are never travels: players see "First side" / "Second side".
     ...(result.contest !== undefined && { contest: { id: result.contest.id, side: result.contest.side, ...(result.contest.verdict && { verdict: { winner: result.contest.verdict.winner, rule: result.contest.verdict.rule } }) } }),
     ...(result.linear === false && { linear: false as const }),

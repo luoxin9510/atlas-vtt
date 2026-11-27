@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setLocale } from '../../src/app/i18n';
 import { TRANSLATIONS } from '../../src/app/i18n/languages';
-import { checkLine, shownCrit } from '../../src/app/dice/checkLine';
+import { checkLine, shownCrit, targetLine, modifierStepLabel } from '../../src/app/dice/checkLine';
 import type { CheckResult } from '../../src/app/dice/checkTypes';
 import type { DiceRollResult } from '../../src/app/types/diceTypes';
 
@@ -61,5 +61,39 @@ describe('shownCrit', () => {
     expect(shownCrit(rolled({ crit: 'high', check: check(-3, 'failure') }))).toBe('low');
     expect(shownCrit(rolled({ crit: 'low', check: check(4, 'success') }))).toBe('high');
     expect(shownCrit(rolled({ crit: 'low', check: check(4) }))).toBeNull();
+  });
+});
+
+describe('targetLine', () => {
+  const moved = (steps: NonNullable<CheckResult['targetSteps']>, target = 17, baseTarget = 15): CheckResult =>
+    ({ ...check(3), target, baseTarget, targetSteps: steps });
+
+  it('is null for no check, an unmoved target and a check whose steps are gone', () => {
+    expect(targetLine(rolled())).toBeNull();
+    expect(targetLine(rolled({ check: check(3) }))).toBeNull();
+    expect(targetLine(rolled({ check: { ...check(3), baseTarget: 15, targetSteps: [] } }))).toBeNull();
+  });
+
+  it('names the target it started from, where it came to and what moved it', () => {
+    const line = targetLine(rolled({ check: moved([{ label: 'Agility', value: 2 }]) }));
+    expect(line).toBe('Target 15 → 17 (Agility +2)');
+  });
+
+  it('joins several steps as the language lists, with a true minus for a negative one', () => {
+    const steps = [{ label: 'Agility', value: 2 }, { label: 'Modifier', value: -1 }];
+    expect(targetLine(rolled({ check: moved(steps, 16) }))).toBe('Target 15 → 16 (Agility +2 and Modifier −1)');
+    setLocale('zh', TRANSLATIONS);
+    const zh = [{ label: '敏捷', value: 2 }, { label: '修正', value: -1 }];
+    expect(targetLine(rolled({ check: moved(zh, 16) }))).toBe('目标 15 → 16（敏捷 +2和修正 −1）');
+  });
+
+  it('shows an unlabeled step as its signed number alone', () => {
+    expect(targetLine(rolled({ check: moved([{ value: 2 }, { label: 'Modifier', value: -1 }], 16) }))).toBe('Target 15 → 16 (+2 and Modifier −1)');
+  });
+
+  it('names the one-off modifier in the language of the roller', () => {
+    expect(modifierStepLabel()).toBe('Modifier');
+    setLocale('zh', TRANSLATIONS);
+    expect(modifierStepLabel()).toBe('修正');
   });
 });

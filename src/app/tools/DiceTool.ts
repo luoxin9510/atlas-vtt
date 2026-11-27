@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { AdvantageSide, DiceSet, RolledWithSet, RollingDice } from '../types/diceSetTypes';
 import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
-import type { CheckDirection } from '../dice/checkTypes';
+import type { CheckDirection, TargetStep } from '../dice/checkTypes';
 import { buildRoll, refusalOf, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
 import { parseContest } from '../dice/parseContest';
@@ -20,11 +20,15 @@ export interface RollOptions {
   setAppearance?: boolean | undefined;
   /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
   visibility?: 'all' | 'gm' | undefined;
+  /** What moved the target of the check in the text (modifiers on a check that goes under); the result records them. Ignored for a roll that is no check. */
+  targetSteps?: readonly TargetStep[] | undefined;
 }
 
 /** How a contest is rolled: the options of any roll, and who the two sides are. */
 export interface ContestOptions extends RollOptions {
   names?: ContestNames | undefined;
+  /** What moved each side's target, as `targetSteps` does for one roll (which a contest ignores). */
+  sideSteps?: { first?: readonly TargetStep[] | undefined; second?: readonly TargetStep[] | undefined } | undefined;
 }
 
 /** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
@@ -77,7 +81,7 @@ export class DiceTool {
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
     const contest = parseContest(formula, rollParseOptionsOf(rollingWith(this.getDiceRules(), options?.set).rules));
     if (contest) return this.rollContestSides(contest.first, contest.second, source, origin, options)?.[1] ?? null;
-    return this.record(this.parseAndRoll(formula, options), source, origin, options);
+    return this.record(this.parseAndRoll(formula, options, options?.targetSteps), source, origin, options);
   }
 
   /**
@@ -112,8 +116,8 @@ export class DiceTool {
       this.inputs.onFormulaError(refused);
       return null;
     }
-    const one = this.parseAndRoll(firstSpec, options);
-    const two = one && this.parseAndRoll(secondSpec, options);
+    const one = this.parseAndRoll(firstSpec, options, options?.sideSteps?.first);
+    const two = one && this.parseAndRoll(secondSpec, options, options?.sideSteps?.second);
     if (!one || !two) return null;
     markContest(one, two, this.inputs.rollId(), rollingWith(this.getDiceRules(), options?.set).rules, options?.names);
     this.record(one, source, origin, options);
@@ -143,9 +147,9 @@ export class DiceTool {
   }
 
   /** Rolls the formula; one without dice (`+3`) is added to the dice of the set. */
-  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined): DiceRollResult | null {
+  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined, steps?: readonly TargetStep[]): DiceRollResult | null {
     const { rules, shown } = rollingWith(this.getDiceRules(), options?.set);
-    return rollSpec(typeof spec === 'string' ? specOfText(spec, rollParseOptionsOf(rules)) : spec, rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
+    return rollSpec(withSteps(typeof spec === 'string' ? specOfText(spec, rollParseOptionsOf(rules)) : spec, steps), rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
   }
 
   /** The dice a roll of `set` (else the collection's) is made with, and their rules: what advantage can do. */
@@ -207,8 +211,14 @@ export function rollingWith(
  */
 export function rollDiceFormula(
   formula: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, advantage?: AdvantageSide, setAppearance = false,
+  steps?: readonly TargetStep[],
 ): DiceRollResult | null {
-  return rollSpec(specOfText(formula, rollParseOptionsOf(rules)), rules, inputs, shown, advantage, setAppearance);
+  return rollSpec(withSteps(specOfText(formula, rollParseOptionsOf(rules)), steps), rules, inputs, shown, advantage, setAppearance);
+}
+
+/** `spec` with the steps that moved its target, where it is a check and there are any. */
+function withSteps(spec: RollSpec, steps: readonly TargetStep[] | undefined): RollSpec {
+  return spec.check && steps && steps.length > 0 ? { ...spec, check: { ...spec.check, steps } } : spec;
 }
 
 /** Rolls a spec (a formula, or a check) and dresses the body with its id, time, roller and set. */

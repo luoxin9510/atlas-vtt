@@ -17,20 +17,21 @@ afterEach(() => { document.body.replaceChildren(); });
 
 function mapApp(rules: RollingDice) {
   const formulas: string[] = [];
+  const steps: unknown[] = [];
   const diceTool = {
-    rollDice: (formula: string) => { formulas.push(formula); return { formula } as never; },
+    rollDice: (formula: string, _source?: unknown, _origin?: unknown, options?: { targetSteps?: unknown }) => { formulas.push(formula); steps.push(options?.targetSteps); return { formula } as never; },
     rollingDice: () => rules,
   };
   const app = {
     workspace: { getLeavesOfType: () => [{ view: { serviceManager: { getToolController: () => ({ getDiceTool: () => diceTool }) } } }] },
     vault: { getFileByPath: () => null },
   } as never;
-  return { app, formulas };
+  return { app, formulas, steps };
 }
 
 /** A statblock line holding `text`, wired for rolling; returns what its right-click menu offers. */
 function setup(text: string, rules: RollingDice, bonuses?: { key: string; armable: Map<string, { label: string; value: number }> }) {
-  const { app, formulas } = mapApp(rules);
+  const { app, formulas, steps } = mapApp(rules);
   const el = document.createElement('div');
   el.textContent = text;
   document.body.append(el);
@@ -40,7 +41,7 @@ function setup(text: string, rules: RollingDice, bonuses?: { key: string; armabl
   const link = el.querySelector<HTMLElement>('.atlas-dice-link')!;
   link.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
   const choices = openMenu.mock.lastCall?.[0] ?? [];
-  return { app, formulas, choices, modifierChoice: choices.find((choice) => choice.label === 'Roll with a modifier…') };
+  return { app, formulas, steps, choices, modifierChoice: choices.find((choice) => choice.label === 'Roll with a modifier…') };
 }
 
 const dialog = (): HTMLElement | null => document.querySelector('.atlas-text-dialog');
@@ -160,6 +161,23 @@ describe('Roll with a modifier', () => {
     modifierChoice!.roll();
     await type('-2');
     expect(formulas).toEqual(['3d6 vs 14']);
+  });
+
+  it('records the modifier as a step named Modifier, before the armed bonuses', async () => {
+    const key = 'note:Mira.md';
+    const armable = new Map([[bonusId('proficiency'), { label: 'Proficiency', value: 1 }]]);
+    const { app, modifierChoice, steps } = setup('3d6 vs 15', under, { key, armable });
+    ArmedBonuses.forApp(app).toggle(key, bonusId('proficiency'));
+    modifierChoice!.roll();
+    await type('-2');
+    expect(steps).toEqual([[{ label: 'Modifier', value: -2 }, { label: 'Proficiency', value: 1 }]]);
+  });
+
+  it('records no step where the modifier goes on the dice of an over check', async () => {
+    const { modifierChoice, steps } = setup('1d20 vs 15', over);
+    modifierChoice!.roll();
+    await type('+2');
+    expect(steps).toEqual([undefined]);
   });
 
   it('rejects input that is no whole number, shows why, and rolls nothing', async () => {

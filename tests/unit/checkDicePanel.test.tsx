@@ -73,6 +73,19 @@ describe('the 3D panel', () => {
     expect(container.querySelector('.atlas-dice-roll--crit-success')).not.toBeNull();
   });
 
+  it('shows how a moved target was built under the check line', () => {
+    const moved: DiceRollResult = {
+      ...MAXED_BUT_FAILED, formula: '1d20 vs 7',
+      check: { ...MAXED_BUT_FAILED.check!, target: 7, baseTarget: 5, targetSteps: [{ label: 'Agility', value: 2 }] },
+    };
+    const container = panel(moved);
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(container.querySelector('.atlas-target-line')?.textContent).toBe('Target 5 → 7 (Agility +2)');
+    const plain = panel(MAXED_BUT_FAILED);
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(plain.querySelector('.atlas-target-line')).toBeNull();
+  });
+
   it('badges a GM-only roll and no other', () => {
     expect(panel({ ...MAXED_BUT_FAILED, hidden: true }).querySelector('.atlas-gm-only-badge')?.textContent).toBe('GM only');
     expect(panel(MAXED_BUT_FAILED).querySelector('.atlas-gm-only-badge')).toBeNull();

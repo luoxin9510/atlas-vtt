@@ -22,6 +22,12 @@ const SUCCEEDED: DiceRollResult = {
   check: { target: 12, direction: 'under', margin: 3, success: true, crit: null, rule: 'margin' },
 };
 
+/** A 3d6 check that went under 15 with Agility +2 and a one-off modifier of -1, so its target is 16. */
+const MOVED: DiceRollResult = {
+  ...SUCCEEDED, id: 'm', formula: '3d6 vs 16',
+  check: { ...SUCCEEDED.check!, target: 16, baseTarget: 15, targetSteps: [{ label: 'Agility', value: 2 }, { label: 'Modifier', value: -1 }] },
+};
+
 function toast(result: DiceRollResult): HTMLElement {
   const { container } = render(<DiceToast result={result} presentation={null} phase="visible" onDismiss={() => undefined} useAvatar={() => null} />);
   return container;
@@ -67,5 +73,20 @@ describe('the GM-only badge', () => {
     expect(entry(hidden).querySelector('.atlas-gm-only-badge')?.textContent).toBe('GM only');
     expect(toast(PLAIN).querySelector('.atlas-gm-only-badge')).toBeNull();
     expect(entry(PLAIN).querySelector('.atlas-gm-only-badge')).toBeNull();
+  });
+});
+
+describe('how a moved target was built', () => {
+  const TARGET = 'Target 15 → 16 (Agility +2 and Modifier −1)';
+
+  it('shows under the check line in the card and in the log', () => {
+    expect(toast(MOVED).querySelector('.atlas-target-line')?.textContent).toBe(TARGET);
+    expect(entry(MOVED).querySelector('.atlas-target-line')?.textContent).toBe(TARGET);
+  });
+
+  it('shows nothing for a check whose target did not move', () => {
+    expect(toast(SUCCEEDED).querySelector('.atlas-target-line')).toBeNull();
+    expect(entry(SUCCEEDED).querySelector('.atlas-target-line')).toBeNull();
+    expect(entry(PLAIN).querySelector('.atlas-target-line')).toBeNull();
   });
 });

@@ -141,3 +141,20 @@ describe('check rules by id', () => {
     expect(evaluateCheck({ rolling, rolls, total: 1, target: 10 })).toMatchObject({ success: false, rule: 'builtin:margin' });
   });
 });
+
+describe('evaluateCheck target steps', () => {
+  const rolls = [die(3, 6), die(3, 6), die(3, 6)];
+  const input = { rolling: threeD6('none', { check: 'under' }), rolls, total: 9, target: 17 };
+
+  it('records the target it started from and the steps that moved it', () => {
+    const steps = [{ label: 'Agility', value: 2 }];
+    expect(evaluateCheck({ ...input, steps })).toMatchObject({ target: 17, baseTarget: 15, targetSteps: steps, margin: 8 });
+  });
+
+  it('records nothing without steps', () => {
+    const plain = evaluateCheck(input);
+    expect(plain).not.toHaveProperty('baseTarget');
+    expect(plain).not.toHaveProperty('targetSteps');
+    expect(evaluateCheck({ ...input, steps: [] })).not.toHaveProperty('targetSteps');
+  });
+});

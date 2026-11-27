@@ -127,6 +127,15 @@ describe('sharedRoll and checks', () => {
     expect(sharedRoll({ ...gmRoll('hero'), formula: '1d20+4 vs 10', check }).check).toEqual(check);
     expect(sharedRoll(gmRoll('hero'))).not.toHaveProperty('check');
   });
+
+  it('carries how a moved target was built, as plain data', () => {
+    const check = { target: 12, direction: 'under' as const, margin: 2, success: true, crit: null, rule: 'builtin:margin', baseTarget: 10, targetSteps: [{ label: 'Agility', value: 2 }, { value: 0 }] };
+    const shared = sharedRoll({ ...gmRoll('hero'), formula: '3d6 vs 12', check }).check!;
+    expect(shared).toEqual(check);
+    expect(shared.targetSteps).not.toBe(check.targetSteps);
+    const unmoved = { target: 12, direction: 'under' as const, margin: 2, success: true, crit: null, rule: 'builtin:margin' };
+    expect(sharedRoll({ ...gmRoll('hero'), formula: '3d6 vs 12', check: unmoved }).check).not.toHaveProperty('targetSteps');
+  });
 });
 
 describe('a contest on the wire', () => {

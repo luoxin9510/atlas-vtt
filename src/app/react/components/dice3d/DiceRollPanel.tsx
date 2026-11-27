@@ -17,6 +17,7 @@ import { modifierSteps } from '../../../tools/namedModifiers';
 import { t } from '../../../i18n';
 import { shownCrit } from '../../../dice/checkLine';
 import { CheckLine } from '../dice/RollVerdict';
+import { targetLine } from '../../../dice/checkLine';
 import { useElementHeight } from '../../hooks/useElementHeight';
 
 interface DiceRollPanelProps {
@@ -156,7 +157,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
   }, [scene]);
   const breakdown = rollBreakdown(result, scene);
   const formula = [advantageText(result), rollFormulaText(result)].filter(Boolean).join(' · ');
-  const slotRem = 3.2 + (hasBreakdown(result, scene) ? 1.05 : 0) + (result.check ? 1.05 : 0);
+  const slotRem = 3.2 + (hasBreakdown(result, scene) ? 1.05 : 0) + (result.check ? 1.05 : 0) + (targetLine(result) !== null ? 1.05 : 0);
   const exit = reduced ? { opacity: 0 } : { opacity: 0, y: -14, scale: 0.96 };
   const transition = reduced ? { duration: 0.12 } : MORPH;
 
@@ -211,7 +212,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
             {compact ? (
               <div className="atlas-dice-roll__row">
                 <DiceRollHeader result={result} presentation={presentation} label={label} useAvatar={useAvatar} />
-                {shown !== null && result.contest !== undefined && <CheckLine result={result} />}
+                {shown !== null && result.contest !== undefined && <CheckLine result={result} withTarget={false} />}
                 <span className="atlas-dice-roll__total atlas-dice-roll__total--row">{shown ?? formula}</span>
               </div>
             ) : (

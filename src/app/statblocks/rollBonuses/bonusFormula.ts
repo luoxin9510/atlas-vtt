@@ -10,7 +10,8 @@ import { LABEL_CHARACTERS, LABEL_LENGTH } from '../../tools/formulaTerms';
 import { labelledConstant } from '../../tools/namedModifiers';
 import type { ArmableValues } from './armableValues';
 import type { ArmedBonus } from './armedBonuses';
-import { withTargetModifier } from '../../tools/targetModifier';
+import { targetStepsOf, withTargetModifier } from '../../tools/targetModifier';
+import type { TargetStep } from '../../dice/checkTypes';
 import type { DiceRules } from '../../types/diceRulesTypes';
 import type { RollingDice } from '../../types/diceSetTypes';
 
@@ -53,4 +54,16 @@ export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], 
   if (armed.length === 0) return formula;
   const added = armed.map(({ label, value }) => labelledConstant({ label: formulaLabel(label), value })).join('');
   return withTargetModifier(formula, armed.reduce((sum, { value }) => sum + value, 0), rules, added);
+}
+
+/**
+ * The steps `withArmedBonuses` moves a check's target by, one per armed value named as the roll
+ * names it (a label that holds nothing a formula can write leaves the step unnamed); none where the
+ * target stays (an over check, a plain formula) or the moved one would pass what a check holds.
+ */
+export function armedTargetSteps(formula: string, armed: readonly ArmedBonus[], rules?: DiceRules | RollingDice): TargetStep[] {
+  return targetStepsOf(formula, armed.map(({ label, value }) => {
+    const name = formulaLabel(label);
+    return name === '' ? { value } : { label: name, value };
+  }), rules);
 }

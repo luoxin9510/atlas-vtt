@@ -10,13 +10,14 @@ import type { App } from 'obsidian';
 import { ATLAS_VIEW_TYPE } from '../atlasViewType';
 import type { DiceRollResult } from '../types/diceTypes';
 import type { DiceRollOrigin, TokenRollContext } from '../types/diceRollOrigin';
+import type { TargetStep } from '../dice/checkTypes';
 import { rollOrigin } from '../tools/diceRollOrigins';
 import type { AdvantageSide, RollingDice } from '../types/diceSetTypes';
 import { templateDiceSet } from '../statblocks/resolve/templateDiceSet';
 import type { CheckOptions, ContestOptions, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
-import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
+import { armedValues, armedTargetSteps, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
 import { splitCheckText } from '../dice/splitCheck';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
@@ -40,6 +41,8 @@ export interface DiceRollSource {
   rolledBonus?: string | undefined;
   /** What the statblock's roll links roll, to the same rolls naming the `@` references they were filled in from (`SheetState.namedRolls`). */
   namedRolls?: ReadonlyMap<string, string> | undefined;
+  /** What already moved the target of the formula rolled (a one-off modifier), before the armed values; the result records them first. */
+  targetSteps?: readonly TargetStep[] | undefined;
 }
 
 /** A statblock's armed values as a roll reads them: its key, and the values its card shows now, by id. */
@@ -157,6 +160,18 @@ function thrownFormula(app: App, formula: string, armed: readonly ArmedBonus[], 
 }
 
 /**
+ * What moved the target of `formula` once thrown: `source.targetSteps` (a one-off modifier, already
+ * in `formula`), then the armed values where they moved it too (`armedTargetSteps`); none for a roll
+ * whose target stayed where it was written.
+ */
+function targetStepsFor(
+  app: App, formula: string, armed: readonly ArmedBonus[], source: DiceRollSource, offMap: OffMapRolls | null | undefined,
+): TargetStep[] {
+  const rules = statblockRollingDice(app, source, offMap);
+  return [...(source.targetSteps ?? []), ...armedTargetSteps(formula, armed, rules ?? undefined)];
+}
+
+/**
  * Rolls a statblock's dice, tagged with its source: through the dice tool of the
  * map it was opened in (else of an open map), shown on `offMap` too while that map
  * is not on screen; without a map, by `offMap` alone. A roll for one of the tokens
@@ -170,7 +185,8 @@ export function rollStatblockDice(
   app: App, formula: string, source: DiceRollSource, offMap?: OffMapRolls | null, advantage?: AdvantageSide | null,
 ): DiceRollResult | null {
   const armed = armedOf(app, source);
-  const result = rollWithSource(app, thrownFormula(app, formula, armed, source, offMap), source, offMap, advantage);
+  const steps = targetStepsFor(app, formula, armed, source, offMap);
+  const result = rollWithSource(app, thrownFormula(app, formula, armed, source, offMap), source, offMap, advantage, steps);
   // Disarmed once the roll is out; a roll refused (a limit, no dice to roll it) leaves them armed.
   if (result) spendArmed(app, source, armed);
   return result;
@@ -213,7 +229,11 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
   const two = thrownFormula(app, second.formula, armed[1], second.source, second.offMap);
   const set = templateDiceSet(app, first.source.statblockPath);
   const names = { first: sideName(first.source), second: sideName(second.source) };
-  const options: ContestOptions = { ...(set && { set }), ...((names.first || names.second) && { names }) };
+  const sideSteps = { first: targetStepsFor(app, first.formula, armed[0], first.source, first.offMap), second: targetStepsFor(app, second.formula, armed[1], second.source, second.offMap) };
+  const options: ContestOptions = {
+    ...(set && { set }), ...((names.first || names.second) && { names }),
+    ...((sideSteps.first.length > 0 || sideSteps.second.length > 0) && { sideSteps }),
+  };
   const context = first.source.originContext;
   const map = mapDice(app, context?.viewId ?? first.source.viewId);
   let results: [DiceRollResult, DiceRollResult] | null = null;
@@ -234,10 +254,12 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
 
 function rollWithSource(
   app: App, formula: string, source: DiceRollSource, offMap: OffMapRolls | null | undefined, advantage: AdvantageSide | null | undefined,
+  targetSteps: readonly TargetStep[] = [],
 ): DiceRollResult | null {
   const rollSource = rollSourceOf(source);
   const set = templateDiceSet(app, source.statblockPath);
-  const options: RollOptions | undefined = set || advantage ? { ...(set && { set }), ...(advantage && { advantage }) } : undefined;
+  const options: RollOptions | undefined = set || advantage || targetSteps.length > 0
+    ? { ...(set && { set }), ...(advantage && { advantage }), ...(targetSteps.length > 0 && { targetSteps }) } : undefined;
   const context = source.originContext;
   const map = mapDice(app, context?.viewId ?? source.viewId);
   if (map) {

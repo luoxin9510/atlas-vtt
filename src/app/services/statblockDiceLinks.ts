@@ -30,7 +30,8 @@ import { splitDiceSegments, toRollFormula } from './statblockDiceText';
 import type { RollParseOptions } from '../tools/formulaTypes';
 import { rollParseOptionsOf } from '../gameSystems/diceSets';
 import { specOfText } from '../tools/buildRoll';
-import { parseModifier, withTargetModifier } from '../tools/targetModifier';
+import { parseModifier, targetStepsOf, withTargetModifier } from '../tools/targetModifier';
+import { modifierStepLabel } from '../dice/checkLine';
 import { promptForText } from '../ui/textInputDialog';
 
 const LINK_CLASS = 'atlas-dice-link';
@@ -179,7 +180,9 @@ export function attachDiceRolling(
     const named = modifier === undefined ? undefined : source.namedRolls?.get(linked);
     const namedRolls = named === undefined || !source.namedRolls ? source.namedRolls
       : new Map(source.namedRolls).set(formula, withTargetModifier(named, modifier ?? 0, rules ?? undefined));
-    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus }, offMap?.(), side);
+    // The modifier is the first step of a moved target (`targetStepsOf`: none where it went on the dice)
+    const targetSteps = modifier === undefined ? undefined : targetStepsOf(linked, [{ label: modifierStepLabel(), value: modifier }], rules ?? undefined);
+    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus, ...(targetSteps && { targetSteps }) }, offMap?.(), side);
   };
 
   /** A link as one side of a contest: its check, and where it was clicked. */

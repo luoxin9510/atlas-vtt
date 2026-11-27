@@ -42,6 +42,8 @@ export const dice: Translation = {
   'dice.check.critSuccess': '大成功',
   'dice.check.critFailure': '大失败，差 {n}',
   'dice.check.critFailureOnly': '大失败',
+  'dice.check.target': '目标 {base} → {target}（{steps}）',
+  'dice.check.modifierStep': '修正',
   'dice.contest.first': '第一方',
   'dice.contest.second': '第二方',
   'dice.contest.wins': '{name} 胜',

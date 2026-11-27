@@ -117,3 +117,25 @@ describe('quiet rolls', () => {
     expect(quietRollResult('d0x vs 5', d20, 'q', 1)).toBeNull();
   });
 });
+
+describe('rolling with target steps', () => {
+  const steps = [{ label: 'Agility', value: 2 }, { label: 'Modifier', value: -1 }];
+
+  it('records how the target of a rolled check was built', () => {
+    const roll = toolFor(underSet, scripted(...sixes(3, 3, 3))).rollDice('3d6 vs 16', undefined, undefined, { targetSteps: steps })!;
+    expect(roll.formula).toBe('3d6 vs 16');
+    expect(roll.check).toMatchObject({ target: 16, baseTarget: 15, targetSteps: steps });
+  });
+
+  it('records nothing on a roll that is no check', () => {
+    const roll = toolFor(underSet, scripted(...sixes(3, 3, 3))).rollDice('3d6', undefined, undefined, { targetSteps: steps })!;
+    expect(roll.check).toBeUndefined();
+  });
+
+  it('gives each side of a contest its own steps', () => {
+    const tool = toolFor(underSet, scripted(...sixes(3, 3, 3, 3, 3, 3)));
+    const [one, two] = tool.rollContest('3d6 vs 16', '3d6 vs 12', { sideSteps: { first: steps } })!;
+    expect(one.check).toMatchObject({ baseTarget: 15, targetSteps: steps });
+    expect(two.check).not.toHaveProperty('targetSteps');
+  });
+});

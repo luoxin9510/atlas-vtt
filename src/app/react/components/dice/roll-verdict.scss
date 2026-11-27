@@ -25,6 +25,14 @@
   }
 }
 
+.atlas-target-line {
+  display: block;
+  font-size: $font-ui-smaller;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text-faint);
+}
+
 .atlas-gm-only-badge {
   display: inline-flex;
   align-items: center;

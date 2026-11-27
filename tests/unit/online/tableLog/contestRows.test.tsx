@@ -37,6 +37,25 @@ const rows = (container: HTMLElement): number => container.querySelectorAll('.at
 const verdicts = (container: HTMLElement): string[] => [...container.querySelectorAll('.atlas-contest-verdict')].map((line) => line.textContent ?? '');
 const checks = (container: HTMLElement): string[] => [...container.querySelectorAll('.atlas-check-line')].map((line) => line.textContent ?? '');
 
+describe('the table log and moved targets', () => {
+  const targets = (container: HTMLElement): string[] => [...container.querySelectorAll('.atlas-target-line')].map((line) => line.textContent ?? '');
+  const moved = (entry: RollEntry): RollEntry => ({ ...entry, roll: { ...entry.roll, check: { ...entry.roll.check!, target: 12, baseTarget: 10, targetSteps: [{ label: 'Agility', value: 2 }] } } });
+
+  it('shows how a roll\'s target was built under its check line', () => {
+    const plain: RollEntry = { ...side(1, 'first', 3), roll: { ...side(1, 'first', 3).roll } };
+    delete (plain.roll as { contest?: unknown }).contest;
+    expect(targets(show([moved(plain)]))).toEqual(['Target 10 → 12 (Agility +2)']);
+    cleanup();
+    expect(targets(show([plain]))).toEqual([]);
+  });
+
+  it('shows each side of a contest its own', () => {
+    expect(targets(show([moved(side(1, 'first', 5)), side(2, 'second', 2)]))).toEqual(['Target 10 → 12 (Agility +2)']);
+    cleanup();
+    expect(targets(show([moved(side(1, 'first', 5)), moved(side(2, 'second', 2))]))).toHaveLength(2);
+  });
+});
+
 describe('the table log and contests', () => {
   it('shows the two rolls of a contest as one entry: both with their check lines, then the verdict', () => {
     const container = show([side(1, 'first', 5), side(2, 'second', 2)]);

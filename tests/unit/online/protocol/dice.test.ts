@@ -180,3 +180,30 @@ describe('a shared roll\'s check', () => {
     expect(parseSharedRoll({ ...rolled, check: { ...check, secret: 1 } })).toEqual(rolled);
   });
 });
+
+describe('a shared check\'s moved target', () => {
+  const check = { target: 17, direction: 'under', margin: 3, success: true, crit: null, rule: 'builtin:margin' } as const;
+  const steps = [{ label: 'Agility', value: 2 }, { value: -1 }, { label: 'Modifier', value: 1 }];
+  const moved = { ...check, target: 17, baseTarget: 15, targetSteps: steps };
+  const rolled = { ...ROLL, formula: '3d6 vs 17', check: moved };
+  const plainRoll = { ...ROLL, formula: '3d6 vs 17', check };
+
+  it('is read back as it was written', () => {
+    expect(parseSharedRoll(JSON.parse(JSON.stringify(rolled)))).toEqual(rolled);
+  });
+
+  it('drops only the extras, keeping the check and the roll, where they cannot be read', () => {
+    const bad: unknown[] = [
+      { ...moved, baseTarget: 1.5 }, { ...moved, baseTarget: 16 }, { ...moved, baseTarget: undefined }, { ...moved, targetSteps: undefined },
+      { ...moved, targetSteps: 'Agility' }, { ...moved, targetSteps: [] }, { ...moved, targetSteps: [{ label: 'Agility', value: 3 }] },
+      { ...moved, targetSteps: [{ label: 'Agility', value: 2.5 }, { value: -0.5 }] }, { ...moved, targetSteps: [{ label: '<b>', value: 2 }, { value: -1 }, { value: 1 }] },
+      { ...moved, targetSteps: [{ label: 'x'.repeat(25), value: 2 }, { value: -1 }, { value: 1 }] }, { ...moved, targetSteps: [null] },
+      { ...moved, targetSteps: Array.from({ length: 30 }, () => ({ value: 0 })), baseTarget: 17 },
+    ];
+    for (const entry of bad) expect(parseSharedRoll({ ...rolled, check: entry }), JSON.stringify(entry)).toEqual(plainRoll);
+  });
+
+  it('is absent from a check that moved nothing', () => {
+    expect(parseSharedRoll(plainRoll)!.check).not.toHaveProperty('targetSteps');
+  });
+});

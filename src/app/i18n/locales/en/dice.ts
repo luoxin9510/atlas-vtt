@@ -42,6 +42,8 @@ export const dice = {
   'dice.check.critSuccess': 'Critical success',
   'dice.check.critFailure': 'Critical failure by {n}',
   'dice.check.critFailureOnly': 'Critical failure',
+  'dice.check.target': 'Target {base} → {target} ({steps})',
+  'dice.check.modifierStep': 'Modifier',
   'dice.contest.first': 'First side',
   'dice.contest.second': 'Second side',
   'dice.contest.wins': '{name} wins',
