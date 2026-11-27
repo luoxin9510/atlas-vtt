@@ -5,9 +5,8 @@ import { DiceRollDisplay, type DiceRollSubscription } from '../../../react/compo
 import { diceSetOfCollection } from '../../../services/diceSets/collectionDiceSets';
 import type { OffMapRolls } from '../../../services/statblockRolls';
 import { rollingRules } from '../../../gameSystems/diceSets';
-import { rollDiceFormula, rollingWith } from '../../../tools/DiceTool';
+import { rollContestFormulas, rollDiceFormula, rollingWith } from '../../../tools/DiceTool';
 import { hideGmOnly } from '../../../dice/rollVisibility';
-import { markContest } from '../../../tools/contestRoll';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { OffMapRollsContext } from '../../render/shared/offMapRolls';
 import { offlineDiceInputs } from '../../../services/offlineDiceInputs';
@@ -61,10 +60,10 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
     rollContest: (first, second, sources, options) => {
       const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
       const inputs = offlineDiceInputs(app);
-      const one = rollDiceFormula(first, rules, inputs, shown, options?.sideAdvantage?.first ?? options?.advantage, false, options?.sideSteps?.first);
-      const two = one && rollDiceFormula(second, rules, inputs, shown, options?.sideAdvantage?.second ?? options?.advantage, false, options?.sideSteps?.second);
-      if (!one || !two) return null;
-      markContest(one, two, inputs.rollId(), rules, options?.names);
+      const sideAdvantage = { first: options?.sideAdvantage?.first ?? options?.advantage, second: options?.sideAdvantage?.second ?? options?.advantage };
+      const pair = rollContestFormulas(first, second, rules, inputs, shown, options?.names, { sideAdvantage, sideSteps: options?.sideSteps });
+      if (!pair) return null;
+      const [one, two] = pair;
       hideGmOnly(one, options?.visibility, inputs.gmOnly);
       hideGmOnly(two, options?.visibility, inputs.gmOnly);
       return [{ ...one, source: sources[0] }, { ...two, source: sources[1] }];

@@ -11,6 +11,8 @@ import type { ContestRule } from '../dice/contestTypes';
 import { checkRuleIds, registerCheckRule } from '../dice/checkRules';
 import type { CheckDirection, CheckRule } from '../dice/checkTypes';
 import { diceSetOfCollection } from '../services/diceSets/collectionDiceSets';
+import { parseContest } from '../dice/parseContest';
+import { rollParseOptionsOf } from '../gameSystems/diceSets';
 import { hideGmOnly } from '../dice/rollVisibility';
 import { offlineDiceInputs } from '../services/offlineDiceInputs';
 import { openMapDiceTool } from '../services/statblockRolls';
@@ -176,6 +178,8 @@ export class RulePacks implements RulePackApi {
   /** Rolls with a collection's dice set, telling no map and showing nothing: no surface of Atlas's is reachable from here. */
   private rollOffMap(text: string, options: RulePackRollOptions | undefined): DiceRollResult | null {
     const { rules, shown } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
+    const contest = parseContest(text, rollParseOptionsOf(rules));
+    if (contest) return this.rollContest(contest.first, contest.second, options)?.[1] ?? null;
     const inputs = offlineDiceInputs(this.app);
     const result = rollDiceFormula(text, rules, inputs, shown);
     return result && hideGmOnly(result, options?.visibility, inputs.gmOnly);

@@ -25,6 +25,21 @@ describe('evaluateContest', () => {
     expect(evaluateContest(check(5), check(-5), { ...set, contestRule: 'test:second-always' })).toEqual({ winner: 'second', rule: 'test:second-always' });
   });
 
+  it('hands a rule copies, so a rule that changes them leaves the recorded results alone', () => {
+    const rule: ContestRule = (input) => {
+      (input.first as { success: boolean }).success = false;
+      input.first.targetSteps?.push({ value: 99 });
+      return { winner: 'second' };
+    };
+    cleanup.push(registerContestRule('test:mutates', rule));
+    const first: CheckResult = { ...check(1), baseTarget: 10, targetSteps: [{ label: 'A', value: 1 }] };
+    const second = check(-1);
+    evaluateContest(first, second, { ...set, contestRule: 'test:mutates' });
+    expect(first.success).toBe(true);
+    expect(first.targetSteps).toEqual([{ label: 'A', value: 1 }]);
+    expect(second).toEqual(check(-1));
+  });
+
   it('falls back to the built-in rule for an id nobody registered, silently', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(evaluateContest(check(5), check(-5), { ...set, contestRule: 'test:missing' })).toEqual({ winner: 'first', rule: 'builtin:contest-margin' });

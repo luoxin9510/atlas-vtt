@@ -35,3 +35,16 @@ describe('repeating a roll from the dice log', () => {
     }
   });
 });
+
+describe('repeating a contest from the dice log', () => {
+  it('rolls each side with the advantage it was rolled with', () => {
+    const rollContest = vi.fn(() => null);
+    const tool = { rollDice: vi.fn(), rollContest, clearHistory: vi.fn() };
+    const log = { diceLog: [], addDiceLogEntry: vi.fn(), clearDiceLog: vi.fn() };
+    const { result } = renderHook(() => useDiceHistory(() => tool, log, new EventEmitter()));
+    const side = (formula: string, advantage?: 'advantage' | 'disadvantage'): never => ({ formula, ...(advantage && { advantage }) }) as never;
+    act(() => result.current.repeatContest(side('1d20 vs 12'), side('1d20 vs 14', 'advantage')));
+    expect(rollContest).toHaveBeenCalledWith('1d20 vs 12', '1d20 vs 14', expect.objectContaining({ sideAdvantage: { second: 'advantage' } }));
+    expect(rollContest.mock.calls[0]![2]).not.toHaveProperty('advantage');
+  });
+});

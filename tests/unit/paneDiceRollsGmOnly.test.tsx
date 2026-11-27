@@ -48,3 +48,12 @@ describe('the rolls of a statblock beside its note, with no map open', () => {
     expect(pane.rollContest!('3d6 vs 12', '3d6 vs 14', [source, source])?.map((side) => side.hidden)).toEqual([undefined, undefined]);
   });
 });
+
+describe('a contest of a statblock beside its note', () => {
+  it('rolls neither side where the second is refused', () => {
+    const random = vi.spyOn(Math, 'random');
+    const pane = paneRoller(false);
+    expect(pane.rollContest!('3d6 vs 12', 'nonsense vs 14', [source, source])).toBeNull();
+    expect(random).not.toHaveBeenCalled();
+  });
+});

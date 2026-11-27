@@ -138,6 +138,27 @@ describe('sharedRoll and checks', () => {
   });
 });
 
+describe('the labels of target steps on the wire', () => {
+  const withSteps = (tokenId: string): DiceRollResult => ({
+    ...gmRoll(tokenId), formula: '3d6 vs 12',
+    check: { target: 12, direction: 'under', margin: 2, success: true, crit: null, rule: 'builtin:margin', baseTarget: 10, targetSteps: [{ label: 'Sneak Attack', value: 2 }] },
+  });
+
+  it('reach players for a token they see', async () => {
+    const gm = await table(true);
+    gm.bus.emit('dice-rolled', withSteps('hero'), origin('hero'));
+    expect(rollsSent(gm.sent)[0]?.result.check?.targetSteps).toEqual([{ label: 'Sneak Attack', value: 2 }]);
+  });
+
+  it('are dropped, the values kept, for a token they do not see', async () => {
+    const gm = await table(true);
+    gm.bus.emit('dice-rolled', withSteps('spy'), origin('spy'));
+    const sent = rollsSent(gm.sent);
+    expect(sent[0]?.result.check?.targetSteps).toEqual([{ value: 2 }]);
+    expect(JSON.stringify(sent)).not.toContain('Sneak Attack');
+  });
+});
+
 describe('a contest on the wire', () => {
   const names = { first: 'Ana', second: 'Bo' };
   const check = { target: 10, direction: 'over' as const, margin: 2, success: true, crit: null, rule: 'builtin:margin' };

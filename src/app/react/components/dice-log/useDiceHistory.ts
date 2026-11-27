@@ -79,10 +79,11 @@ export function useDiceHistory(
   }, [getDiceTool]);
 
   const repeatContest = useCallback((first: DiceRollResult, second: DiceRollResult): void => {
-    const advantage = first.advantage ?? second.advantage;
+    // Only the sides' formulas and advantage are repeated: the check text carries each target, so the verdict
+    // is right, but how a target was moved (`check.targetSteps`) is not recorded again.
     getDiceTool()?.rollContest?.(first.formula, second.formula, {
       names: first.contest?.names,
-      ...(advantage && { advantage }),
+      sideAdvantage: { first: first.advantage, second: second.advantage },
       ...(first.hidden && { visibility: 'gm' as const }),
     });
   }, [getDiceTool]);

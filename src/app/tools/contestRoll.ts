@@ -46,3 +46,30 @@ export function markContest(first: DiceRollResult, second: DiceRollResult, id: s
   second.contest = contestOf(id, 'second', names);
   if (first.check && second.check) second.contest.verdict = evaluateContest(first.check, second.check, rules);
 }
+
+/** What differs between rolling a contest with a dice tool and without one. */
+export interface ContestRoller {
+  /** Looks at both sides before anything is rolled; false stops the contest (and has said why). */
+  precheck?: (first: RollSpec, second: RollSpec) => boolean;
+  /** Rolls one side as a spec; null where it refuses. */
+  rollSide: (spec: RollSpec, side: 'first' | 'second') => DiceRollResult | null;
+}
+
+/**
+ * The core of rolling a contest: both sides read as checks, rolled in turn, marked as the two of one
+ * contest with the verdict on the second. Null, rolling nothing further, where a side is no check, the
+ * precheck stops it, or a side refuses.
+ */
+export function rollContestPair(
+  first: string, second: string, rules: DiceRules | RollingDice, rollId: () => string, names: ContestNames | undefined, { precheck, rollSide }: ContestRoller,
+): [DiceRollResult, DiceRollResult] | null {
+  const firstSpec = contestSideSpec(first);
+  const secondSpec = contestSideSpec(second);
+  if (!firstSpec || !secondSpec) return null;
+  if (precheck && !precheck(firstSpec, secondSpec)) return null;
+  const firstRoll = rollSide(firstSpec, 'first');
+  const secondRoll = firstRoll && rollSide(secondSpec, 'second');
+  if (!firstRoll || !secondRoll) return null;
+  markContest(firstRoll, secondRoll, rollId(), rules, names);
+  return [firstRoll, secondRoll];
+}

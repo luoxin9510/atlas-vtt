@@ -77,7 +77,9 @@ describe('starting a contest from a check link', () => {
     expect(showNotice.mock.calls[0]![1]).toBe(0);
     await tick();
     ogre.link.click();
-    expect(contests).toEqual([['3d6 vs 12', '3d6 vs 14', { names: { first: 'Goblin', second: 'Ogre' } }]]);
+    expect(contests).toMatchObject([['3d6 vs 12', '3d6 vs 14', { names: { first: 'Goblin', second: 'Ogre' } }]]);
+    // Each side keeps its own source, so the map's log names both tokens as a single roll does
+    expect(contests[0]![2]).toMatchObject({ sides: { first: { source: { type: 'statblock', tokenName: 'Goblin' } }, second: { source: { type: 'statblock', tokenName: 'Ogre' } } } });
     expect(rolled).toEqual([]);
     expect(hide).toHaveBeenCalledOnce();
     // The contest is done: the next click rolls as usual
@@ -92,7 +94,7 @@ describe('starting a contest from a check link', () => {
     goblin.startContest();
     await tick();
     ogre.link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true }));
-    expect(contests[0]![2]).toEqual({ sideAdvantage: { second: 'advantage' } });
+    expect(contests[0]![2]).toMatchObject({ sideAdvantage: { second: 'advantage' } });
   });
 
   // Decisions 7 and 21: while the GM-only switch is on, any roll the GM makes is GM-only. The map's dice tool
@@ -116,7 +118,7 @@ describe('starting a contest from a check link', () => {
     first.startContest();
     await tick();
     second.link.click();
-    expect(contests[0]![2]).toEqual({ names: { first: 'Goblin' } });
+    expect(contests[0]![2]).toMatchObject({ names: { first: 'Goblin' } });
   });
 
   it('applies the armed bonuses of each side as a normal click would', async () => {
@@ -224,6 +226,6 @@ describe('starting a contest from a check link', () => {
     expect(hide).toHaveBeenCalledOnce();
     await tick();
     goblin.link.click();
-    expect(contests).toEqual([['3d6 vs 14', '3d6 vs 12', {}]]);
+    expect(contests).toMatchObject([['3d6 vs 14', '3d6 vs 12', {}]]);
   });
 });

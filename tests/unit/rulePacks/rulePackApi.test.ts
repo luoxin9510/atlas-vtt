@@ -164,6 +164,12 @@ describe('rolls from a pack', () => {
     expect(api.rollCheck('1d20', 10, { visibility: 'gm' })?.hidden).toBe(true);
   });
 
+  it('rolls contest text without a map as a contest, returning the second result', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const roll = packs().rollDice('12 对 14');
+    expect(roll?.contest).toMatchObject({ side: 'second', verdict: expect.anything() });
+  });
+
   it('returns null for a formula it refuses, and for a target that is no whole number', () => {
     const api = packs();
     expect(api.rollDice('not dice')).toBeNull();

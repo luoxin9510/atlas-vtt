@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerContestRule } from '../../../src/app/dice/contestRules';
 import { BUILT_IN_DICE_SETS } from '../../../src/app/gameSystems/builtInDiceSets';
-import { DiceTool, type DiceRollInputs } from '../../../src/app/tools/DiceTool';
+import { DiceTool, rollContestFormulas, type DiceRollInputs } from '../../../src/app/tools/DiceTool';
 import type { DiceRollResult } from '../../../src/app/types/diceTypes';
 import type { DiceSet } from '../../../src/app/types/diceSetTypes';
 
@@ -200,5 +200,32 @@ describe('DiceTool.rollDice with contest text', () => {
     const { tool } = setup(d20, scripted([10, 20]));
     const result = tool.rollDice('1d20+5')!;
     expect(result).not.toHaveProperty('contest');
+  });
+});
+
+describe('DiceTool.rollContest sides', () => {
+  it('gives each side its own source and origin, as the pane path does', () => {
+    const { tool, bus } = setup(underSet, scripted(...sixes(3, 3, 3, 4, 4, 4)));
+    const origins: unknown[] = [];
+    bus.on('dice-rolled', (_result: DiceRollResult, origin: unknown) => origins.push(origin));
+    const sides = {
+      first: { source: { type: 'statblock' as const, tokenId: 'a', abilityName: 'Grapple' }, origin: { viewId: 'v', mapPath: 'm', tokenId: 'a' } },
+      second: { source: { type: 'statblock' as const, tokenId: 'b' }, origin: { viewId: 'v', mapPath: 'm', tokenId: 'b' } },
+    };
+    const [first, second] = tool.rollContest('12', '14', { sides })!;
+    expect(first.source).toEqual(sides.first.source);
+    expect(second.source).toEqual(sides.second.source);
+    expect(origins).toEqual([sides.first.origin, sides.second.origin]);
+  });
+});
+
+describe('rollContestFormulas', () => {
+  it('rolls neither side where the second is refused', () => {
+    const random = vi.fn(() => 0.5);
+    const onFormulaError = vi.fn();
+    const inputs: DiceRollInputs = { random, rollId: () => 'x', roller: () => 'GM', onFormulaError };
+    expect(rollContestFormulas('3d6 vs 12', 'nonsense vs 14', underSet, inputs)).toBeNull();
+    expect(random).not.toHaveBeenCalled();
+    expect(onFormulaError).toHaveBeenCalledOnce();
   });
 });

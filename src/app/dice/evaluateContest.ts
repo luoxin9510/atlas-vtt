@@ -20,7 +20,8 @@ function acceptOutcome(outcome: unknown): ContestRuleOutcome | null {
 /** Who won between two judged checks by the rules in use; an unknown rule id falls back to `builtin:contest-margin`. */
 export function evaluateContest(first: CheckResult, second: CheckResult, rolling: DiceRules | RollingDice): ContestVerdict {
   const id = rollingRules(rolling).contestRule;
-  const input: ContestRuleInput = { first, second };
+  // A rule works on copies: whatever it changes, the recorded results stay as rolled.
+  const input: ContestRuleInput = { first: structuredClone(first), second: structuredClone(second) };
   const registered = id ? contestRule(id) : undefined;
   const outcome = id && registered ? runPackRule('Contest', id, registered, input, acceptOutcome) : null;
   if (outcome && id) return { winner: outcome.winner, rule: id };

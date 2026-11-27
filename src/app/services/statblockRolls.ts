@@ -14,7 +14,7 @@ import type { TargetStep } from '../dice/checkTypes';
 import { rollOrigin } from '../tools/diceRollOrigins';
 import type { AdvantageSide, RollingDice } from '../types/diceSetTypes';
 import { templateDiceSet } from '../statblocks/resolve/templateDiceSet';
-import type { CheckOptions, ContestOptions, RollOptions } from '../tools/DiceTool';
+import type { CheckOptions, ContestOptions, ContestSideOrigin, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, armedTargetSteps, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
@@ -94,6 +94,13 @@ interface MapViewLike {
   viewId?: string;
   containerEl?: HTMLElement & { isShown?: () => boolean };
   serviceManager?: { getToolController?: () => { getDiceTool?: () => DiceToolLike } };
+}
+
+/** The origin of a roll of `source` on `map`: proof of a token comes only from the context it was opened with, in the view it names. */
+function originOf(map: MapDice, source: DiceRollSource): DiceRollOrigin | undefined {
+  const context = source.originContext;
+  const sameView = context !== undefined && map.viewId === context.viewId && (!source.viewId || source.viewId === context.viewId);
+  return sameView ? rollOrigin(context, source.tokenId) : undefined;
 }
 
 /** The dice tool of an open map view (only `viewId`'s where one is named), one on screen first; null while none is open. */
@@ -241,9 +248,13 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
   };
   const context = first.source.originContext;
   const map = mapDice(app, context?.viewId ?? first.source.viewId);
+  const sideOf = (side: ContestSide): ContestSideOrigin => {
+    const origin = map ? originOf(map, side.source) : undefined;
+    return { source: rollSourceOf(side.source), ...(origin && { origin }) };
+  };
   let results: [DiceRollResult, DiceRollResult] | null = null;
   if (map) {
-    results = map.tool.rollContest?.(firstRoll, secondRoll, options) ?? null;
+    results = map.tool.rollContest?.(firstRoll, secondRoll, { ...options, sides: { first: sideOf(first), second: sideOf(second) } }) ?? null;
     const covered = map.containerEl !== undefined && first.offMap?.covers?.(map.containerEl) === true;
     if (results && (!map.onScreen || covered)) results.forEach((result) => first.offMap?.show(result, true));
   } else if (first.offMap?.rollContest) {
@@ -268,9 +279,7 @@ function rollWithSource(
   const context = source.originContext;
   const map = mapDice(app, context?.viewId ?? source.viewId);
   if (map) {
-    // Proof of a token comes only from the context it was opened with, in the view it names.
-    const sameView = context !== undefined && map.viewId === context.viewId && (!source.viewId || source.viewId === context.viewId);
-    const origin = sameView ? rollOrigin(context, source.tokenId) : undefined;
+    const origin = originOf(map, source);
     const result = options ? map.tool.rollDice(formula, rollSource, origin, options)
       : origin ? map.tool.rollDice(formula, rollSource, origin) : map.tool.rollDice(formula, rollSource);
     const covered = map.containerEl !== undefined && offMap?.covers?.(map.containerEl) === true;

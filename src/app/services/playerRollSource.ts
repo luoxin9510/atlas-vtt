@@ -51,11 +51,18 @@ export function rollForPlayers(
   const source = result.source;
   if (!source) return { result, sourcePresentation: null };
   const shown = origin && source.tokenId && origin.tokenId === source.tokenId ? scene?.shownToken(origin) ?? null : null;
-  if (!shown) return { result: { ...result, source: { type: source.type } }, sourcePresentation: null };
+  if (!shown) return { result: { ...withoutStepLabels(result), source: { type: source.type } }, sourcePresentation: null };
   return {
     result: { ...result, source: source.abilityName ? { type: source.type, abilityName: source.abilityName } : { type: source.type } },
     sourcePresentation: presentationOf(shown, view),
   };
+}
+
+/** The labels of a moved target's steps name abilities and armed values of the token: without that token they go, the values stay. */
+function withoutStepLabels(result: DiceRollResult): DiceRollResult {
+  const steps = result.check?.targetSteps;
+  if (!result.check || !steps) return result;
+  return { ...result, check: { ...result.check, targetSteps: steps.map(({ value }) => ({ value })) } };
 }
 
 /** A contest's sides are named after statblocks and tokens, which players are not told: they see "First side" / "Second side". */

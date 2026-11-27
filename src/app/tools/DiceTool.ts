@@ -8,7 +8,7 @@ import type { CheckDirection, TargetStep } from '../dice/checkTypes';
 import { buildRoll, refusalOf, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
 import { parseContest } from '../dice/parseContest';
-import { contestSideSpec, markContest, type ContestNames } from './contestRoll';
+import { rollContestPair, type ContestNames } from './contestRoll';
 import { hideGmOnly, type RollVisibility } from '../dice/rollVisibility';
 
 /** How a roll is made besides its formula. */
@@ -35,6 +35,14 @@ export interface ContestOptions extends RollOptions {
   sideAdvantage?: { first?: AdvantageSide | undefined; second?: AdvantageSide | undefined } | undefined;
   /** What moved each side's target, as `targetSteps` does for one roll (which a contest ignores). */
   sideSteps?: { first?: readonly TargetStep[] | undefined; second?: readonly TargetStep[] | undefined } | undefined;
+  /** Where each side's roll came from and which token it was made for, as `rollDice` takes them for one roll; a side not named here takes none. */
+  sides?: { first?: ContestSideOrigin | undefined; second?: ContestSideOrigin | undefined } | undefined;
+}
+
+/** The source (what the log names) and origin (the token it was made for) of one side of a contest. */
+export interface ContestSideOrigin {
+  source?: DiceRollResult['source'] | undefined;
+  origin?: DiceRollOrigin | undefined;
 }
 
 /** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
@@ -126,8 +134,8 @@ export class DiceTool {
       rollSide: (spec, side) => this.parseAndRoll(spec, { ...options, advantage: sideAdvantage(side) }, options?.sideSteps?.[side]),
     });
     if (!pair) return null;
-    this.record(pair[0], source, origin, options);
-    this.record(pair[1], source, origin, options);
+    this.record(pair[0], options?.sides?.first?.source ?? source, options?.sides?.first?.origin ?? origin, options);
+    this.record(pair[1], options?.sides?.second?.source ?? source, options?.sides?.second?.origin ?? origin, options);
     return pair;
   }
 
@@ -225,41 +233,22 @@ export function rollDiceFormula(
 /**
  * Rolls a contest by a dice set without telling anyone, as `rollDiceFormula` rolls a formula: both
  * sides rolled, marked as the two of one contest with the verdict on the second. Null, rolling
- * nothing, where a side is no check, and where a side's formula is refused (reported to `inputs`).
+ * nothing, where a side is no check, and where either side's formula is refused (reported to `inputs`,
+ * before either is rolled). `more` gives each side's advantage and moved target, as `ContestOptions` does.
  */
 export function rollContestFormulas(
   first: string, second: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, names?: ContestNames,
+  more: Pick<ContestOptions, 'sideAdvantage' | 'sideSteps'> = {},
 ): [DiceRollResult, DiceRollResult] | null {
+  const advantage = (side: 'first' | 'second'): AdvantageSide | undefined => more.sideAdvantage?.[side];
   return rollContestPair(first, second, rules, () => inputs.rollId(), names, {
-    rollSide: (spec) => rollSpec(spec, rules, inputs, shown, undefined, false),
+    precheck: (firstSpec, secondSpec) => {
+      const refused = refusalOf(firstSpec, rules, advantage('first')) ?? refusalOf(secondSpec, rules, advantage('second'));
+      if (refused) inputs.onFormulaError(refused);
+      return refused === null;
+    },
+    rollSide: (spec, side) => rollSpec(withSteps(spec, more.sideSteps?.[side]), rules, inputs, shown, advantage(side), false),
   });
-}
-
-/** What differs between rolling a contest with a dice tool and without one. */
-interface ContestRoller {
-  /** Looks at both sides before anything is rolled; false stops the contest (and has said why). */
-  precheck?: (first: RollSpec, second: RollSpec) => boolean;
-  /** Rolls one side as a spec; null where it refuses. */
-  rollSide: (spec: RollSpec, side: 'first' | 'second') => DiceRollResult | null;
-}
-
-/**
- * The core of rolling a contest: both sides read as checks, rolled in turn, marked as the two of one
- * contest with the verdict on the second. Null, rolling nothing further, where a side is no check, the
- * precheck stops it, or a side refuses.
- */
-function rollContestPair(
-  first: string, second: string, rules: DiceRules | RollingDice, rollId: () => string, names: ContestNames | undefined, { precheck, rollSide }: ContestRoller,
-): [DiceRollResult, DiceRollResult] | null {
-  const firstSpec = contestSideSpec(first);
-  const secondSpec = contestSideSpec(second);
-  if (!firstSpec || !secondSpec) return null;
-  if (precheck && !precheck(firstSpec, secondSpec)) return null;
-  const firstRoll = rollSide(firstSpec, 'first');
-  const secondRoll = firstRoll && rollSide(secondSpec, 'second');
-  if (!firstRoll || !secondRoll) return null;
-  markContest(firstRoll, secondRoll, rollId(), rules, names);
-  return [firstRoll, secondRoll];
 }
 
 /** `spec` with the steps that moved its target, where it is a check and there are any. */
