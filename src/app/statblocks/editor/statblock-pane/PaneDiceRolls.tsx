@@ -6,6 +6,7 @@ import { diceSetOfCollection } from '../../../services/diceSets/collectionDiceSe
 import type { OffMapRolls } from '../../../services/statblockRolls';
 import { rollingRules } from '../../../gameSystems/diceSets';
 import { rollDiceFormula, rollingWith } from '../../../tools/DiceTool';
+import { markContest } from '../../../tools/contestRoll';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { OffMapRollsContext } from '../../render/shared/offMapRolls';
 import { offlineDiceInputs } from '../../../services/offlineDiceInputs';
@@ -54,6 +55,15 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
       const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
       const result = rollDiceFormula(formula, rules, offlineDiceInputs(), shown, options?.advantage);
       return result && { ...result, source };
+    },
+    rollContest: (first, second, sources, options) => {
+      const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
+      const inputs = offlineDiceInputs();
+      const one = rollDiceFormula(first, rules, inputs, shown);
+      const two = one && rollDiceFormula(second, rules, inputs, shown);
+      if (!one || !two) return null;
+      markContest(one, two, inputs.rollId(), rules, options?.names);
+      return [{ ...one, source: sources[0] }, { ...two, source: sources[1] }];
     },
     covers: (mapEl) => coversMaps && hostRef.current !== null && !mapEl.contains(hostRef.current),
     rollingDice: (set) => rollingRules(rollingWith(diceSetOfCollection(app, collection.current), set).rules),

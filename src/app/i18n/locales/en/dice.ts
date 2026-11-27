@@ -46,6 +46,8 @@ export const dice = {
   'dice.contest.second': 'Second side',
   'dice.contest.wins': '{name} wins',
   'dice.contest.tie': 'Tie',
+  'dice.contest.start': 'Start a contest…',
+  'dice.contest.waiting': 'Click the opponent\'s check to roll the contest. Press Esc to cancel.',
   'dice.gmOnlyRolls': 'GM only',
   'dice.formulaInput.label': 'Dice formula or check',
   'dice.formulaInput.placeholder': '3d6 vs 14',

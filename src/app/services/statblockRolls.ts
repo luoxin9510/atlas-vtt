@@ -13,7 +13,7 @@ import type { DiceRollOrigin, TokenRollContext } from '../types/diceRollOrigin';
 import { rollOrigin } from '../tools/diceRollOrigins';
 import type { AdvantageSide, RollingDice } from '../types/diceSetTypes';
 import { templateDiceSet } from '../statblocks/resolve/templateDiceSet';
-import type { CheckOptions, RollOptions } from '../tools/DiceTool';
+import type { CheckOptions, ContestOptions, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
@@ -55,6 +55,8 @@ export interface OffMapRolls {
    * given, with advantage where `options` asks, telling no map: none is open. Null for a formula it refuses.
    */
   roll(formula: string, source: NonNullable<DiceRollResult['source']>, options?: RollOptions): DiceRollResult | null;
+  /** Rolls two checks against each other as `DiceTool.rollContest` does, each result tagged with its source. Unset: this surface cannot. */
+  rollContest?(first: string, second: string, sources: [NonNullable<DiceRollResult['source']>, NonNullable<DiceRollResult['source']>], options?: ContestOptions): [DiceRollResult, DiceRollResult] | null;
   /** Shows a roll; `muted` when an open map made it and plays its sounds. */
   show(result: DiceRollResult, muted: boolean): void;
   /** The dice a roll is made with, by `set` where one is given, else the collection's: what advantage can do. */
@@ -71,6 +73,7 @@ export interface OffMapRolls {
 export interface DiceToolLike {
   rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null;
   rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null;
+  rollContest?(first: string, second: string, options?: ContestOptions): [DiceRollResult, DiceRollResult] | null;
   rollingDice?(set?: RollOptions['set']): RollingDice;
 }
 
@@ -166,15 +169,67 @@ function thrownFormula(app: App, formula: string, armed: readonly ArmedBonus[], 
 export function rollStatblockDice(
   app: App, formula: string, source: DiceRollSource, offMap?: OffMapRolls | null, advantage?: AdvantageSide | null,
 ): DiceRollResult | null {
-  if (!source.bonuses) return rollWithSource(app, thrownFormula(app, formula, [], source, offMap), source, offMap, advantage);
-  const { key, armable } = source.bonuses;
-  const store = ArmedBonuses.forApp(app);
-  const ids = store.armed(key);
-  const armed = armedValues(ids.filter((id) => id !== source.rolledBonus), armable);
+  const armed = armedOf(app, source);
   const result = rollWithSource(app, thrownFormula(app, formula, armed, source, offMap), source, offMap, advantage);
   // Disarmed once the roll is out; a roll refused (a limit, no dice to roll it) leaves them armed.
-  if (result) store.spend(key, [...armed.map((bonus) => bonus.id), ...(source.rolledBonus === undefined ? [] : [source.rolledBonus])]);
+  if (result) spendArmed(app, source, armed);
   return result;
+}
+
+/** The values armed for a statblock's roll, as its card shows them now; none where it has no bonuses. */
+function armedOf(app: App, source: DiceRollSource): ArmedBonus[] {
+  if (!source.bonuses) return [];
+  const { key, armable } = source.bonuses;
+  return armedValues(ArmedBonuses.forApp(app).armed(key).filter((id) => id !== source.rolledBonus), armable);
+}
+
+function spendArmed(app: App, source: DiceRollSource, armed: readonly ArmedBonus[]): void {
+  if (!source.bonuses) return;
+  ArmedBonuses.forApp(app).spend(source.bonuses.key, [...armed.map((bonus) => bonus.id), ...(source.rolledBonus === undefined ? [] : [source.rolledBonus])]);
+}
+
+/** One side of a contest: the check a statblock link holds, and where it was clicked. */
+export interface ContestSide {
+  formula: string;
+  source: DiceRollSource;
+  offMap?: OffMapRolls | null | undefined;
+}
+
+/** Who a side is: its token, else its statblock's note. */
+function sideName(source: DiceRollSource): string | undefined {
+  return source.tokenName || source.statblockPath?.split('/').pop()?.replace(/\.[^.]*$/, '') || undefined;
+}
+
+/**
+ * Rolls two statblock checks against each other (`DiceTool.rollContest`), each thrown as a click
+ * would throw it (armed values added, `@` references named, spent once rolled), the sides named by
+ * their token or statblock. A contest is rolled by one dice set: the first side's template's, else
+ * the collection's. It is rolled and shown where the first side is (its map, else its surface).
+ * Null, with nothing spent, where nothing could roll it.
+ */
+export function rollStatblockContest(app: App, first: ContestSide, second: ContestSide): [DiceRollResult, DiceRollResult] | null {
+  const armed = [armedOf(app, first.source), armedOf(app, second.source)] as const;
+  const one = thrownFormula(app, first.formula, armed[0], first.source, first.offMap);
+  const two = thrownFormula(app, second.formula, armed[1], second.source, second.offMap);
+  const set = templateDiceSet(app, first.source.statblockPath);
+  const names = { first: sideName(first.source), second: sideName(second.source) };
+  const options: ContestOptions = { ...(set && { set }), ...((names.first || names.second) && { names }) };
+  const context = first.source.originContext;
+  const map = mapDice(app, context?.viewId ?? first.source.viewId);
+  let results: [DiceRollResult, DiceRollResult] | null = null;
+  if (map) {
+    results = map.tool.rollContest?.(one, two, options) ?? null;
+    const covered = map.containerEl !== undefined && first.offMap?.covers?.(map.containerEl) === true;
+    if (results && (!map.onScreen || covered)) results.forEach((result) => first.offMap?.show(result, true));
+  } else if (first.offMap?.rollContest) {
+    results = first.offMap.rollContest(one, two, [rollSourceOf(first.source), rollSourceOf(second.source)], options);
+    results?.forEach((result) => first.offMap?.show(result, false));
+  }
+  if (results) {
+    spendArmed(app, first.source, armed[0]);
+    spendArmed(app, second.source, armed[1]);
+  }
+  return results;
 }
 
 function rollWithSource(

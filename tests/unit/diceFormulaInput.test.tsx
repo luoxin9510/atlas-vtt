@@ -106,6 +106,34 @@ describe('the dice dropdown\'s formula input', () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
+  it('rolls contest text on Enter, with either separator, and closes', () => {
+    render(<DiceDropdownMenu diceTool={diceTool} isOpen onToggle={onToggle} />);
+    type('12 对 14');
+    enter();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(rollDice).toHaveBeenCalledWith('12 对 14');
+    expect(onToggle).toHaveBeenCalledOnce();
+    type('3d6 vs 12 against 14');
+    enter();
+    expect(rollDice).toHaveBeenLastCalledWith('3d6 vs 12 against 14');
+  });
+
+  it('rolls a contest GM-only while the switch is on', () => {
+    settings.setRollsGmOnly(true);
+    render(<DiceDropdownMenu diceTool={diceTool} isOpen onToggle={onToggle} />);
+    type('12 against 14');
+    enter();
+    expect(rollDice).toHaveBeenCalledWith('12 against 14', undefined, undefined, { visibility: 'gm' });
+  });
+
+  it('shows the inline error for a contest with a side that is no check, and rolls nothing', () => {
+    render(<DiceDropdownMenu diceTool={diceTool} isOpen onToggle={onToggle} />);
+    type('12 对 abc');
+    enter();
+    expect(screen.getByRole('alert').textContent).toBe(en['dice.formulaError.syntax']);
+    expect(rollDice).not.toHaveBeenCalled();
+  });
+
   it('closes on Escape without rolling', () => {
     render(<DiceDropdownMenu diceTool={diceTool} isOpen onToggle={onToggle} />);
     type('3d6 vs 14');

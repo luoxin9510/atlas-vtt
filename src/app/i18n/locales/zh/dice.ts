@@ -46,6 +46,8 @@ export const dice: Translation = {
   'dice.contest.second': '第二方',
   'dice.contest.wins': '{name} 胜',
   'dice.contest.tie': '平局',
+  'dice.contest.start': '发起对抗…',
+  'dice.contest.waiting': '点击对手的检定以掷对抗。按 Esc 取消。',
   'dice.gmOnlyRolls': '仅主持人可见',
   'dice.formulaInput.label': '骰子公式或检定',
   'dice.formulaInput.placeholder': '3d6 vs 14',

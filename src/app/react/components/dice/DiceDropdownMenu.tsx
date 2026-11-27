@@ -5,6 +5,7 @@ import { DiceTool, type RollOptions } from '../../../tools/DiceTool';
 import { DiceTray, type TrayAdvantage } from './DiceTray';
 import { DiceFormulaInput } from './DiceFormulaInput';
 import { specOfText } from '../../../tools/buildRoll';
+import { isBareTarget, parseContest } from '../../../dice/parseContest';
 import { completeFormula } from '../../../tools/completeFormula';
 import { rollParseOptionsOf } from '../../../gameSystems/diceSets';
 import { t } from '../../../i18n';
@@ -38,8 +39,15 @@ function rollOptions(side: AdvantageSide | null, gmOnly: boolean): RollOptions |
 /** The parser's message for text that is no formula or check of the tool's dice, or null where it can be rolled. */
 function formulaRefusal(diceTool: DiceTool, text: string): string | null {
   const rules = diceTool.rollingDice();
-  const parsed = completeFormula(specOfText(text, rollParseOptionsOf(rules)).formula, rules);
-  return parsed.ok ? null : t(`dice.formulaError.${parsed.code}`);
+  const options = rollParseOptionsOf(rules);
+  // A contest is two checks: each side's formula is judged as a check's, a bare target (`12`) by the set's own roll.
+  const sides = parseContest(text, options);
+  for (const side of sides ? [sides.first, sides.second] : [text]) {
+    const spec = isBareTarget(side) ? null : specOfText(side, options);
+    const parsed = spec && completeFormula(spec.formula, rules);
+    if (parsed && !parsed.ok) return t(`dice.formulaError.${parsed.code}`);
+  }
+  return null;
 }
 
 export function DiceDropdownMenu({ diceTool, isOpen, onToggle, triggerRef }: DiceDropdownMenuProps): React.ReactElement | null {
