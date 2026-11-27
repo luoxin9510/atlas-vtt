@@ -31,5 +31,6 @@ export const common = {
   'common.copy': 'Copy',
   'common.valueEmpty': 'Value cannot be empty',
   'common.listSeparator': ', ',
+  'common.sumSeparator': ', ',
   'common.listAnd': '{names} and {last}',
 } as const satisfies Record<string, Message>;

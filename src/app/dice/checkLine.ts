@@ -1,4 +1,4 @@
-import { formatList, t } from '../i18n';
+import { formatSumList, t } from '../i18n';
 import type { TargetStep } from './checkTypes';
 import type { DiceCrit } from '../tools/diceCrit';
 import type { DiceRollResult } from '../types/diceTypes';
@@ -29,7 +29,7 @@ function stepText({ label, value }: TargetStep): string {
 }
 
 /**
- * How a moved target was built as one line under the check line ("Target 15 → 17 (Agility +2 and
+ * How a moved target was built as one line under the check line ("Target 15 → 17 (Agility +2,
  * Modifier −1)"), or null where the check's target stayed as written (no steps recorded, or a roll
  * that was no check). Shared like `checkLine`.
  */
@@ -37,7 +37,7 @@ export function targetLine(result: Pick<DiceRollResult, 'check'>): string | null
   const { check } = result;
   const steps = check?.targetSteps;
   if (check === undefined || check.baseTarget === undefined || steps === undefined || steps.length === 0) return null;
-  return t('dice.check.target', { base: check.baseTarget, target: check.target, steps: formatList(steps.map(stepText)) });
+  return t('dice.check.target', { base: check.baseTarget, target: check.target, steps: formatSumList(steps.map(stepText)) });
 }
 
 /**

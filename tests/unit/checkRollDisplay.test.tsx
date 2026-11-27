@@ -77,7 +77,7 @@ describe('the GM-only badge', () => {
 });
 
 describe('how a moved target was built', () => {
-  const TARGET = 'Target 15 → 16 (Agility +2 and Modifier −1)';
+  const TARGET = 'Target 15 → 16 (Agility +2, Modifier −1)';
 
   it('shows under the check line in the card and in the log', () => {
     expect(toast(MOVED).querySelector('.atlas-target-line')?.textContent).toBe(TARGET);

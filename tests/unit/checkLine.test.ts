@@ -79,16 +79,16 @@ describe('targetLine', () => {
     expect(line).toBe('Target 15 → 17 (Agility +2)');
   });
 
-  it('joins several steps as the language lists, with a true minus for a negative one', () => {
+  it('joins several steps as a sum, comma-separated in the language of the roller, with a true minus for a negative one', () => {
     const steps = [{ label: 'Agility', value: 2 }, { label: 'Modifier', value: -1 }];
-    expect(targetLine(rolled({ check: moved(steps, 16) }))).toBe('Target 15 → 16 (Agility +2 and Modifier −1)');
+    expect(targetLine(rolled({ check: moved(steps, 16) }))).toBe('Target 15 → 16 (Agility +2, Modifier −1)');
     setLocale('zh', TRANSLATIONS);
     const zh = [{ label: '敏捷', value: 2 }, { label: '修正', value: -1 }];
-    expect(targetLine(rolled({ check: moved(zh, 16) }))).toBe('目标 15 → 16（敏捷 +2和修正 −1）');
+    expect(targetLine(rolled({ check: moved(zh, 16) }))).toBe('目标 15 → 16（敏捷 +2，修正 −1）');
   });
 
   it('shows an unlabeled step as its signed number alone', () => {
-    expect(targetLine(rolled({ check: moved([{ value: 2 }, { label: 'Modifier', value: -1 }], 16) }))).toBe('Target 15 → 16 (+2 and Modifier −1)');
+    expect(targetLine(rolled({ check: moved([{ value: 2 }, { label: 'Modifier', value: -1 }], 16) }))).toBe('Target 15 → 16 (+2, Modifier −1)');
   });
 
   it('names the one-off modifier in the language of the roller', () => {
