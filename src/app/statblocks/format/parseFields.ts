@@ -17,6 +17,8 @@ import { asBoolean, asKey, asNonNegativeInteger, asOneOf, asString, choices } fr
 type EntryExtra = NonNullable<EntryShape['extras']>[number];
 
 const TEXT = 'text';
+/** The way a number part rolls: as the target of a check. */
+const ROLL_AS = ['check'] as const;
 const EXTRA_TYPES = ['text', 'number', 'list', 'dice', 'choice'] as const satisfies readonly EntryExtra['type'][];
 
 export interface FieldContext {
@@ -136,5 +138,6 @@ function readEntryExtra(raw: unknown, index: number, where: string, problems: st
     type: r.withDefault('type', asOneOf(EXTRA_TYPES), 'text', choices(EXTRA_TYPES)),
     ...r.optList('options', asString, TEXT),
     ...r.opt('several', asBoolean, 'true or false'),
+    ...r.opt('rollAs', asOneOf(ROLL_AS), choices(ROLL_AS)),
   });
 }

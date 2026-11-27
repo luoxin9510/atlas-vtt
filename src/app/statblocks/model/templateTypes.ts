@@ -212,6 +212,12 @@ export interface EntryExtraShape {
   type: EntryExtraType;
   options?: string[];
   several?: boolean;
+  /**
+   * `rollAs: 'check'` ("Roll as a check"), on a `number` part: its value is the target of a check, rolled as the set's
+   * default roll against it (`3d6 vs 15`), as for a value block. Written alone, so that an older Atlas ignores it.
+   * Parts do not roll as a bonus.
+   */
+  rollAs?: 'check';
 }
 
 export type EntryExtraType = 'text' | 'number' | 'list' | 'dice' | 'choice';

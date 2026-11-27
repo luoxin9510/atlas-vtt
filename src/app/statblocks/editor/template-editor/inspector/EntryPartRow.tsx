@@ -18,12 +18,19 @@ const EXTRA_TYPES: Array<{ value: EntryExtraType; label: string }> = [
 function retyped(extra: EntryExtraShape, type: EntryExtraType): EntryExtraShape {
   if (type === 'choice') return { ...extra, type };
   const { options: _options, several: _several, ...rest } = extra;
-  return { ...rest, type };
+  if (type === 'number') return { ...rest, type };
+  const { rollAs: _rollAs, ...others } = rest;
+  return { ...others, type };
 }
 
 function withOptions(extra: EntryExtraShape, options: string[]): EntryExtraShape {
   const { options: _options, ...rest } = extra;
   return options.length > 0 ? { ...rest, options } : rest;
+}
+
+function withCheck(extra: EntryExtraShape, check: boolean): EntryExtraShape {
+  const { rollAs: _rollAs, ...rest } = extra;
+  return check ? { ...rest, rollAs: 'check' } : rest;
 }
 
 function withSeveral(extra: EntryExtraShape, several: boolean): EntryExtraShape {
@@ -59,6 +66,14 @@ export function EntryPartRow({ extra, index, session, disabled, onEdit, onRemove
         <Select<EntryExtraType> value={extra.type} options={EXTRA_TYPES} onChange={(type) => onEdit((current) => retyped(current, type))} labelledBy={typeId} disabled={disabled} />
         <ToolButton icon={X} label={t('sbTemplate.menu.remove')} isActive={false} disabled={disabled} onClick={onRemove} />
       </div>
+      {extra.type === 'number' && (
+        <SwitchSetting
+          label={t('statblock.rollAsCheck')}
+          value={extra.rollAs === 'check'}
+          disabled={disabled}
+          onChange={(check) => onEdit((current) => withCheck(current, check))}
+        />
+      )}
       {extra.type === 'choice' && (
         <div className="atlas-te-entry-part__choice">
           <TextSetting
