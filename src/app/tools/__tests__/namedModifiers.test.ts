@@ -63,6 +63,9 @@ describe('how a roll writes its modifiers', () => {
   it('rewrites the formula\'s labelled constants as terms of their own', () => {
     expect(formulaWithNamedTerms(roll)).toBe('1d20+3 +\u00a02\u00a0Stealth');
     expect(rollLine(roll)).toBe('1d20+3 +\u00a02\u00a0Stealth');
+    // A check's formula part is rewritten, its target left alone.
+    expect(formulaWithNamedTerms({ ...roll, formula: '1d20+3+2[Stealth] vs 14' })).toBe('1d20+3 + 2 Stealth vs 14');
+    expect(formulaWithNamedTerms({ ...roll, formula: '1d20+3+2[Stealth] ≥ 14' })).toBe('1d20+3 + 2 Stealth ≥ 14');
     // Dice labels are no constants.
     expect(formulaWithNamedTerms({ ...roll, formula: '2d6[fire]+2[Stealth]' })).toBe('2d6[fire] +\u00a02\u00a0Stealth');
   });

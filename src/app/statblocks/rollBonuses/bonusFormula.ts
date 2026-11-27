@@ -6,6 +6,7 @@
  * is rolled, so a value that takes it past a limit refuses the roll. Pure.
  */
 
+import { checkText, specOfText } from '../../tools/buildRoll';
 import { LABEL_CHARACTERS, LABEL_LENGTH } from '../../tools/formulaTerms';
 import { labelledConstant } from '../../tools/namedModifiers';
 import type { ArmableValues } from './armableValues';
@@ -39,7 +40,14 @@ export function armedValues(ids: readonly string[], shown: ArmableValues): Armed
   });
 }
 
-/** `formula` with every armed value added after it; a label that holds nothing a formula can write adds the number alone. */
-export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[]): string {
-  return formula + armed.map(({ label, value }) => labelledConstant({ label: formulaLabel(label), value })).join('');
+/**
+ * `formula` with every armed value added after it; a label that holds nothing a formula can write adds the number alone.
+ * A check (`3d6 vs 14`) takes them in its formula, not after its target (`3d6+2 vs 14`); `defaultFaces` is what a die
+ * written without faces has, as for reading the check.
+ */
+export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], defaultFaces?: number): string {
+  if (armed.length === 0) return formula;
+  const added = armed.map(({ label, value }) => labelledConstant({ label: formulaLabel(label), value })).join('');
+  const { formula: dice, check } = specOfText(formula, defaultFaces);
+  return check ? checkText(dice + added, check.target, check.written) : formula + added;
 }

@@ -27,6 +27,11 @@ describe('the rolls of a text with references', () => {
     expect(referenceLabel('stats.dex_save')).toBe('Stats dex save');
   });
 
+  it('keeps a check\'s target out of the formula its references fill in', () => {
+    expect(rolls('3d6 + @agi vs 14')).toEqual([{ formula: '3d6+2 vs 14', named: null }]);
+    expect(rolls('1d20 + @str.mod ≥ 15')).toEqual([{ formula: '1d20+3≥15', named: null }]);
+  });
+
   it('keeps the sign of a negative number, the minus it took over included', () => {
     expect(rolls('1d20 + @int.mod')).toEqual([{ formula: '1d20-1', named: '1d20-1[Int mod]' }]);
     expect(rolls('1d20 - @int.mod')).toEqual([{ formula: '1d20+1', named: '1d20+1[Int mod]' }]);

@@ -17,6 +17,7 @@ import type { RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
+import { bareDieFaces } from '../gameSystems/diceSets';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
 
@@ -135,11 +136,12 @@ export function statblockRollingDice(app: App, source: DiceRollSource, offMap?: 
  * is thrown plain, as it would be without them.
  */
 function thrownFormula(app: App, formula: string, armed: readonly ArmedBonus[], source: DiceRollSource, offMap: OffMapRolls | null | undefined): string {
-  const plain = withArmedBonuses(formula, armed);
+  const rules = statblockRollingDice(app, source, offMap);
+  const faces = rules ? bareDieFaces(rules) : undefined;
+  const plain = withArmedBonuses(formula, armed, faces);
   const named = source.namedRolls?.get(formula) ?? namedBareBonus(formula, source.abilityName);
   if (named === null) return plain;
-  const withNames = withArmedBonuses(named, armed);
-  const rules = statblockRollingDice(app, source, offMap);
+  const withNames = withArmedBonuses(named, armed, faces);
   return (rules ? completeFormula(withNames, rules) : parseFormula(withNames)).ok ? withNames : plain;
 }
 
