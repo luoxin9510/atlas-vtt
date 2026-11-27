@@ -61,6 +61,7 @@ import { registerPartySync } from './src/app/plugin/partySync';
 import type { OnlinePlay } from './src/app/plugin/onlinePlay';
 import { registerSettingsTab } from './src/app/plugin/settingsTab';
 import type { TableChat } from './src/app/online/gm/tableChat';
+import { RulePacks, type RulePackApi } from './src/app/rulePacks/rulePackApi';
 import { registerPlayerWindowReloadCleanup } from './src/app/plugin/playerWindowReload';
 import { registerReturnToAtlasOnClose } from './src/app/plugin/returnToAtlasOnClose';
 import { runStartupMigration } from './src/app/plugin/startupMigration';
@@ -102,6 +103,12 @@ export default class AtlasVTTPlugin extends Plugin {
     return this.onlinePlay?.chat() ?? null;
   }
 
+  /** What rule pack plugins use: wait for Atlas, register check rules, roll dice and checks. Its registrations end when Atlas unloads. */
+  get rulePacks(): RulePackApi {
+    return this.packs;
+  }
+
+  private readonly packs = new RulePacks(this.app);
   private onlinePlay: OnlinePlay | null = null;
   /**
    * Obsidian may unload Atlas while `onload` still awaits (a reload during startup, such as two
@@ -219,6 +226,8 @@ export default class AtlasVTTPlugin extends Plugin {
       runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
       runInBackground(this.carryOverTokenBars(), 'Carrying over the token bar settings');
       runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
+      // Last: settings, dice sets and the views exist, so packs waiting in `whenReady` may go on.
+      this.packs.markReady();
     });
   }
 
@@ -242,6 +251,7 @@ export default class AtlasVTTPlugin extends Plugin {
 
   onunload(): void {
     this.unloaded = true;
+    this.packs.dispose();
     setAtlasPluginId('');
     this.changelogService?.destroy();
     void this.settingsService?.saveSettingsNow();

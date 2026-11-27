@@ -13,7 +13,7 @@ import type { DiceRollOrigin, TokenRollContext } from '../types/diceRollOrigin';
 import { rollOrigin } from '../tools/diceRollOrigins';
 import type { AdvantageSide, RollingDice } from '../types/diceSetTypes';
 import { templateDiceSet } from '../statblocks/resolve/templateDiceSet';
-import type { RollOptions } from '../tools/DiceTool';
+import type { CheckOptions, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
@@ -66,8 +66,10 @@ export interface OffMapRolls {
   covers?(mapEl: HTMLElement): boolean;
 }
 
-interface DiceToolLike {
+/** The part of a map's dice tool that rolls use. */
+export interface DiceToolLike {
   rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null;
+  rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null;
   rollingDice?(set?: RollOptions['set']): RollingDice;
 }
 
@@ -102,6 +104,11 @@ function mapDice(app: App, viewId: string | undefined): MapDice | null {
     hidden ??= found;
   }
   return hidden;
+}
+
+/** The dice tool of a map open in Atlas (one on screen first), for rolls that belong to no statblock; null while none is open. */
+export function openMapDiceTool(app: App): DiceToolLike | null {
+  return mapDice(app, undefined)?.tool ?? null;
 }
 
 function rollSourceOf(source: DiceRollSource): NonNullable<DiceRollResult['source']> {
