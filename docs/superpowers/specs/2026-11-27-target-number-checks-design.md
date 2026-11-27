@@ -28,6 +28,18 @@ Status: grilled and agreed with the owner, 2026-11-27 (15 decisions, below). Bra
 15. Platform PRs (P1, P3, P2) are merged into `fork/work` by the agent once reviews pass and the
     full gate is green; the owner is told afterwards. (Owner decision 2026-11-27.)
 
+Second grill (dice animation, 2026-11-27, all recommendations accepted):
+
+16. Keep Atlas' existing 3D dice; no new renderer.
+17. Showing 3D dice in a note window when a dice link is clicked with no map open is a separate
+    small plan and PR after P1 (not in this branch).
+18. 3D panel, card and log show the check line under the total once the dice land; crit sparks,
+    glow and sound follow `check.crit` when a roll has a check, else `crit` as today.
+19. A GM-only roll still plays on the GM's own screen with a small "GM only" badge (3D, card, log);
+    nothing on the player window; a secret entry online.
+20. The dice dropdown gets a formula input at its top: type a formula or check, Enter rolls it,
+    honouring the GM-only toggle (the tray had no free-text input).
+
 Online fact checked during the grill: `parseSharedRoll` keeps only keys it knows, so an optional
 `check` field needs no protocol level bump; older player apps show the total without the line.
 
