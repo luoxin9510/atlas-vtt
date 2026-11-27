@@ -12,10 +12,11 @@ import { coerce } from '../../values/valueCoercion';
 import type { FieldRead } from '../../values/fieldValues';
 import { textProblem } from '../../values/valueFit';
 import { valueText } from '../../values/valueText';
+import type { RollParseOptions } from '../../../tools/formulaTypes';
 
 /** The value typed text stores in a field: coerced by its type, else the text as typed. Blank clears the key. */
-export function valueForText(field: TemplateField, text: string, defaultFaces?: number): FieldValue | undefined {
-  const result = coerce(field.type, text, field, defaultFaces);
+export function valueForText(field: TemplateField, text: string, options: RollParseOptions = {}): FieldValue | undefined {
+  const result = coerce(field.type, text, field, options);
   return result.ok ? result.value : result.raw;
 }
 
@@ -25,8 +26,8 @@ export function valuePlaceholder(field: TemplateField): string {
 }
 
 /** Why typed text does not fit its field's type ("“1/4” isn't a number."); null where it fits. */
-export function valueProblem(field: TemplateField, value: FieldValue | undefined, defaultFaces?: number): string | null {
-  return typeof value === 'string' ? textProblem(field, value, defaultFaces) : null;
+export function valueProblem(field: TemplateField, value: FieldValue | undefined, options: RollParseOptions = {}): string | null {
+  return typeof value === 'string' ? textProblem(field, value, options) : null;
 }
 
 /** A value as the pane's text input starts with it. */

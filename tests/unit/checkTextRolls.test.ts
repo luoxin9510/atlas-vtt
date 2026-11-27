@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { rollPieces, toRollFormula, writtenRoll } from '../../src/app/tools/textRolls';
+import type { RollParseOptions } from '../../src/app/tools/formulaTypes';
 
 /** The rolls a text holds: what stands there, and the formula it throws. */
-const rolls = (text: string, defaultFaces?: number): [string, string][] =>
-  rollPieces(text, defaultFaces).flatMap((piece) => (piece.formula === null ? [] : [[piece.text, piece.formula] as [string, string]]));
+const rolls = (text: string, options?: RollParseOptions): [string, string][] =>
+  rollPieces(text, options).flatMap((piece) => (piece.formula === null ? [] : [[piece.text, piece.formula] as [string, string]]));
 
 describe('check text in text rolls', () => {
   it('is one roll with its target, not dice followed by words', () => {
@@ -30,7 +31,7 @@ describe('check text in text rolls', () => {
 
   it('takes a bare die check only where the set opts in', () => {
     expect(rolls('Roll 3d vs 12')).toEqual([]);
-    expect(rolls('Roll 3d vs 12', 6)).toEqual([['3d vs 12', '3d vs 12']]);
+    expect(rolls('Roll 3d vs 12', { defaultFaces: 6 })).toEqual([['3d vs 12', '3d vs 12']]);
   });
 
   it('reads a whole value as a check too', () => {
@@ -51,7 +52,7 @@ describe('check text in text rolls', () => {
     expect(rolls('Save 1d6 vs -3 now')).toEqual([['1d6 vs -3', '1d6 vs -3']]);
     expect(rolls('Save 1d6 vs +5 now')).toEqual([['1d6 vs +5', '1d6 vs 5']]);
     for (const text of ['Save 3d vs -3 now', 'Save 3d ≥ +5 now']) {
-      const pieces = rollPieces(text, 6);
+      const pieces = rollPieces(text, { defaultFaces: 6 });
       expect(pieces.map((piece) => piece.text).join(''), text).toBe(text);
       expect(pieces.filter((piece) => piece.formula !== null), text).toHaveLength(1);
     }

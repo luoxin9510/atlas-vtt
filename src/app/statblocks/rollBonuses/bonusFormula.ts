@@ -11,6 +11,7 @@ import { LABEL_CHARACTERS, LABEL_LENGTH } from '../../tools/formulaTerms';
 import { labelledConstant } from '../../tools/namedModifiers';
 import type { ArmableValues } from './armableValues';
 import type { ArmedBonus } from './armedBonuses';
+import type { RollParseOptions } from '../../tools/formulaTypes';
 
 const NOT_IN_LABEL = new RegExp(`[^${LABEL_CHARACTERS}]+`, 'gu');
 
@@ -42,12 +43,12 @@ export function armedValues(ids: readonly string[], shown: ArmableValues): Armed
 
 /**
  * `formula` with every armed value added after it; a label that holds nothing a formula can write adds the number alone.
- * A check (`3d6 vs 14`) takes them in its formula, not after its target (`3d6+2 vs 14`); `defaultFaces` is what a die
+ * A check (`3d6 vs 14`) takes them in its formula, not after its target (`3d6+2 vs 14`); `options.defaultFaces` is what a die
  * written without faces has, as for reading the check.
  */
-export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], defaultFaces?: number): string {
+export function withArmedBonuses(formula: string, armed: readonly ArmedBonus[], options: RollParseOptions = {}): string {
   if (armed.length === 0) return formula;
   const added = armed.map(({ label, value }) => labelledConstant({ label: formulaLabel(label), value })).join('');
-  const { formula: dice, check } = specOfText(formula, defaultFaces);
+  const { formula: dice, check } = specOfText(formula, options);
   return check ? checkText(dice + added, check.target, check.written) : formula + added;
 }

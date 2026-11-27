@@ -7,6 +7,7 @@
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { DiceSetDie, RollingDice } from '../types/diceSetTypes';
 import { DEFAULT_DICE_RULES, checkFieldsOf } from './diceRules';
+import type { RollParseOptions } from '../tools/formulaTypes';
 
 /** The most groups a set holds, e.g. a Sun and a Moon die are two. */
 export const MAX_SET_GROUPS = 6;
@@ -83,6 +84,11 @@ export function rollingRules(rules: DiceRules | RollingDice): RollingDice {
 export function bareDieFaces(rules: DiceRules | RollingDice): number | undefined {
   const rolling = rollingRules(rules);
   return rolling.bareDie ? rolling.dice[0]?.sides : undefined;
+}
+
+/** How text is read as rolls by `rules` (`bareDieFaces`). */
+export function rollParseOptionsOf(rules: DiceRules | RollingDice): RollParseOptions {
+  return { defaultFaces: bareDieFaces(rules) };
 }
 
 /**

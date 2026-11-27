@@ -26,6 +26,7 @@ import type { AdvantageSide } from '../types/diceSetTypes';
 import { t } from '../i18n';
 import { BONUS_ID_ATTRIBUTE } from '../statblocks/rollBonuses/armedBonuses';
 import { splitDiceSegments, toRollFormula } from './statblockDiceText';
+import type { RollParseOptions } from '../tools/formulaTypes';
 
 const LINK_CLASS = 'atlas-dice-link';
 
@@ -78,9 +79,9 @@ function isSkipped(node: Node): boolean {
   return SKIPPED_TAGS.has(parent.tagName);
 }
 
-function linkTextNode(textNode: Text, defaultFaces: number | undefined): void {
+function linkTextNode(textNode: Text, options: RollParseOptions): void {
   const text = textNode.nodeValue ?? '';
-  const segments = splitDiceSegments(text, defaultFaces);
+  const segments = splitDiceSegments(text, options);
   if (!segments.some((segment) => segment.dice)) return;
 
   const fragment = createFragment();
@@ -104,9 +105,9 @@ function linkTextNode(textNode: Text, defaultFaces: number | undefined): void {
 /**
  * Wraps dice notation in `root` with clickable spans.
  * Only safe on static, Atlas-owned DOM — see the note at the top of this file.
- * `defaultFaces`: the faces of a die written without them (`1d+2`), where the statblock's set opts in.
+ * `options.defaultFaces`: the faces of a die written without them (`1d+2`), where the statblock's set opts in.
  */
-export function linkDiceIn(root: HTMLElement, defaultFaces?: number): void {
+export function linkDiceIn(root: HTMLElement, options: RollParseOptions = {}): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) =>
       isSkipped(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
@@ -119,7 +120,7 @@ export function linkDiceIn(root: HTMLElement, defaultFaces?: number): void {
     current = walker.nextNode();
   }
 
-  targets.forEach((textNode) => linkTextNode(textNode, defaultFaces));
+  targets.forEach((textNode) => linkTextNode(textNode, options));
 }
 
 /**

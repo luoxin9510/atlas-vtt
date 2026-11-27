@@ -26,6 +26,7 @@
  */
 import { checkSeparatorSource, CHECK_TARGET_SOURCE, splitCheckText } from '../dice/splitCheck';
 import { parseFormula } from './parseFormula';
+import type { RollParseOptions } from './formulaTypes';
 
 /** A piece of a text: words, or a roll written in it with the formula a click on it rolls. */
 export interface RollPiece {
@@ -100,18 +101,18 @@ export function toRollFormula(written: string): string {
 
 /**
  * Whether a formula is a roll: the parser accepts it, and it throws dice or opens with a sign.
- * `defaultFaces`: the faces of a die written without them (`2d`); unset, it is no die.
+ * `options.defaultFaces`: the faces of a die written without them (`2d`); unset, it is no die.
  */
-export function isRollFormula(formula: string, defaultFaces?: number): boolean {
-  const parsed = parseFormula(formula, undefined, defaultFaces);
+export function isRollFormula(formula: string, options: RollParseOptions = {}): boolean {
+  const parsed = parseFormula(formula, undefined, options);
   return parsed.ok && (/^[+-]/.test(formula) || parsed.terms.some((term) => term.kind === 'dice' && term.count > 0));
 }
 
 /** The formula a text written as one roll rolls, or null where it is no roll. */
-export function writtenRoll(written: string, defaultFaces?: number): string | null {
+export function writtenRoll(written: string, options: RollParseOptions = {}): string | null {
   const text = spelled(written);
   const check = splitCheckText(text);
-  return isRollFormula(check?.formula ?? text, defaultFaces) ? toRollFormula(written) : null;
+  return isRollFormula(check?.formula ?? text, options) ? toRollFormula(written) : null;
 }
 
 /** A check's separator and target right after a roll in running text: `vs` between spaces, or `≤`/`≥`; the target ends before a letter, a digit or a decimal point's digits. */
@@ -129,7 +130,7 @@ const LONE_BARE_DIE = /^\d+d$/i;
  * The text in pieces as running text reads it, before a stray number sends it to be read whole.
  * `loneBareDice`: a die with a count and no faces on its own (`2d cut`) is a roll, as in statblock text.
  */
-function scanned(text: string, defaultFaces: number | undefined, loneBareDice: boolean): RollPiece[] {
+function scanned(text: string, options: RollParseOptions, loneBareDice: boolean): RollPiece[] {
   const pieces: RollPiece[] = [];
   const words = (part: string): void => {
     const last = pieces[pieces.length - 1];
@@ -137,6 +138,7 @@ function scanned(text: string, defaultFaces: number | undefined, loneBareDice: b
     else pieces.push({ text: part, formula: null });
   };
   let at = 0;
+  const { defaultFaces } = options;
   const pattern = new RegExp(defaultFaces === undefined ? ROLLS : BARE_ROLLS);
   // A match that starts inside a check's tail is dropped and the search restarts where the check ends.
   for (let found = pattern.exec(text); found !== null; found = pattern.exec(text)) {
@@ -148,7 +150,7 @@ function scanned(text: string, defaultFaces: number | undefined, loneBareDice: b
     const end = found.index + found[0].length + checkTail(text.slice(found.index + found[0].length));
     const joined = REFERENCE_AFTER.test(text.slice(end)) || REFERENCE_BEFORE.test(text.slice(0, found.index));
     const written = text.slice(found.index, end);
-    const formula = joined || (defaultFaces !== undefined && !loneBareDice && LONE_BARE_DIE.test(written)) ? null : writtenRoll(written, defaultFaces);
+    const formula = joined || (defaultFaces !== undefined && !loneBareDice && LONE_BARE_DIE.test(written)) ? null : writtenRoll(written, options);
     if (formula === null) words(written);
     else pieces.push({ text: written, formula });
     at = end;
@@ -159,9 +161,9 @@ function scanned(text: string, defaultFaces: number | undefined, loneBareDice: b
 }
 
 /** The whole text as one roll, its spaces around it as words; null where it is no roll. */
-function wholeRoll(text: string, defaultFaces: number | undefined): RollPiece[] | null {
+function wholeRoll(text: string, options: RollParseOptions): RollPiece[] | null {
   const written = text.trim();
-  const formula = written === '' ? null : writtenRoll(written, defaultFaces);
+  const formula = written === '' ? null : writtenRoll(written, options);
   if (formula === null) return null;
   const at = text.indexOf(written);
   const pieces: RollPiece[] = [
@@ -172,25 +174,25 @@ function wholeRoll(text: string, defaultFaces: number | undefined): RollPiece[] 
   return pieces.filter((piece) => piece.text !== '');
 }
 
-function piecesOf(text: string, defaultFaces: number | undefined, loneBareDice: boolean): RollPiece[] {
-  const pieces = scanned(text, defaultFaces, loneBareDice);
+function piecesOf(text: string, options: RollParseOptions, loneBareDice: boolean): RollPiece[] {
+  const pieces = scanned(text, options, loneBareDice);
   const strayNumber = pieces.some((piece) => piece.formula === null && /\d/.test(piece.text));
-  return strayNumber ? wholeRoll(text, defaultFaces) ?? pieces : pieces;
+  return strayNumber ? wholeRoll(text, options) ?? pieces : pieces;
 }
 
 /**
- * A note's text in pieces: its words, and every roll written in it on its own. `defaultFaces`: the
+ * A note's text in pieces: its words, and every roll written in it on its own. `options.defaultFaces`: the
  * faces of a die written with a count and no faces (`2d`), for a set that opts in; unset, it is no
  * roll. In prose a die without faces needs a modifier, an operator or a check after it ("a 3d model").
  */
-export function rollPieces(text: string, defaultFaces?: number): RollPiece[] {
-  return piecesOf(text, defaultFaces, false);
+export function rollPieces(text: string, options: RollParseOptions = {}): RollPiece[] {
+  return piecesOf(text, options, false);
 }
 
 /**
  * Statblock text in pieces: as `rollPieces`, but statblock text is game data, so where the set
- * opts in (`defaultFaces`) a die with a count and no faces on its own (`2d cut`, `3d (fire)`) is a roll.
+ * opts in (`options.defaultFaces`) a die with a count and no faces on its own (`2d cut`, `3d (fire)`) is a roll.
  */
-export function statblockRollPieces(text: string, defaultFaces?: number): RollPiece[] {
-  return piecesOf(text, defaultFaces, true);
+export function statblockRollPieces(text: string, options: RollParseOptions = {}): RollPiece[] {
+  return piecesOf(text, options, true);
 }

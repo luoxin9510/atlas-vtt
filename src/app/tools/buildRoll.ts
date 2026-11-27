@@ -11,6 +11,7 @@ import { getDiceCrit } from './diceCrit';
 import { dressSetDice } from './diceAppearance';
 import { rollFormula } from './diceFormula';
 import type { FormulaError } from './parseFormula';
+import type { RollParseOptions } from './formulaTypes';
 
 /** What a roll is: a formula and, for a check, its target and the direction written with it. */
 export interface RollSpec {
@@ -23,10 +24,10 @@ export type RollBody = Omit<DiceRollResult, 'id' | 'timestamp' | 'player' | 'dic
 
 /**
  * Check text (`3d6 vs 10`, `1d20+5 ≥ 15`) as a spec; any other text is a plain formula, unchanged.
- * `defaultFaces` is what dice written without faces have (`bareDieFaces`).
+ * `options.defaultFaces` is what dice written without faces have (`bareDieFaces`).
  */
-export function specOfText(text: string, defaultFaces?: number): RollSpec {
-  const parsed = parseCheck(text, defaultFaces);
+export function specOfText(text: string, options: RollParseOptions = {}): RollSpec {
+  const parsed = parseCheck(text, options);
   if (!parsed) return { formula: text };
   return { formula: parsed.formula, check: { target: parsed.target, ...(parsed.direction && { written: parsed.direction }) } };
 }

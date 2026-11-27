@@ -6,7 +6,7 @@ import { DiceTray, type TrayAdvantage } from './DiceTray';
 import { DiceFormulaInput } from './DiceFormulaInput';
 import { specOfText } from '../../../tools/buildRoll';
 import { completeFormula } from '../../../tools/completeFormula';
-import { bareDieFaces } from '../../../gameSystems/diceSets';
+import { rollParseOptionsOf } from '../../../gameSystems/diceSets';
 import { t } from '../../../i18n';
 import type { AdvantageSide } from '../../../types/diceSetTypes';
 import { advantageSidesFor, ruledSides } from '../../../tools/diceAdvantage';
@@ -38,7 +38,7 @@ function rollOptions(side: AdvantageSide | null, gmOnly: boolean): RollOptions |
 /** The parser's message for text that is no formula or check of the tool's dice, or null where it can be rolled. */
 function formulaRefusal(diceTool: DiceTool, text: string): string | null {
   const rules = diceTool.rollingDice();
-  const parsed = completeFormula(specOfText(text, bareDieFaces(rules)).formula, rules);
+  const parsed = completeFormula(specOfText(text, rollParseOptionsOf(rules)).formula, rules);
   return parsed.ok ? null : t(`dice.formulaError.${parsed.code}`);
 }
 

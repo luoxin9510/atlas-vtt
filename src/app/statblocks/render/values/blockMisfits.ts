@@ -20,7 +20,7 @@ export function blockMisfits(block: TemplateBlock, sheet: SheetState): FieldMisf
     const field = sheet.fields.get(key);
     // The value as shown: references filled in, those that name nothing left as written
     const shown = field ? sheet.reader(field.key) : undefined;
-    const misfit = field ? referenceMisfit(field, shown) ?? valueMisfit(field, shown, sheet.defaultFaces) : null;
+    const misfit = field ? referenceMisfit(field, shown) ?? valueMisfit(field, shown, sheet.rollParse) : null;
     return misfit ? [{ key, ...misfit }] : [];
   });
 }

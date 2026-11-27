@@ -17,6 +17,6 @@ interface BonusLinkProps {
  */
 export function BonusLink({ text, rollable, children }: BonusLinkProps): React.JSX.Element {
   // Dice written without faces count where the statblock's set opts in
-  const bonus = bonusLink(text, rollable, useContext(SheetContext)?.state.defaultFaces);
+  const bonus = bonusLink(text, rollable, useContext(SheetContext)?.state.rollParse);
   return bonus === null ? <>{children}</> : <span {...diceLinkProps(bonus)}>{children}</span>;
 }

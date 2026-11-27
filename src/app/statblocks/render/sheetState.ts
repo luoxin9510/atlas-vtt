@@ -13,6 +13,7 @@ import type { SheetMode, StatblockTokenContext } from './sheetTypes';
 import type { ResourceDefinition } from '../../resources/resourceTypes';
 import { trackedResources } from '../../resources/trackedResources';
 import { trackedNumbers, type TrackedNumber } from '../values/trackedNumbers';
+import type { RollParseOptions } from '../../tools/formulaTypes';
 
 /** What deciding and writing a block's text needs; no React, no Obsidian. */
 export interface SheetState {
@@ -36,8 +37,8 @@ export interface SheetState {
   scriptReads: ReadonlyMap<string, readonly ScriptRead[]>;
   /** What a roll link on a value rolls, to the same roll naming the `@` references it was filled in from (`namedReferenceRolls`). */
   namedRolls: ReadonlyMap<string, string>;
-  /** The faces of a die the statblock writes without them (`1d+1`): its set's first die where the set opts in (`bareDie`); unset otherwise. */
-  defaultFaces?: number | undefined;
+  /** How the statblock's text is read as rolls: the faces of a die written without them (`1d+1`) are its set's first die where the set opts in (`bareDie`). */
+  rollParse: RollParseOptions;
 }
 
 export interface SheetStateInput {
@@ -50,8 +51,8 @@ export interface SheetStateInput {
   folded?: ReadonlySet<string> | undefined;
   /** The collection's resources, where known (else the token's): a number one of them reads is not tracked by the template. */
   resources?: readonly ResourceDefinition[] | undefined;
-  /** The faces of a die written without them, where the statblock's set opts in (`bareFacesOfStatblock`). */
-  defaultFaces?: number | undefined;
+  /** How its text is read as rolls; the faces of a die written without them where its set opts in (`bareFacesOfStatblock`). */
+  rollParse?: RollParseOptions | undefined;
 }
 
 const NONE_FOLDED: ReadonlySet<string> = new Set();
@@ -83,7 +84,7 @@ function trackedByField(template: StatblockTemplate, resources: readonly Resourc
   return new Map(numbers.map((number) => [number.field.key, number]));
 }
 
-export function sheetState({ template, record: stored, lookups, mode, token, folded, resources, defaultFaces }: SheetStateInput): SheetState {
+export function sheetState({ template, record: stored, lookups, mode, token, folded, resources, rollParse = {} }: SheetStateInput): SheetState {
   // A template not read from a file (one being made, a test's) may lack a header part's field: the part still has its name and prompt.
   const { fields } = withHeaderFields(template);
   const record = withStartingValues(stored, fields);
@@ -103,7 +104,7 @@ export function sheetState({ template, record: stored, lookups, mode, token, fol
     tracked: trackedByField({ ...template, fields }, resources ?? token?.definitions),
     folded: folded ?? NONE_FOLDED,
     scriptReads: scriptReads(template),
-    namedRolls: namedReferenceRolls(fields.map((field) => readField(record, field).value), lookup, defaultFaces),
-    defaultFaces,
+    namedRolls: namedReferenceRolls(fields.map((field) => readField(record, field).value), lookup, rollParse),
+    rollParse,
   };
 }

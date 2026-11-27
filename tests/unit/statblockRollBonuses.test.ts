@@ -114,7 +114,7 @@ describe('a statblock roll with armed values', () => {
 
   it('reads a bare die in a check by the faces of the set that opts in', () => {
     const armed = [{ id: PROFICIENCY, label: 'Proficiency', value: 2 }];
-    expect(withArmedBonuses('3d vs 14', armed, 6)).toBe('3d+2[Proficiency] vs 14');
+    expect(withArmedBonuses('3d vs 14', armed, { defaultFaces: 6 })).toBe('3d+2[Proficiency] vs 14');
     expect(withArmedBonuses('3d vs 14', armed)).toBe('3d vs 14+2[Proficiency]');
   });
 });

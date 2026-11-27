@@ -21,6 +21,12 @@ export const FORMULA_LIMITS = {
   total: 1_000_000_000,
 } as const;
 
+/**
+ * How text is read as rolls, beyond what it says. `defaultFaces`: the faces of a die written without
+ * them (`2d`), where the game's set opts in (`bareDieFaces`); unset, such a die is no die.
+ */
+export interface RollParseOptions { readonly defaultFaces?: number | undefined }
+
 export type FormulaErrorCode = 'syntax' | 'length' | 'terms' | 'dice' | 'faces' | 'depth' | 'modifier' | 'total';
 export interface FormulaError { readonly ok: false; readonly code: FormulaErrorCode }
 

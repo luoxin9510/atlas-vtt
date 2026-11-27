@@ -26,9 +26,9 @@ import type { BlockViewProps } from './blockViewProps';
 function rollFromDice(block: StatBlock, sheet: SheetState, display: BlockDisplay): string | null {
   if (!block.rollFrom || display.state !== 'value') return null;
   const dice = shownField(block.rollFrom, sheet).text.trim();
-  if (!isDiceValue(dice, sheet.defaultFaces)) return null;
+  if (!isDiceValue(dice, sheet.rollParse)) return null;
   const shown = display.text?.text ?? '';
-  return splitDiceSegments(shown, sheet.defaultFaces).some((segment) => segment.dice) ? null : dice;
+  return splitDiceSegments(shown, sheet.rollParse).some((segment) => segment.dice) ? null : dice;
 }
 
 /** A labelled value: "**Armor Class** 14" run in, or the label over the value in a stat strip. */

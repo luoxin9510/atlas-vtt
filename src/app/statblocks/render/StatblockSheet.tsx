@@ -95,7 +95,7 @@ export function StatblockSheet({
   // Dice written without faces (`1d+1`) are dice where the statblock's set opts in
   const defaultFaces = app ? statblockBareFaces(app, template.diceSetId, undefined, sourcePath) : undefined;
   const state = useMemo(
-    () => sheetState({ template, record: fields, lookups, mode, token, folded, defaultFaces }),
+    () => sheetState({ template, record: fields, lookups, mode, token, folded, rollParse: { defaultFaces } }),
     [template, fields, lookups, mode, token, folded, defaultFaces],
   );
   const sheet = useMemo((): SheetContextValue => ({ state, app, sourcePath }), [state, app, sourcePath]);
