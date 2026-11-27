@@ -246,6 +246,17 @@ export class SettingsService {
     this.commit();
   }
 
+  /** Whether the dice tray rolls GM-only: off unless the file says `true`; stays on across scenes and restarts. */
+  rollsGmOnly(): boolean {
+    return this.settings.rollsGmOnly === true;
+  }
+
+  setRollsGmOnly(on: boolean): void {
+    if (this.rollsGmOnly() === on) return;
+    this.settings.rollsGmOnly = on;
+    this.commit();
+  }
+
   /** Whether the GM's initiative cards show names: off unless the file says `true`. */
   showsInitiativeNames(): boolean {
     return this.settings.initiativeNames === true;

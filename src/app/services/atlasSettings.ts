@@ -45,6 +45,8 @@ export interface AtlasSettings {
   diceFont: DiceFont;
   /** Whether the GM's initiative cards show each combatant's name. Read with `showsInitiativeNames`. */
   initiativeNames: boolean;
+  /** Whether the dice tray rolls GM-only (hidden from players) until switched off. Read with `rollsGmOnly`. */
+  rollsGmOnly: boolean;
   /** Whether the initiative lists start at the turn during a fight. Read with `initiativeLayout`. */
   initiativeFromTurn: boolean;
   /** The edge of the map the initiative lists stand at. Read with `initiativeLayout`. */
@@ -91,6 +93,7 @@ export const DEFAULT_SETTINGS: AtlasSettings = {
   diceColour: DEFAULT_DICE_LOOK.colour,
   diceFont: DEFAULT_DICE_LOOK.font,
   initiativeNames: false,
+  rollsGmOnly: false,
   initiativeFromTurn: true,
   initiativeDock: 'right',
   initiativeBanner: true,

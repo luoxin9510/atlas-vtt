@@ -35,4 +35,5 @@ export const dice: Translation = {
   'dice.rollFormula': '投掷 {formula}',
   'dice.showRollsToPlayers': '向玩家显示我的投掷',
   'dice.showRollsToPlayersHint': '你的投掷也会出现在玩家窗口里。',
+  'dice.gmOnlyRolls': '仅主持人可见',
 };

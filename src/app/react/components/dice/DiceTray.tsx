@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Eye, EyeOff, Minus, Plus } from 'lucide-react';
 import { cn } from '../../../../utils/cn';
 import { Button } from '../../../packages/components/primitives/button';
 import { DropdownToggleRow } from '../../../packages/components/primitives/DropdownToggleRow';
@@ -16,6 +16,12 @@ import {
 /** The GM's switch for whether players see their rolls (`useShareRolls`). */
 export interface ShareRolls {
   shown: boolean;
+  onToggle: () => void;
+}
+
+/** The GM's switch for rolling GM-only: players never see such a roll (`useGmOnlyRolls`). */
+export interface GmOnlyRolls {
+  on: boolean;
   onToggle: () => void;
 }
 
@@ -36,6 +42,8 @@ interface DiceTrayProps {
   shareRolls?: ShareRolls;
   /** Left out where the set has no rule for either side. */
   advantage?: TrayAdvantage | undefined;
+  /** The GM's GM-only switch; left out where nobody else watches. */
+  gmOnly?: GmOnlyRolls;
 }
 
 const SIDE_LABEL: Record<AdvantageChoice, () => string> = {
@@ -51,7 +59,7 @@ const SIDE_LABEL: Record<AdvantageChoice, () => string> = {
  * control on a touchpad. Mixed dice are thrown together, `2d6 + 1d20 + 3`, as
  * three kinds held in one hand.
  */
-export function DiceTray({ onRoll, shareRolls, advantage }: DiceTrayProps): React.ReactElement {
+export function DiceTray({ onRoll, shareRolls, advantage, gmOnly }: DiceTrayProps): React.ReactElement {
   const [pool, setPool] = useState<TrayPool>({});
   const [modifier, setModifier] = useState(0);
   const [side, setSide] = useState<AdvantageChoice>('normal');
@@ -166,6 +174,19 @@ export function DiceTray({ onRoll, shareRolls, advantage }: DiceTrayProps): Reac
           <Button size="sm" variant="outline" onClick={clear}>
             {t('diceRoll.clear')}
           </Button>
+        )}
+        {gmOnly && (
+          <LabelTooltip label={t('dice.gmOnlyRolls')}>
+            <button
+              type="button"
+              className={cn('atlas-dice-tray__gm-only', gmOnly.on && 'is-active')}
+              aria-pressed={gmOnly.on}
+              aria-label={t('dice.gmOnlyRolls')}
+              onClick={gmOnly.onToggle}
+            >
+              {gmOnly.on ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            </button>
+          </LabelTooltip>
         )}
       </div>
     </div>

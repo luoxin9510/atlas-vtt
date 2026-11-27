@@ -16,6 +16,8 @@ export interface RollOptions {
   advantage?: AdvantageSide | undefined;
   /** Gives an explicit matching pool the set’s names and colours; never changes its dice. */
   setAppearance?: boolean | undefined;
+  /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
+  visibility?: 'all' | 'gm' | undefined;
 }
 
 /** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
@@ -66,7 +68,7 @@ export class DiceTool {
    * name a dice set instead of the collection's and a side of advantage.
    */
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
-    return this.record(this.parseAndRoll(formula, options), source, origin);
+    return this.record(this.parseAndRoll(formula, options), source, origin, options);
   }
 
   /**
@@ -75,15 +77,16 @@ export class DiceTool {
    */
   public rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null {
     const written = options?.direction;
-    return this.record(this.parseAndRoll({ formula, check: { target, ...(written && { written }) } }, options));
+    return this.record(this.parseAndRoll({ formula, check: { target, ...(written && { written }) } }, options), undefined, undefined, options);
   }
 
-  /** Puts a rolled result in the history and announces it. */
-  private record(result: DiceRollResult | null, source?: DiceRollResult['source'], origin?: DiceRollOrigin): DiceRollResult | null {
+  /** Puts a rolled result in the history and announces it; a GM-only roll is marked `hidden` first. */
+  private record(result: DiceRollResult | null, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
     if (!result) return null;
     if (source) {
       result.source = source;
     }
+    if (options?.visibility === 'gm') result.hidden = true;
     
     // Add to history
     this.state.rollHistory.unshift(result);

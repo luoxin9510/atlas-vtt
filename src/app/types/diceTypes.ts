@@ -27,6 +27,11 @@ export interface DiceRollResult {
   diceSet?: RolledWithSet;
   /** The side of advantage the roll was made with, where the set's rule changed it; the dice it dropped are marked `dropped`. */
   advantage?: AdvantageSide;
+  /**
+   * A GM-only roll (`RollOptions.visibility: 'gm'`): the GM's log, toast and dice show it, the player window and the
+   * online table never do. Kept in the scene's saved roll log, so a reload does not reveal it; older rolls have none.
+   */
+  hidden?: true;
   player?: string;
   source?: {
     type: 'toolbar' | 'statblock';

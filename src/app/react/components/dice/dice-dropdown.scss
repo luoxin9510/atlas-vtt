@@ -209,6 +209,38 @@ $tray-art: 32px;
   }
 }
 
+// The GM-only switch beside Roll: muted while off, accent while on, so a roll that players will not see is never a surprise.
+.atlas-dice-tray__gm-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0;
+  border: $border-width-s solid transparent;
+  border-radius: $radius-l;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+  }
+
+  &.is-active {
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+  }
+}
+
 .atlas-dice-tray__modifier {
   display: flex;
   align-items: center;

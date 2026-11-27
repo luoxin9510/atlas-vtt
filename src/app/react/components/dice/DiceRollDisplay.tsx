@@ -60,6 +60,8 @@ interface DiceRollDisplayProps {
    * leaves that to its `DiceToastObserver`; a display outside a map has none.
    */
   cardSounds?: boolean;
+  /** Leaves out GM-only rolls (`hidden`): set where the players look, never in the GM's own windows. */
+  forPlayers?: boolean;
 }
 
 const CARD_VOLUME = 0.7;
@@ -68,7 +70,7 @@ const CARD_VOLUME = 0.7;
  * Every dice roll, at the top centre of the map: thrown as 3D dice, or as a
  * result card when 3D dice are off or the roll holds dice no real body shows.
  */
-export function DiceRollDisplay({ container, prepare, muted = false, eventBus: suppliedBus, subscribe, cardSounds = false }: DiceRollDisplayProps): React.ReactElement | null {
+export function DiceRollDisplay({ container, prepare, muted = false, eventBus: suppliedBus, subscribe, cardSounds = false, forPlayers = false }: DiceRollDisplayProps): React.ReactElement | null {
   const { app, view } = useAtlasUI();
   const eventBus = suppliedBus ?? view?.serviceManager?.getEventBus();
   const display = useDiceDisplay(app ?? undefined);
@@ -80,6 +82,7 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
 
   useEffect(() => {
     const show = (raw: DiceRollResult, options: RollOptions): void => {
+      if (forPlayers && raw.hidden === true) return;
       const prepared: PreparedDiceRoll = prepare ? prepare(raw, options.origin) : { result: raw };
       const scene = diceSceneToShow(prepared.result, display);
       // Without WebGL a stage stays blank (white on some systems), so the roll shows as a card
@@ -92,7 +95,7 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
       setRolls((prev) => pushRoll(prev, { ...prepared, scene, style: throwStyle(display), ...(options.muted && { muted: true as const }) }));
     };
     return (subscribe ?? busRolls(eventBus))(show);
-  }, [subscribe, eventBus, addToast, prepare, display, muted, cardSounds, stageDoc]);
+  }, [subscribe, eventBus, addToast, prepare, display, muted, cardSounds, forPlayers, stageDoc]);
 
   // Dice stages are built while nothing rolls, so that the first roll does not wait for one.
   useEffect(() => {

@@ -35,4 +35,5 @@ export const dice = {
   'dice.rollFormula': 'Roll {formula}',
   'dice.showRollsToPlayers': 'Show my rolls to players',
   'dice.showRollsToPlayersHint': 'Your rolls appear in the player window too.',
+  'dice.gmOnlyRolls': 'GM only',
 } as const satisfies Record<string, Message>;

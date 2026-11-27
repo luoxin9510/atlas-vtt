@@ -4,6 +4,7 @@ import type { DiceRollOrigin } from '../../types/diceRollOrigin';
 import type { DiceRollResult } from '../../types/diceTypes';
 import type { DiceSource } from './atlasDice.ts';
 import type { LoggedRoll } from './log/TableLog.ts';
+import { rollAudience } from './PlayerRolls.ts';
 
 /** What a roll carries into the log beside its result: a flavor, the token it is said by, the roll button it answers. */
 export type RollNotes = Pick<LoggedRoll, 'flavor' | 'speaker' | 'request'>;
@@ -83,6 +84,8 @@ export class RollShare {
   private readonly rolled = (result: DiceRollResult, origin?: DiceRollOrigin): void => {
     const who = this.roller ?? 'gm';
     const notes = this.notes;
+    // A GM-only roll is the GM's alone: players are sent a secret entry (the audience of a `gm` roll), never the roll.
+    if (result.hidden === true) return void this.ports.logged?.({ who, roll: sharedRoll(result), token: null, shared: true, mode: 'gm', to: rollAudience('gm', who), ...notes }, result.source);
     // A GM's roll the players are not shown is in the GM's own log only.
     if (who === 'gm' && !this.ports.showGmRolls()) return void this.ports.logged?.({ who, roll: sharedRoll(result), token: null, shared: false, ...notes }, result.source);
     const dice = this.dice;
