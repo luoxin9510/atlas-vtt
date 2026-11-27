@@ -51,6 +51,7 @@ export const BOUNDARIES = {
       "src/app/resources/resourceSlots.ts",
       "src/app/resources/resourceTypes.ts",
       "src/app/resources/sceneVisibility.ts",
+      "src/app/dice/checkTypes.ts",
       "src/app/tools/diceCrit.ts",
       "src/app/tools/diceExplosion.ts",
       "src/app/tools/diceFormula.ts",
