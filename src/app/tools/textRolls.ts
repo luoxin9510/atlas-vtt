@@ -24,7 +24,7 @@
  * number are filled in, so one left names none, and the roll beside it rolls nothing. An `@` inside
  * a word (an address) is none.
  */
-import { splitCheckText } from '../dice/parseCheck';
+import { checkSeparatorSource, CHECK_TARGET_SOURCE, splitCheckText } from '../dice/splitCheck';
 import { parseFormula } from './parseFormula';
 
 /** A piece of a text: words, or a roll written in it with the formula a click on it rolls. */
@@ -115,7 +115,7 @@ export function writtenRoll(written: string, defaultFaces?: number): string | nu
 }
 
 /** A check's separator and target right after a roll in running text: `vs` between spaces, or `≤`/`≥`; the target ends before a letter, a digit or a decimal point's digits. */
-const CHECK_TAIL = /^(?:[ \t]+vs[ \t]+|[ \t]*[≤≥][ \t]*)[+-]?\d{1,9}(?![\p{L}\p{N}_]|\.\d)/iu;
+const CHECK_TAIL = new RegExp(`^${checkSeparatorSource('[ \\t]')}${CHECK_TARGET_SOURCE}(?![\\p{L}\\p{N}_]|\\.\\d)`, 'iu');
 
 /** How many characters of `after` (the text right after a roll) are the check made of it, 0 for none. */
 function checkTail(after: string): number {

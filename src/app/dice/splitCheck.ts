@@ -3,12 +3,25 @@
  * parsed: the part the shared display code (`formulaWithNamedTerms`) and the parser both need.
  */
 
+/** The most digits a check target has. */
+export const CHECK_TARGET_DIGITS = 9;
+
+/** Pattern source for a signed target of 1-9 digits. */
+export const CHECK_TARGET_SOURCE = `[+-]?\\d{1,${CHECK_TARGET_DIGITS}}`;
+
 /**
- * A separator and a signed target of 1-9 digits at the end of the text: `vs` between spaces, or
- * `≤` / `≥`. Unanchored at the start, the leftmost match whose target runs to the end is the last
- * separator, since a target holds no separator.
+ * Pattern source for a check separator: `vs` between `space`s, or `≤` / `≥` (captured as the mark).
+ * `space` is the whitespace class the caller allows: `\\s` in a whole text, `[ \\t]` in running text.
  */
-const CHECK_END = /(?:\s+vs\s+|\s*([≤≥])\s*)([+-]?\d{1,9})\s*$/i;
+export function checkSeparatorSource(space: string): string {
+  return `(?:${space}+vs${space}+|${space}*([≤≥])${space}*)`;
+}
+
+/**
+ * A separator and a signed target at the end of the text. Unanchored at the start, the leftmost
+ * match whose target runs to the end is the last separator, since a target holds no separator.
+ */
+const CHECK_END = new RegExp(`${checkSeparatorSource('\\s')}(${CHECK_TARGET_SOURCE})\\s*$`, 'i');
 
 /** Check text cut at its last separator, before any parsing: the formula as written, the mark (`≤`/`≥`, none for `vs`) and the target. */
 export interface CheckSplit {

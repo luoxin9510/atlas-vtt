@@ -39,8 +39,8 @@
   color: var(--text-muted);
 
   svg {
-    width: 12px;
-    height: 12px;
+    width: $icon-xs;
+    height: $icon-xs;
     flex-shrink: 0;
   }
 }

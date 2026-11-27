@@ -9,8 +9,6 @@ import { parseFormula } from '../tools/parseFormula';
 import type { CheckDirection } from './checkTypes';
 import { splitCheckText } from './splitCheck';
 
-export { splitCheckText, type CheckSplit } from './splitCheck';
-
 export interface ParsedCheck {
   formula: string;
   target: number;
