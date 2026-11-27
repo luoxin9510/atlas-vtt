@@ -223,7 +223,7 @@ Memory shape `{showNameplates, hiddenResources: string[], showInstanceBadges, to
 ### 5.13 Camera, diceLog, lootRoller, pinnedNotePreviews
 
 - `camera {x, y, scale}`: world px and zoom; excluded from snapshots.
-- `diceLog`: `DiceRollResult[]` (types/diceTypes.ts:5), at most 20, newest first; `source` may hold `tokenId, tokenImagePath, statblockPath`.
+- `diceLog`: `DiceRollResult[]` (types/diceTypes.ts:5), at most 20, newest first; `source` may hold `tokenId, tokenImagePath, statblockPath`. A roll may also hold `check` (target-number check result; its `formula` is then the check text, `3d6 vs 14`) and `hidden: true` (GM-only roll, never shown to players); older files have neither.
 - `lootRoller`: `{open, position?, size?, disabledViews[], excludedRarities[], count (1-10), pane: 'results'|'history', selected?, lastRoll?}`; sanitised on read (stores/lootRollerSlice.ts:~55-80).
 - `pinnedNotePreviews`: key = `anchorId` (a pin or token id); value `{anchorId, notePath, left, top, width, height, view?}`.
 

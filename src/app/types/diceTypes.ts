@@ -1,3 +1,4 @@
+import type { CheckResult } from '../dice/checkTypes';
 import type { DiceCrit } from '../tools/diceCrit';
 import type { NamedModifier, RolledDie } from '../tools/diceFormula';
 import type { AdvantageSide, RolledWithSet } from './diceSetTypes';
@@ -20,10 +21,17 @@ export interface DiceRollResult {
   linear?: false;
   /** Decided by the collection's critical rule when rolled; missing on rolls logged before rules existed. */
   crit?: DiceCrit;
+  /** The verdict where the roll was a check against a target (`3d6 vs 10`); its formula is then the check text. */
+  check?: CheckResult;
   /** The dice set a bare bonus rolled with, where it was not the collection's own (a statblock template's). */
   diceSet?: RolledWithSet;
   /** The side of advantage the roll was made with, where the set's rule changed it; the dice it dropped are marked `dropped`. */
   advantage?: AdvantageSide;
+  /**
+   * A GM-only roll (`RollOptions.visibility: 'gm'`): the GM's log, toast and dice show it, the player window and the
+   * online table never do. Kept in the scene's saved roll log, so a reload does not reveal it; older rolls have none.
+   */
+  hidden?: true;
   player?: string;
   source?: {
     type: 'toolbar' | 'statblock';

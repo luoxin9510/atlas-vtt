@@ -1,0 +1,73 @@
+// ──────────────────────────────────────────────
+// Dice tray formula input and GM-only switch – BEM: atlas-dice-tray__*
+// Split from dice-dropdown.scss to keep both files small.
+// ──────────────────────────────────────────────
+@use '../../../../../styles/tokens' as *;
+
+// Takes the width of the dice below it: the panel is as wide as its dice, never wider for a long text or message.
+.atlas-dice-tray__formula-input {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  width: 0;
+  min-width: 100%;
+}
+
+.atlas-dice-tray__formula-field {
+  width: 100%;
+  height: $button-height-m;
+  padding: 0 $spacing-s;
+  border: $border-width-s solid color-mix(in oklch, var(--mono-100) $border-opacity-subtle, transparent);
+  border-radius: $radius-l;
+  background: var(--background-secondary);
+  font-family: $font-dice-display;
+  font-size: $font-ui-medium;
+  color: var(--text-normal);
+
+  &::placeholder {
+    color: var(--text-faint);
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--color-red);
+  }
+}
+
+.atlas-dice-tray__formula-error {
+  margin: 0;
+  font-size: $font-ui-smaller;
+  line-height: 1.3;
+  color: var(--color-red);
+}
+
+// The GM-only switch beside Roll: muted while off, accent while on, so a roll that players will not see is never a surprise.
+.atlas-dice-tray__gm-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $icon-xl;
+  height: $icon-xl;
+  margin-left: auto;
+  padding: 0;
+  border: $border-width-s solid transparent;
+  border-radius: $radius-l;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  svg {
+    width: $icon-s;
+    height: $icon-s;
+  }
+
+  &:hover {
+    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+  }
+
+  &.is-active {
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+  }
+}

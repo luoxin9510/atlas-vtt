@@ -6,7 +6,7 @@
 
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { DiceSetDie, RollingDice } from '../types/diceSetTypes';
-import { DEFAULT_DICE_RULES } from './diceRules';
+import { DEFAULT_DICE_RULES, checkFieldsOf } from './diceRules';
 
 /** The most groups a set holds, e.g. a Sun and a Moon die are two. */
 export const MAX_SET_GROUPS = 6;
@@ -76,7 +76,13 @@ export function parseRollGroups(defaultRoll: string): DiceSetDie[] | null {
 export function rollingRules(rules: DiceRules | RollingDice): RollingDice {
   if ('dice' in rules) return rules;
   const dice = parseRollGroups(rules.defaultRoll) ?? parseRollGroups(DEFAULT_DICE_RULES.defaultRoll)!;
-  return { dice, crit: rules.crit, ...(rules.explode && { explode: rules.explode }) };
+  return { dice, crit: rules.crit, ...(rules.explode && { explode: rules.explode }), ...checkFieldsOf(rules) };
+}
+
+/** The faces a die written without them (`2d`) has by `rules`: the set's first die where it opts in (`bareDie`), else none. */
+export function bareDieFaces(rules: DiceRules | RollingDice): number | undefined {
+  const rolling = rollingRules(rules);
+  return rolling.bareDie ? rolling.dice[0]?.sides : undefined;
 }
 
 /**
@@ -89,7 +95,7 @@ export function diceRulesOfSet(set: RollingDice): DiceRules {
   const sameDie = first !== undefined && set.dice.every((group) => group.sides === first.sides);
   const total = set.dice.reduce((sum, group) => sum + group.count, 0);
   const defaultRoll = sameDie ? `${total}d${first.sides}` : setRoll(set.dice);
-  return { defaultRoll, crit: set.crit, ...(set.explode && { explode: { ...set.explode } }) };
+  return { defaultRoll, crit: set.crit, ...(set.explode && { explode: { ...set.explode } }), ...checkFieldsOf(set) };
 }
 
 /** Whether two sets roll alike: the same dice in the same order, critical rule and exploding dice. Names and colours do not count. */
@@ -100,7 +106,8 @@ export function sameRolling(a: RollingDice, b: RollingDice): boolean {
   const eb = b.explode;
   const sameExplode = !ea || !eb ? ea === eb
     : ea.dice === eb.dice && ea.repeats === eb.repeats && ea.highFaces === eb.highFaces && ea.lowFaces === eb.lowFaces;
-  return sameDice && a.crit === b.crit && sameExplode;
+  return sameDice && a.crit === b.crit && sameExplode
+    && a.check === b.check && a.checkRule === b.checkRule && a.bareDie === b.bareDie;
 }
 
 /** Whether a set's dice wear a name or colour, which a plain default roll cannot say. */

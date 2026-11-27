@@ -26,7 +26,7 @@ export function PlayerDiceToasts({ app, container, eventBus, prepare }: PlayerDi
   return (
     <AtlasUIContext.Provider value={context}>
       {/* The DM's window plays the sound; a second one here would echo it. */}
-      <DiceRollDisplay eventBus={eventBus} container={container} prepare={prepare} muted />
+      <DiceRollDisplay eventBus={eventBus} container={container} prepare={prepare} muted forPlayers />
     </AtlasUIContext.Provider>
   );
 }

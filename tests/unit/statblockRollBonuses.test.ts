@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_DICE_RULES } from '../../src/app/gameSystems/diceRules';
 import { rollStatblockDice, type OffMapRolls } from '../../src/app/services/statblockRolls';
+import { withArmedBonuses } from '../../src/app/statblocks/rollBonuses/bonusFormula';
 import { ArmedBonuses } from '../../src/app/statblocks/rollBonuses/armedBonuses';
 import { rollDiceFormula } from '../../src/app/tools/DiceTool';
 
@@ -88,5 +89,32 @@ describe('a statblock roll with armed values', () => {
     const result = rollStatblockDice(app, '2d8+4', { statblockPath: 'Mira.md' }, offMap());
     expect(result?.formula).toBe('2d8+4');
     expect(store.armed('note:Mira.md')).toEqual([PROFICIENCY]);
+  });
+
+  it('adds its values to the formula of a check, not to its target', () => {
+    const app = appWith();
+    const store = ArmedBonuses.forApp(app);
+    store.toggle('note:Mira.md', PROFICIENCY);
+    const thrown: string[] = [];
+    const result = rollStatblockDice(app, '3d6 vs 14', { bonuses: mira() }, offMap((formula) => thrown.push(formula)));
+    expect(thrown).toEqual(['3d6+2[Proficiency] vs 14']);
+    expect(result?.formula).toBe('3d6+2[Proficiency] vs 14');
+    expect(result?.check).toMatchObject({ target: 14 });
+    expect(store.armed('note:Mira.md')).toEqual([]);
+  });
+
+  it('keeps the direction written with a check, and completes a bare bonus check with the set\'s dice', () => {
+    const app = appWith();
+    const store = ArmedBonuses.forApp(app);
+    store.toggle('note:Mira.md', PROFICIENCY);
+    expect(rollStatblockDice(app, '1d20+5 ≥ 15', { bonuses: mira() }, offMap())?.formula).toBe('1d20+5+2[Proficiency] ≥ 15');
+    store.toggle('note:Mira.md', PROFICIENCY);
+    expect(rollStatblockDice(app, '+3 vs 14', { bonuses: mira() }, offMap())?.formula).toBe('1d20+3+2[Proficiency] vs 14');
+  });
+
+  it('reads a bare die in a check by the faces of the set that opts in', () => {
+    const armed = [{ id: PROFICIENCY, label: 'Proficiency', value: 2 }];
+    expect(withArmedBonuses('3d vs 14', armed, 6)).toBe('3d+2[Proficiency] vs 14');
+    expect(withArmedBonuses('3d vs 14', armed)).toBe('3d vs 14+2[Proficiency]');
   });
 });

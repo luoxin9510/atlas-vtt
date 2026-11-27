@@ -6,6 +6,7 @@
  * Atlas, a saved log, the players' page) still adds up.
  */
 
+import { splitCheckText } from '../dice/splitCheck';
 import type { NamedModifier } from './diceFormula';
 
 /** What a roll adds to its dice: the sum of its constants, and the labelled ones among them. */
@@ -76,8 +77,12 @@ export function withoutConstantLabels(formula: string): string {
 export function formulaWithNamedTerms(result: { formula: string } & ModifierParts): string {
   const named = namedModifiersOf(result);
   const written = named.map(labelledConstant).join('');
-  if (named.length === 0 || !result.formula.endsWith(written)) return result.formula;
-  return result.formula.slice(0, -written.length) + named.map((term) => namedTerm(term, KEEP)).join('');
+  // A check (`1d20+3+2[Stealth] vs 14`) is rewritten in its formula, its target and mark kept.
+  const split = splitCheckText(result.formula);
+  const formula = split ? split.formula : result.formula;
+  if (named.length === 0 || !formula.endsWith(written)) return result.formula;
+  const terms = formula.slice(0, -written.length) + named.map((term) => namedTerm(term, KEEP)).join('');
+  return split ? terms + split.tail : terms;
 }
 
 /**

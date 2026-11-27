@@ -2,6 +2,7 @@ import type { EventEmitter } from 'events';
 import type { SoundEffectService } from './SoundEffectService';
 import type { SettingsService } from './SettingsService';
 import { diceSceneToShow } from '../dice3d/rollPresentation';
+import { shownCrit } from '../dice/checkLine';
 import type { DiceRollResult } from '../types/diceTypes';
 
 /**
@@ -19,7 +20,7 @@ export class DiceToastObserver {
 
     private handleDiceRolled = (result: DiceRollResult): void => {
         if (diceSceneToShow(result, this.settings.getDiceDisplay())) return;
-        this.soundEffectService.playDiceResult(result.crit ?? null);
+        this.soundEffectService.playDiceResult(shownCrit(result));
     };
 
     destroy(): void {

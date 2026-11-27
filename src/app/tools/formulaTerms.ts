@@ -13,6 +13,8 @@ import type { ConstantTerm, DiceKeep, DiceReroll, DiceTally, DiceTerm } from './
 export type TermDraft = Omit<DiceTerm, 'negative'> | Omit<ConstantTerm, 'negative'>;
 
 const DICE = /(\d{0,3})[dD](?:(\d{1,4})|(%)|([fF]))/y;
+/** A die written without faces (`3d`), which a set that opts in reads as its own die; its count is mandatory. */
+const BARE_DICE = /(\d{1,3})[dD]/y;
 const CONSTANT = /\d{1,4}/y;
 const REROLL = /r([or]?)(?:(<=|>=|<|>)?(\d{1,4}))?/y;
 const BANG = /!{1,2}(i|\d{1,2})?/y;
@@ -30,10 +32,30 @@ function matchAt(pattern: RegExp, text: string, at: number): RegExpExecArray | n
   return pattern.exec(text);
 }
 
-/** The term at `at` and where it ends, or null when none starts there. */
-export function readTerm(text: string, at: number): { term: TermDraft; end: number } | null {
+interface DiceHead {
+  count: string | undefined;
+  sides: string | undefined;
+  percent: string | undefined;
+  fate: string | undefined;
+  end: number;
+}
+
+/** The dice at `at`, up to their modifiers; with `defaultFaces`, `3d` too, with that many faces. */
+function matchDice(text: string, at: number, defaultFaces: number | undefined): DiceHead | null {
   const dice = matchAt(DICE, text, at);
-  if (!dice) {
+  if (dice) return { count: dice[1], sides: dice[2], percent: dice[3], fate: dice[4], end: DICE.lastIndex };
+  if (defaultFaces === undefined) return null;
+  const bare = matchAt(BARE_DICE, text, at);
+  return bare ? { count: bare[1], sides: String(defaultFaces), percent: undefined, fate: undefined, end: BARE_DICE.lastIndex } : null;
+}
+
+/**
+ * The term at `at` and where it ends, or null when none starts there. `defaultFaces` is the number
+ * of faces of a die written without them (`3d`); unset, such a die is no term.
+ */
+export function readTerm(text: string, at: number, defaultFaces?: number): { term: TermDraft; end: number } | null {
+  const head = matchDice(text, at, defaultFaces);
+  if (!head) {
     const constant = matchAt(CONSTANT, text, at);
     if (!constant) return null;
     const label = matchAt(LABEL, text, CONSTANT.lastIndex);
@@ -41,9 +63,9 @@ export function readTerm(text: string, at: number): { term: TermDraft; end: numb
     return { term, end: label ? LABEL.lastIndex : CONSTANT.lastIndex };
   }
 
-  const [, count, sides, percent, fate] = dice;
+  const { count, sides, percent, fate } = head;
   const faces = fate ? 1 : percent ? 100 : Number(sides);
-  let cursor = DICE.lastIndex;
+  let cursor = head.end;
   const next = (pattern: RegExp): RegExpExecArray | null => {
     const match = matchAt(pattern, text, cursor);
     if (match) cursor = pattern.lastIndex;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useContext, useEffect, useMemo, useRef } from 'react';
 import { Component, MarkdownRenderer, type App } from 'obsidian';
 import { linkDiceIn } from '../../../services/statblockDiceLinks';
 import { decodeStatblockLinks, statblockLinksAsText } from '../../../services/statblockLinks';
@@ -7,6 +7,7 @@ import { DiceText } from './DiceText';
 import { inlineMarkdown } from './inlineMarkdown';
 import { followLinksIn } from './linkEvents';
 import { boundedText } from '../../../creatures/statblockValues';
+import { SheetContext } from '../sheetContext';
 
 interface MarkdownTextProps {
   /** Raw text, which may contain markdown and wiki links */
@@ -33,6 +34,8 @@ export function StatblockMarkdown({
   className,
 }: MarkdownTextProps): React.JSX.Element {
   const ref = useRef<HTMLSpanElement>(null);
+  // Dice written without faces are dice where the statblock's set opts in; text outside a sheet has none
+  const defaultFaces = useContext(SheetContext)?.state.defaultFaces;
   // Blocks join texts (a list of saves, the parts of a subheading); what reads the text on has the limit of one.
   const text = boundedText(given);
   const shownAsRead = !markdown || !app;
@@ -54,7 +57,7 @@ export function StatblockMarkdown({
 
     // Safe to rewrite: this subtree is Obsidian's markdown output, which this
     // effect rebuilds from scratch on every run. React never owns these nodes.
-    if (dice) linkDiceIn(el);
+    if (dice) linkDiceIn(el, defaultFaces);
     const stopLinks = followLinksIn(el, app, sourcePath);
 
     return () => {
@@ -62,7 +65,7 @@ export function StatblockMarkdown({
       component.unload();
       el.replaceChildren();
     };
-  }, [text, app, sourcePath, markdown, dice]);
+  }, [text, app, sourcePath, markdown, dice, defaultFaces]);
 
   if (shownAsRead) {
     return (

@@ -3,12 +3,9 @@ import type { DiceRollOrigin } from '../types/diceRollOrigin';
 import { EventEmitter } from 'events';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { AdvantageSide, DiceSet, RolledWithSet, RollingDice } from '../types/diceSetTypes';
-import { rollingRules } from '../gameSystems/diceSets';
-import { completeFormula } from './completeFormula';
-import { withAdvantage } from './diceAdvantage';
-import { getDiceCrit } from './diceCrit';
-import { rollFormula } from './diceFormula';
-import { dressSetDice } from './diceAppearance';
+import { bareDieFaces, rollingRules } from '../gameSystems/diceSets';
+import type { CheckDirection } from '../dice/checkTypes';
+import { buildRoll, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
 
 /** How a roll is made besides its formula. */
@@ -19,6 +16,13 @@ export interface RollOptions {
   advantage?: AdvantageSide | undefined;
   /** Gives an explicit matching pool the set’s names and colours; never changes its dice. */
   setAppearance?: boolean | undefined;
+  /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
+  visibility?: 'all' | 'gm' | undefined;
+}
+
+/** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
+export interface CheckOptions extends RollOptions {
+  direction?: CheckDirection | undefined;
 }
 
 export interface DiceToolState {
@@ -64,11 +68,25 @@ export class DiceTool {
    * name a dice set instead of the collection's and a side of advantage.
    */
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
-    const result = this.parseAndRoll(formula, options);
+    return this.record(this.parseAndRoll(formula, options), source, origin, options);
+  }
+
+  /**
+   * Rolls `formula` against `target` as a check, as `rollDice` rolls `formula vs target`; without a
+   * direction in `options` the system's own decides. The result's formula is the check text.
+   */
+  public rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null {
+    const written = options?.direction;
+    return this.record(this.parseAndRoll({ formula, check: { target, ...(written && { written }) } }, options), undefined, undefined, options);
+  }
+
+  /** Puts a rolled result in the history and announces it; a GM-only roll is marked `hidden` first. */
+  private record(result: DiceRollResult | null, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
     if (!result) return null;
     if (source) {
       result.source = source;
     }
+    if (options?.visibility === 'gm') result.hidden = true;
     
     // Add to history
     this.state.rollHistory.unshift(result);
@@ -84,9 +102,9 @@ export class DiceTool {
   }
 
   /** Rolls the formula; one without dice (`+3`) is added to the dice of the set. */
-  private parseAndRoll(formula: string, options: RollOptions | undefined): DiceRollResult | null {
+  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined): DiceRollResult | null {
     const { rules, shown } = rollingWith(this.getDiceRules(), options?.set);
-    return rollDiceFormula(formula, rules, this.inputs, shown, options?.advantage, options?.setAppearance);
+    return rollSpec(typeof spec === 'string' ? specOfText(spec, bareDieFaces(rules)) : spec, rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
   }
 
   /** The dice a roll of `set` (else the collection's) is made with, and their rules: what advantage can do. */
@@ -149,34 +167,17 @@ export function rollingWith(
 export function rollDiceFormula(
   formula: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, advantage?: AdvantageSide, setAppearance = false,
 ): DiceRollResult | null {
-  const rolling = rollingRules(rules);
-  const complete = completeFormula(formula, rules);
-  if (!complete.ok) {
-    inputs.onFormulaError(complete);
-    return null;
-  }
-  const looks = complete.written ? [] : rolling.dice;
-  const helped = advantage ? withAdvantage(complete.parsed, looks, rolling, advantage) : null;
-  if (helped && 'ok' in helped) {
-    inputs.onFormulaError(helped);
-    return null;
-  }
-  const { rolls, modifiers, named, total, linear } = helped
-    ? rollFormula(helped.formula, inputs.random, helped.explodeRules, helped.looks)
-    : rollFormula(complete.parsed, inputs.random, rolling, looks);
+  return rollSpec(specOfText(formula, bareDieFaces(rules)), rules, inputs, shown, advantage, setAppearance);
+}
 
-  return {
-    id: inputs.rollId(),
-    timestamp: Date.now(),
-    formula: complete.formula,
-    rolls: complete.written && setAppearance ? dressSetDice(rolls, rolling) : rolls,
-    modifiers,
-    ...(named.length > 0 && { namedModifiers: named }),
-    total,
-    ...(!linear && { linear: false as const }),
-    crit: getDiceCrit(rolls, rolling),
-    player: inputs.roller(),
-    ...(shown && { diceSet: shown }),
-    ...(helped && advantage && { advantage }),
-  };
+/** Rolls a spec (a formula, or a check) and dresses the body with its id, time, roller and set. */
+function rollSpec(
+  spec: RollSpec, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown: RolledWithSet | undefined, advantage: AdvantageSide | undefined, setAppearance: boolean,
+): DiceRollResult | null {
+  const body = buildRoll(spec, rules, inputs.random, advantage, setAppearance);
+  if ('ok' in body) {
+    inputs.onFormulaError(body);
+    return null;
+  }
+  return { id: inputs.rollId(), timestamp: Date.now(), ...body, player: inputs.roller(), ...(shown && { diceSet: shown }) };
 }

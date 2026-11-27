@@ -35,4 +35,12 @@ export const dice = {
   'dice.rollFormula': 'Roll {formula}',
   'dice.showRollsToPlayers': 'Show my rolls to players',
   'dice.showRollsToPlayersHint': 'Your rolls appear in the player window too.',
+  'dice.check.success': 'Success by {n}',
+  'dice.check.failure': 'Failure by {n}',
+  'dice.check.critSuccess': 'Critical success',
+  'dice.check.critFailure': 'Critical failure by {n}',
+  'dice.check.critFailureOnly': 'Critical failure',
+  'dice.gmOnlyRolls': 'GM only',
+  'dice.formulaInput.label': 'Dice formula or check',
+  'dice.formulaInput.placeholder': '3d6 vs 14',
 } as const satisfies Record<string, Message>;

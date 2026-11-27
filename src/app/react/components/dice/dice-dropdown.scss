@@ -62,7 +62,7 @@
 $tray-face: 48px;
 $tray-dice: 7;
 $tray-grip-height: 24px;
-$tray-art: 32px;
+$tray-art: $icon-xl;
 
 .atlas-dice-tray__content {
   display: flex;

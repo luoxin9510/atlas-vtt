@@ -8,6 +8,8 @@ import { DICE_TOAST_KNOT_SYMBOL_ID } from './diceToastOrnament';
 import { dieLabel, dieStates, droppedAny, rollLine } from '../../../tools/diceLabels';
 import { AdvantageTag, listsDice, RolledDiceLine } from './RolledDiceLine';
 import { t } from '../../../i18n';
+import { shownCrit } from '../../../dice/checkLine';
+import { CheckLine, GmOnlyBadge } from './RollVerdict';
 
 export type ToastPhase = 'entering' | 'visible' | 'exiting';
 
@@ -26,7 +28,7 @@ interface DiceToastProps {
 export function DiceToast({ result, presentation, phase, onDismiss, useAvatar }: DiceToastProps): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const crit = result.crit;
+  const crit = shownCrit(result);
   const source = result.source;
   const dropping = droppedAny(result.rolls);
   const avatar = useAvatar(source, presentation);
@@ -85,6 +87,7 @@ export function DiceToast({ result, presentation, phase, onDismiss, useAvatar }:
             <span className="atlas-dice-toast__ability">{source.abilityName}</span>
           )}
           <AdvantageTag side={result.advantage} />
+          <GmOnlyBadge result={result} />
           {listsDice(result)
             ? <RolledDiceLine result={result} className="atlas-dice-toast__formula" />
             : <span className="atlas-dice-toast__formula">{rollLine(result)}</span>}
@@ -117,6 +120,7 @@ export function DiceToast({ result, presentation, phase, onDismiss, useAvatar }:
       </div>
       <div className="atlas-dice-toast__result">
         <span className="atlas-dice-toast__total">{result.total}</span>
+        <CheckLine result={result} />
       </div>
     </div>
   );

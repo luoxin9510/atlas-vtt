@@ -78,9 +78,9 @@ function isSkipped(node: Node): boolean {
   return SKIPPED_TAGS.has(parent.tagName);
 }
 
-function linkTextNode(textNode: Text): void {
+function linkTextNode(textNode: Text, defaultFaces: number | undefined): void {
   const text = textNode.nodeValue ?? '';
-  const segments = splitDiceSegments(text);
+  const segments = splitDiceSegments(text, defaultFaces);
   if (!segments.some((segment) => segment.dice)) return;
 
   const fragment = createFragment();
@@ -104,8 +104,9 @@ function linkTextNode(textNode: Text): void {
 /**
  * Wraps dice notation in `root` with clickable spans.
  * Only safe on static, Atlas-owned DOM — see the note at the top of this file.
+ * `defaultFaces`: the faces of a die written without them (`1d+2`), where the statblock's set opts in.
  */
-export function linkDiceIn(root: HTMLElement): void {
+export function linkDiceIn(root: HTMLElement, defaultFaces?: number): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) =>
       isSkipped(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
@@ -118,7 +119,7 @@ export function linkDiceIn(root: HTMLElement): void {
     current = walker.nextNode();
   }
 
-  targets.forEach((textNode) => linkTextNode(textNode));
+  targets.forEach((textNode) => linkTextNode(textNode, defaultFaces));
 }
 
 /**

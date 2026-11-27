@@ -1,0 +1,46 @@
+// ──────────────────────────────────────────────
+// The check line under a total and the GM-only badge, shared by the result
+// card, the roll log and the 3D panel.
+// ──────────────────────────────────────────────
+@use '../../../../../styles/tokens' as *;
+
+.atlas-check-line {
+  display: block;
+  font-size: $font-ui-smaller;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text-muted);
+
+  &--success {
+    color: var(--color-green);
+  }
+
+  &--failure {
+    color: var(--color-red);
+  }
+
+  &--crit {
+    font-weight: 800;
+  }
+}
+
+.atlas-gm-only-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-s;
+  border: $border-width-s solid var(--background-modifier-border);
+  border-radius: $radius-s;
+  background: var(--background-modifier-hover);
+  font-size: $font-ui-smaller;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-muted);
+
+  svg {
+    width: $icon-xs;
+    height: $icon-xs;
+    flex-shrink: 0;
+  }
+}

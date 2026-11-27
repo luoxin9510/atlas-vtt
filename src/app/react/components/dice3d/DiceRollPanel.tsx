@@ -15,6 +15,8 @@ import { advantageText, hasBreakdown, rollBreakdown, rollLabel } from './diceRol
 import { rollFormulaText } from '../../../tools/diceLabels';
 import { modifierSteps } from '../../../tools/namedModifiers';
 import { t } from '../../../i18n';
+import { shownCrit } from '../../../dice/checkLine';
+import { CheckLine } from '../dice/RollVerdict';
 import { useElementHeight } from '../../hooks/useElementHeight';
 
 interface DiceRollPanelProps {
@@ -146,7 +148,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
     close();
   };
 
-  const crit = landed ? result.crit ?? null : null;
+  const crit = landed ? shownCrit(result) : null;
   const label = rollLabel(result);
   // The resting dice's field in a shrunk row, shaped like their layout.
   const field = useMemo(() => {
@@ -155,7 +157,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
   }, [scene]);
   const breakdown = rollBreakdown(result, scene);
   const formula = [advantageText(result), rollFormulaText(result)].filter(Boolean).join(' · ');
-  const slotRem = 3.2 + (hasBreakdown(result, scene) ? 1.05 : 0);
+  const slotRem = 3.2 + (hasBreakdown(result, scene) ? 1.05 : 0) + (result.check ? 1.05 : 0);
   const exit = reduced ? { opacity: 0 } : { opacity: 0, y: -14, scale: 0.96 };
   const transition = reduced ? { duration: 0.12 } : MORPH;
 
@@ -249,6 +251,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
                           {breakdown}
                         </motion.span>
                       )}
+                      <CheckLine result={result} />
                     </>
                   ) : (
                     <motion.span
@@ -269,7 +272,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
         <DiceStage
           ref={stageRef}
           scene={scene}
-          crit={result.crit ?? null}
+          crit={shownCrit(result)}
           muted={muted}
           style={style}
           seed={result.id}
@@ -277,7 +280,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
           onSettled={() => {
             setLanded(true);
             // The verdict belongs to the roll being watched; a displaced one reports silently.
-            if (!muted && !displaced.current) reveal(result.crit ?? null);
+            if (!muted && !displaced.current) reveal(shownCrit(result));
           }}
           label={shown === null ? t('diceRoll.rolling', { formula: result.formula }) : t('diceRoll.rolled', { label, total: String(shown) })}
           className="atlas-dice-roll__stage"

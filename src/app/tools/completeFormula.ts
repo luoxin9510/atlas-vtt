@@ -3,7 +3,7 @@
  * dice, an empty one rolls them alone, and dice written out roll as written.
  */
 
-import { setRoll } from '../gameSystems/diceSets';
+import { bareDieFaces, setRoll } from '../gameSystems/diceSets';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { RollingDice } from '../types/diceSetTypes';
 import { FORMULA_LIMITS, parseFormula, type FormulaError, type ParsedFormula } from './parseFormula';
@@ -34,10 +34,11 @@ function withDefaultRoll(modifier: string, defaultRoll: string): string {
 export function completeFormula(formula: string, rules: DiceRules | RollingDice): CompleteFormula | FormulaError {
   // Stored dice rules roll their default roll as written: one a hand edit broke is refused, not replaced.
   const defaultRoll = 'dice' in rules ? setRoll(rules.dice) : rules.defaultRoll;
-  const input = parseFormula(formula === '' ? defaultRoll : formula);
+  const faces = bareDieFaces(rules);
+  const input = parseFormula(formula === '' ? defaultRoll : formula, undefined, faces);
   if (!input.ok) return input;
   const written = input.terms.some((term) => term.kind === 'dice') && formula !== '';
   const complete = written ? formula : withDefaultRoll(formula, defaultRoll);
-  const parsed = parseFormula(complete, written ? FORMULA_LIMITS.characters : FORMULA_LIMITS.completed);
+  const parsed = parseFormula(complete, written ? FORMULA_LIMITS.characters : FORMULA_LIMITS.completed, faces);
   return parsed.ok ? { ok: true, formula: complete, parsed, written } : parsed;
 }

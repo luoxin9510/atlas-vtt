@@ -25,7 +25,8 @@ export function useDiceHistory(
   history: DiceRollResult[];
   clearHistory: () => void;
   /** Rolls a logged roll again, with the side of advantage it was rolled with. */
-  repeatRoll: (formula: string, source?: DiceRollResult['source'], advantage?: DiceRollResult['advantage']) => void;
+  /** Rolls it again; a GM-only roll (`hidden`) is repeated GM-only. */
+  repeatRoll: (formula: string, source?: DiceRollResult['source'], advantage?: DiceRollResult['advantage'], hidden?: boolean) => void;
 } {
   const [history, setHistory] = useState<DiceRollResult[]>(() =>
     storeActions?.diceLog ?? [],
@@ -66,10 +67,10 @@ export function useDiceHistory(
     getDiceTool()?.clearHistory();
   }, [getDiceTool]);
 
-  const repeatRoll = useCallback((formula: string, source?: DiceRollResult['source'], advantage?: DiceRollResult['advantage']): void => {
+  const repeatRoll = useCallback((formula: string, source?: DiceRollResult['source'], advantage?: DiceRollResult['advantage'], hidden?: boolean): void => {
     const diceTool = getDiceTool();
     if (!diceTool) return;
-    if (advantage) diceTool.rollDice(formula, source, undefined, { advantage });
+    if (advantage || hidden) diceTool.rollDice(formula, source, undefined, { ...(advantage && { advantage }), ...(hidden && { visibility: 'gm' as const }) });
     else diceTool.rollDice(formula, source);
   }, [getDiceTool]);
 

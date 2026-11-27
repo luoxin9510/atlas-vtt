@@ -6,6 +6,9 @@ import type { DiceRollResult } from '../../../../src/app/types/diceTypes';
 import type { TokenEntity } from '../../../../src/app/types';
 import { describe, expect, it } from 'vitest';
 import type { DiceSource } from '../../../../src/app/online/gm/atlasDice.ts';
+import { viewOf } from '../../../../src/app/online/gm/log/logEntries.ts';
+import { rollEntry } from '../../../../src/app/online/gm/log/logTypes.ts';
+import { sharedRoll } from '../../../../src/app/online/gm/RollShare.ts';
 import { TOKEN_INTERVAL_MS } from '../../../../src/app/online/gm/TokenShare.ts';
 import { sceneState, shareHarness, token, tokenLists, type ShareHarness } from './shareHarness.ts';
 
@@ -79,5 +82,49 @@ describe('the GM\'s rolls', () => {
     gm.bus.emit('dice-rolled', gmRoll('hero'), origin('hero'));
     expect(rollsSent(gm.sent)).toEqual([]);
     expect(gm.bus.listenerCount('dice-rolled')).toBe(0);
+  });
+});
+
+describe('the GM\'s GM-only rolls', () => {
+  const secretRoll = (): DiceRollResult => ({ ...gmRoll('hero'), hidden: true });
+
+  it('are never sent to players as a roll, even while the player view shows dice rolls', async () => {
+    const gm = await table(true);
+    gm.bus.emit('dice-rolled', secretRoll(), origin('hero'));
+    expect(rollsSent(gm.sent)).toEqual([]);
+  });
+
+  it('go into the log as a private roll for the GM alone, without the flag in what players parse', async () => {
+    const gm = await table(true);
+    gm.bus.emit('dice-rolled', secretRoll(), origin('hero'));
+    expect(gm.logged).toHaveLength(1);
+    expect(gm.logged[0]).toMatchObject({ who: 'gm', shared: true, mode: 'gm', to: ['gm'], token: null });
+    expect(gm.logged[0]?.roll).toMatchObject({ total: 17, formula: '1d20 + 4' });
+    expect(gm.logged[0]?.roll).not.toHaveProperty('hidden');
+  });
+
+  it('leave players no trace while the player view shows no GM rolls, like any GM roll', async () => {
+    const gm = await table(false);
+    gm.bus.emit('dice-rolled', secretRoll(), origin('hero'));
+    expect(rollsSent(gm.sent)).toEqual([]);
+    expect(gm.logged).toHaveLength(1);
+    expect(gm.logged[0]).toMatchObject({ shared: false });
+    expect(gm.logged[0]).not.toHaveProperty('mode');
+  });
+
+  it('show players a secret entry and the GM the whole roll', async () => {
+    const gm = await table(true);
+    gm.bus.emit('dice-rolled', secretRoll(), origin('hero'));
+    const entry = rollEntry({ id: 'e1', at: 1, who: 'gm', name: 'GM' }, gm.logged[0]!);
+    expect(viewOf(entry, 'gm')).toMatchObject({ kind: 'roll', roll: { total: 17 } });
+    expect(viewOf(entry, 'p'.repeat(20))).toEqual({ id: 'e1', at: 1, who: 'gm', name: 'GM', kind: 'secret', mode: 'gm' });
+  });
+});
+
+describe('sharedRoll and checks', () => {
+  it('carries a roll\'s check to the players, and nothing for a roll without one', () => {
+    const check = { target: 10, direction: 'over' as const, margin: 2, success: true, crit: null, rule: 'builtin:margin' };
+    expect(sharedRoll({ ...gmRoll('hero'), formula: '1d20+4 vs 10', check }).check).toEqual(check);
+    expect(sharedRoll(gmRoll('hero'))).not.toHaveProperty('check');
   });
 });

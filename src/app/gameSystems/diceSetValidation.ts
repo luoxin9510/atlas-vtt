@@ -7,7 +7,7 @@
 import type { CritRule } from '../types/diceRulesTypes';
 import type { AdvantageRule, DiceSet, DiceSetDie } from '../types/diceSetTypes';
 import { BUILT_IN_DICE_SET_PREFIX } from './builtInDiceSets';
-import { CRIT_RULES, parseExplodeRule } from './diceRules';
+import { CRIT_RULES, parseCheckFields, parseExplodeRule } from './diceRules';
 import { MAX_SET_DICE, MAX_SET_GROUPS, MAX_SET_SIDES, isDieColour } from './diceSets';
 
 /** The format of a dice set file; a set of a later one is read and never written. */
@@ -95,6 +95,7 @@ export function parseStoredDiceSet(raw: unknown): DiceSet | null {
     dice,
     crit: raw.crit as CritRule,
     ...(explode && { explode }),
+    ...parseCheckFields(raw),
     ...(advantage && { advantage }),
     ...(disadvantage && { disadvantage }),
     ...(newer && { readOnly: true as const }),

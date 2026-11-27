@@ -8,6 +8,8 @@ import { LabelTooltip } from '../../../packages/components/primitives/tooltip';
 import { dieLabel, dieStates, droppedAny, rollLine } from '../../../tools/diceLabels';
 import { AdvantageTag, listsDice, RolledDiceLine } from '../dice/RolledDiceLine';
 import { t } from '../../../i18n';
+import { shownCrit } from '../../../dice/checkLine';
+import { CheckLine, GmOnlyBadge } from '../dice/RollVerdict';
 
 interface DiceRollEntryProps {
   result: DiceRollResult;
@@ -37,8 +39,9 @@ export function DiceRollEntry({ result, isNew, onRepeat }: DiceRollEntryProps): 
   }, [result.timestamp]);
 
   const dropping = droppedAny(result.rolls);
-  const isCritSuccess = result.crit === 'high';
-  const isCritFail = result.crit === 'low';
+  const crit = shownCrit(result);
+  const isCritSuccess = crit === 'high';
+  const isCritFail = crit === 'low';
 
   const source = result.source;
   const sourceTokenName = source?.tokenName ?? t('dice.unknown');
@@ -86,6 +89,7 @@ export function DiceRollEntry({ result, isNew, onRepeat }: DiceRollEntryProps): 
           <span className="dice-log-entry__ability-name">{source.abilityName}</span>
         )}
         <AdvantageTag side={result.advantage} />
+        <GmOnlyBadge result={result} />
 
         {/* Summary: formula = total */}
         <div className="dice-log-entry__summary">
@@ -95,6 +99,7 @@ export function DiceRollEntry({ result, isNew, onRepeat }: DiceRollEntryProps): 
           <span className="dice-log-entry__eq">=</span>
           <span className="dice-log-entry__total">{result.total}</span>
         </div>
+        <CheckLine result={result} />
 
         {/* Footer: callout + reroll on same row */}
         <div className="dice-log-entry__footer">

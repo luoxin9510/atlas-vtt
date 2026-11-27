@@ -41,7 +41,7 @@ class FormulaReader {
   private cursor = 0;
   private depth = 0;
 
-  constructor(private readonly text: string) {}
+  constructor(private readonly text: string, private readonly defaultFaces?: number) {}
 
   read(): DraftNode {
     this.skipSpace();
@@ -85,7 +85,7 @@ class FormulaReader {
       this.skipSpace();
       return inner;
     }
-    const read = readTerm(this.text, this.cursor);
+    const read = readTerm(this.text, this.cursor, this.defaultFaces);
     if (!read) throw new FormulaSyntaxError('syntax');
     this.cursor = read.end;
     this.skipSpace();
@@ -136,13 +136,16 @@ function isLinear(node: FormulaNode): boolean {
 /**
  * Validates the whole expression before the caller can consume any randomness. A formula is at most
  * `characters` long: one written (`FORMULA_LIMITS.characters`) unless a bonus completed with the
- * set's dice is read (`completeFormula`).
+ * set's dice is read (`completeFormula`). `defaultFaces`: a die written with a count and no faces
+ * (`2d`) has that many; unset, it is a syntax error.
  */
-export function parseFormula(formula: string, characters: number = FORMULA_LIMITS.characters): ParsedFormula | FormulaError {
+export function parseFormula(
+  formula: string, characters: number = FORMULA_LIMITS.characters, defaultFaces?: number,
+): ParsedFormula | FormulaError {
   if (formula.length > characters) return { ok: false, code: 'length' };
   let draft: DraftNode;
   try {
-    draft = new FormulaReader(formula).read();
+    draft = new FormulaReader(formula, defaultFaces).read();
   } catch (error) {
     if (error instanceof FormulaSyntaxError) return { ok: false, code: error.code };
     throw error;

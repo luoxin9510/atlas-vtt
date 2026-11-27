@@ -1,6 +1,7 @@
 import React from 'react';
 import { TokenPortrait } from '../../../packages/components/shared/TokenPortrait';
 import type { DiceRollResult } from '../../../types/diceTypes';
+import { GmOnlyBadge } from '../dice/RollVerdict';
 import type { RollSourcePresentation, UseDiceAvatar } from '../dice/diceSourcePresentation';
 
 interface DiceRollHeaderProps {
@@ -31,6 +32,7 @@ export function DiceRollHeader({ result, presentation, label, useAvatar }: DiceR
         />
       )}
       <span className="atlas-dice-roll__label">{label}</span>
+      <GmOnlyBadge result={result} />
     </span>
   );
 }

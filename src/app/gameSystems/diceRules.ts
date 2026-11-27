@@ -4,6 +4,7 @@
  * collection rolls is `collectionDiceSet`'s.
  */
 
+import type { CheckDirection } from '../dice/checkTypes';
 import type { CritRule, DiceRules, ExplodeRule, ExplodeScope } from '../types/diceRulesTypes';
 
 /** Dice of a collection without a game system: a d20, natural 20 and natural 1. */
@@ -31,6 +32,28 @@ export function parseExplodeRule(raw: unknown): ExplodeRule | null {
   if (!EXPLODE_SCOPES.includes(dice as ExplodeScope) || typeof repeats !== 'boolean') return null;
   if (!isFaceCount(highFaces, 1) || !isFaceCount(lowFaces, 0)) return null;
   return { dice: dice as ExplodeScope, repeats, highFaces, lowFaces };
+}
+
+/** The check, check rule and bare-die fields of `source`, those that are set. */
+export function checkFieldsOf(source: { check?: CheckDirection; checkRule?: string; bareDie?: true }): { check?: CheckDirection; checkRule?: string; bareDie?: true } {
+  return {
+    ...(source.check && { check: source.check }),
+    ...(source.checkRule && { checkRule: source.checkRule }),
+    ...(source.bareDie && { bareDie: true as const }),
+  };
+}
+
+/**
+ * The valid check fields of stored data: `check` only `under` or `over`, a non-empty `checkRule`
+ * whatever its id (a rule pack may provide it later), `bareDie` only `true`.
+ */
+export function parseCheckFields(raw: Record<string, unknown>): { check?: CheckDirection; checkRule?: string; bareDie?: true } {
+  const checkRule = typeof raw.checkRule === 'string' ? raw.checkRule.trim() : '';
+  return {
+    ...((raw.check === 'under' || raw.check === 'over') && { check: raw.check }),
+    ...(checkRule && { checkRule }),
+    ...(raw.bareDie === true && { bareDie: true as const }),
+  };
 }
 
 /** What the settings offer for exploding dice: none, or the dice that explode. */
@@ -69,5 +92,8 @@ export function sameDiceRules(a: DiceRules | undefined, b: DiceRules | undefined
   const right = b ?? DEFAULT_DICE_RULES;
   return left.defaultRoll.trim().toLowerCase() === right.defaultRoll.trim().toLowerCase()
     && left.crit === right.crit
-    && sameExplodeRule(left.explode, right.explode);
+    && sameExplodeRule(left.explode, right.explode)
+    && left.check === right.check
+    && left.checkRule === right.checkRule
+    && left.bareDie === right.bareDie;
 }
