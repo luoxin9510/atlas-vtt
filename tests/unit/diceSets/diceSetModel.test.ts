@@ -80,3 +80,39 @@ describe('dice rules of a set', () => {
     expect(setRollText(mixed.dice)).toBe('d20 + d6');
   });
 });
+
+describe('check fields of a dice set', () => {
+  const stored = { format: 1, id: 'set-3d6', name: 'Three d6', dice: [{ count: 3, sides: 6 }], crit: 'roll-under' };
+
+  it('are read and kept, an unknown rule id included', () => {
+    expect(parseStoredDiceSet({ ...stored, check: 'over', checkRule: 'pack:custom', bareDie: true })).toMatchObject({
+      check: 'over', checkRule: 'pack:custom', bareDie: true,
+    });
+    expect(parseStoredDiceSet({ ...stored, checkRule: 'builtin:margin' })?.checkRule).toBe('builtin:margin');
+  });
+
+  it('leave out what is not valid', () => {
+    const set = parseStoredDiceSet({ ...stored, check: 'sideways', checkRule: '', bareDie: false });
+    expect(set).not.toBeNull();
+    expect(set).not.toHaveProperty('check');
+    expect(set).not.toHaveProperty('checkRule');
+    expect(set).not.toHaveProperty('bareDie');
+    expect(set?.readOnly).toBeUndefined();
+  });
+
+  it('go through the dice rules and back', () => {
+    const set = parseStoredDiceSet({ ...stored, check: 'under', checkRule: 'pack:custom', bareDie: true })!;
+    const rules = diceRulesOfSet(set);
+    expect(rules).toMatchObject({ defaultRoll: '3d6', check: 'under', checkRule: 'pack:custom', bareDie: true });
+    expect(rollingRules(rules)).toMatchObject({ check: 'under', checkRule: 'pack:custom', bareDie: true });
+    expect(rollingRules({ defaultRoll: '1d20', crit: 'natural' })).not.toHaveProperty('check');
+  });
+
+  it('count when two sets are compared', () => {
+    const set = parseStoredDiceSet(stored)!;
+    expect(sameRolling(set, { ...set })).toBe(true);
+    expect(sameRolling(set, { ...set, check: 'over' })).toBe(false);
+    expect(sameRolling(set, { ...set, checkRule: 'pack:custom' })).toBe(false);
+    expect(sameRolling(set, { ...set, bareDie: true })).toBe(false);
+  });
+});

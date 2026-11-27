@@ -3,6 +3,8 @@
  * results are recognised and which dice explode.
  */
 
+import type { CheckDirection } from '../dice/checkTypes';
+
 /**
  * - `natural`: the highest face of a default die is a critical success, a 1 a failure (d20 systems).
  * - `roll-under`: a 1 is a critical success, the highest face a failure (Call of Cthulhu, Cairn).
@@ -38,4 +40,10 @@ export interface DiceRules {
   crit: CritRule;
   /** Unset: no die explodes. */
   explode?: ExplodeRule;
+  /** Which way a target-number check goes; unset: under for a `roll-under` set, else over. */
+  check?: CheckDirection;
+  /** The check rule (see `dice/checkRules`) that judges a check; unset: `builtin:margin`. An unknown id is kept as data. */
+  checkRule?: string;
+  /** `Nd` with no faces means the set's first die. */
+  bareDie?: true;
 }

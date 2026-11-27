@@ -5,6 +5,7 @@
  * rule and exploding dice, as a collection's dice rules always said.
  */
 
+import type { CheckDirection } from '../dice/checkTypes';
 import type { CritRule, ExplodeRule } from './diceRulesTypes';
 
 /** One group of a set's dice: `count` dice of `sides`, e.g. one d12 named "Sun" in gold. */
@@ -51,6 +52,12 @@ export interface RollingDice {
   advantage?: AdvantageRule;
   /** Unset: the set rolls no differently with disadvantage. */
   disadvantage?: AdvantageRule;
+  /** Which way a target-number check goes; unset: under for a `roll-under` set, else over. */
+  check?: CheckDirection;
+  /** The check rule (see `dice/checkRules`) that judges a check; unset: `builtin:margin`. An unknown id is kept as data. */
+  checkRule?: string;
+  /** `Nd` with no faces means the set's first die. */
+  bareDie?: true;
 }
 
 export interface DiceSet extends RollingDice {

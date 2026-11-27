@@ -130,3 +130,35 @@ describe('default dice explained', () => {
   });
 });
 
+
+describe('check fields of dice rules', () => {
+  const rules = (dice: unknown): unknown => ({
+    id: `c-${JSON.stringify(dice)}`,
+    name: `C ${JSON.stringify(dice)}`,
+    rules: { gridDefaults: { unitType: 'feet', unitDistance: 5, measurementMode: 'metric' }, conditions: [], dice },
+  });
+  const base = { defaultRoll: '3d6', crit: 'roll-under' };
+
+  it('keeps valid check fields of stored presets, an unknown rule id included', () => {
+    const [full, onlyRule] = parseUserPresets([
+      rules({ ...base, check: 'over', checkRule: 'pack:custom', bareDie: true }),
+      rules({ ...base, checkRule: ' pack:other ' }),
+    ]);
+    expect(full!.rules.dice).toEqual({ ...base, check: 'over', checkRule: 'pack:custom', bareDie: true });
+    expect(onlyRule!.rules.dice).toEqual({ ...base, checkRule: 'pack:other' });
+  });
+
+  it('drops check fields that are not valid', () => {
+    const [bad] = parseUserPresets([rules({ ...base, check: 'sideways', checkRule: '  ', bareDie: false })]);
+    expect(bad!.rules.dice).toEqual(base);
+    const [wrongTypes] = parseUserPresets([rules({ ...base, check: 1, checkRule: 7, bareDie: 'true' })]);
+    expect(wrongTypes!.rules.dice).toEqual(base);
+  });
+
+  it('compares them', () => {
+    expect(sameDiceRules({ ...base, check: 'under' } as never, { ...base } as never)).toBe(false);
+    expect(sameDiceRules({ ...base, checkRule: 'a' } as never, { ...base, checkRule: 'b' } as never)).toBe(false);
+    expect(sameDiceRules({ ...base, bareDie: true } as never, { ...base } as never)).toBe(false);
+    expect(sameDiceRules({ ...base, check: 'under', checkRule: 'a', bareDie: true } as never, { ...base, check: 'under', checkRule: 'a', bareDie: true } as never)).toBe(true);
+  });
+});
