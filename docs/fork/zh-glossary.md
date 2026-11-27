@@ -140,5 +140,6 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 - **Checks** (target-number checks, 2026-11-27 grill): check 检定; target 目标值; margin 差值
   (shown as 成功，超出 {n} / 失败，差 {n} / 大失败，差 {n} or just 大失败 when the total met the target, never a system's own term such as 成功度); direction
   方向, under 掷低为好, over 掷高为好; check rule 检定规则; GM-only roll 仅主持人可见 / 暗骰.
+- **Contests** (2026-11-28): contest 对抗; the text separator is `对` (English `against`); the sides "First side" / "Second side" 第一方 / 第二方; "{name} wins" {name} 胜; tie 平局. The steps of a moved target ("Target 15 → 17 (…)") are a sum, joined with the translated comma (`common.sumSeparator`, 「，」), not the list word 和.
 - Existing wording left as it is (out of scope for this phase): `toolbar.sessionView`
   场面视图, `pin.icon.npc` NPC.
