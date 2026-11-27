@@ -50,7 +50,10 @@ export function evaluateCheck({ rolling, rolls, total, target, written }: Evalua
   return { target, direction, margin, ...marginRule(input), rule: MARGIN_RULE_ID };
 }
 
-/** What a pack's rule decided, or null (logged once, with the rule id) where it threw or answered something else than a `CheckRuleOutcome`. */
+/** Rules that failed and were logged: each is logged once, not on every roll it judges. */
+const failedRules = new WeakSet<CheckRule>();
+
+/** What a pack's rule decided, or null (logged once per rule, with its id) where it threw or answered something else than a `CheckRuleOutcome`. */
 function runRule(id: string, rule: CheckRule, input: CheckRuleInput): CheckRuleOutcome | null {
   try {
     const outcome = rule(input);
@@ -58,9 +61,16 @@ function runRule(id: string, rule: CheckRule, input: CheckRuleInput): CheckRuleO
     if (typeof outcome?.success === 'boolean' && (crit === 'success' || crit === 'failure' || crit === null)) {
       return { success: outcome.success, crit };
     }
-    console.error(`[Atlas] Check rule "${id}" returned no valid outcome; the margin rule decided instead.`);
+    logFailure(rule, `[Atlas] Check rule "${id}" returned no valid outcome; the margin rule decided instead.`);
   } catch (error) {
-    console.error(`[Atlas] Check rule "${id}" threw; the margin rule decided instead.`, error);
+    logFailure(rule, `[Atlas] Check rule "${id}" threw; the margin rule decided instead.`, error);
   }
   return null;
+}
+
+function logFailure(rule: CheckRule, message: string, error?: unknown): void {
+  if (failedRules.has(rule)) return;
+  failedRules.add(rule);
+  if (error === undefined) console.error(message);
+  else console.error(message, error);
 }

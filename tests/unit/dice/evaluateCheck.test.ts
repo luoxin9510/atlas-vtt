@@ -110,6 +110,15 @@ describe('check rules by id', () => {
     expect(String(logged.mock.calls[0]?.[0])).toContain('test:throws');
   });
 
+  it('logs a failing rule once, not on every roll it judges', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    cleanup.push(() => logged.mockRestore());
+    cleanup.push(registerCheckRule('test:always-throws', () => { throw new Error('boom'); }));
+    const rolling = d20Set('none', { checkRule: 'test:always-throws' });
+    for (let roll = 0; roll < 3; roll += 1) evaluateCheck({ rolling, rolls, total: 10, target: 10 });
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['a success that is no boolean', { success: 'yes', crit: null }],
     ['a crit that is no known value', { success: true, crit: 'big' }],
