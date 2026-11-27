@@ -144,8 +144,14 @@ export function attachDiceRolling(
   offMap?: () => OffMapRolls | null,
   openMenu?: RollMenuOpener,
 ): () => void {
+  let cleaned = false;
+  const isCheck = (formula: string): boolean => {
+    const rules = statblockRollingDice(app, getSource(), offMap?.());
+    return specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check !== undefined;
+  };
+  // A check is never a hit-points roll: its total is judged against a target, not taken as hit points.
   const hitDice = (link: HTMLElement, formula: string): boolean =>
-    onRollHitPoints !== undefined && /d\d/i.test(formula) && link.closest(HIT_POINTS_SELECTOR) !== null;
+    onRollHitPoints !== undefined && /d\d/i.test(formula) && link.closest(HIT_POINTS_SELECTOR) !== null && !isCheck(formula);
 
   const roll = (link: HTMLElement, side: AdvantageSide | null, modifier?: number): void => {
     const linked = link.dataset.formula;
@@ -162,7 +168,12 @@ export function attachDiceRolling(
 
     // A value that adds to rolls, rolled from its own number, is in the roll once: as the number clicked.
     const rolledBonus = link.closest<HTMLElement>(`[${BONUS_ID_ATTRIBUTE}]`)?.getAttribute(BONUS_ID_ATTRIBUTE) ?? undefined;
-    rollStatblockDice(app, formula, { ...getSource(), abilityName, rolledBonus }, offMap?.(), side);
+    // The names a formula was filled in with are looked up by the formula as linked, so a modifier keeps them
+    const source = getSource();
+    const named = modifier === undefined ? undefined : source.namedRolls?.get(linked);
+    const namedRolls = named === undefined || !source.namedRolls ? source.namedRolls
+      : new Map(source.namedRolls).set(formula, withTargetModifier(named, modifier ?? 0, rules ?? undefined));
+    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus }, offMap?.(), side);
   };
 
   const linkOf = (event: Event): HTMLElement | null =>
@@ -193,8 +204,17 @@ export function attachDiceRolling(
       confirmLabel: t('dice.roll'),
       placeholder: '-2',
       singleLine: true,
-      validate: (text) => (parseModifier(text) === null ? t('dice.modifierInvalid') : null),
+      validate: (text) => {
+        const modifier = parseModifier(text);
+        if (modifier === null) return t('dice.modifierInvalid');
+        // A modifier that would take the target past what a check holds leaves the text as it was: refused
+        const linked = link.dataset.formula ?? '';
+        const rules = statblockRollingDice(app, getSource(), offMap?.()) ?? undefined;
+        return modifier !== 0 && withTargetModifier(linked, modifier, rules) === linked ? t('dice.modifierInvalid') : null;
+      },
     }).then((text) => {
+      // The dialog may outlive the statblock it was asked from
+      if (cleaned) return;
       const modifier = text === null ? null : parseModifier(text);
       if (modifier !== null) roll(link, null, modifier);
     });
@@ -225,6 +245,7 @@ export function attachDiceRolling(
   el.addEventListener('contextmenu', onContextMenu);
 
   return () => {
+    cleaned = true;
     el.removeEventListener('click', onClick);
     el.removeEventListener('keydown', onKeyDown);
     el.removeEventListener('contextmenu', onContextMenu);

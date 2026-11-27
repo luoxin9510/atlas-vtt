@@ -17,6 +17,7 @@ import type { CheckOptions, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
+import { splitCheckText } from '../dice/splitCheck';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
 
@@ -147,7 +148,9 @@ function thrownFormula(app: App, formula: string, armed: readonly ArmedBonus[], 
   const named = source.namedRolls?.get(formula) ?? namedBareBonus(formula, source.abilityName);
   if (named === null) return plain;
   const withNames = withArmedBonuses(named, armed, rules ?? undefined);
-  return (rules ? completeFormula(withNames, rules) : parseFormula(withNames)).ok ? withNames : plain;
+  // A check is judged by its formula: the target after it is no part of what the dice roll
+  const rolled = splitCheckText(withNames)?.formula ?? withNames;
+  return (rules ? completeFormula(rolled, rules) : parseFormula(rolled)).ok ? withNames : plain;
 }
 
 /**

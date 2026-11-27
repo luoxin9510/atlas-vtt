@@ -51,6 +51,74 @@ async function type(text: string, key = 'Enter'): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve));
 }
 
+/** A check link inside a hit-points line, with a hit-points handler wired. */
+function hitPointsSetup(text: string, rules: RollingDice): { choices: readonly RollChoice[]; formulas: string[]; hitPoints: string[]; link: HTMLElement } {
+  const { app, formulas } = mapApp(rules);
+  const el = document.createElement('div');
+  el.innerHTML = '<span data-hit-points></span>';
+  el.querySelector('span')!.textContent = text;
+  document.body.append(el);
+  linkDiceIn(el);
+  const hitPoints: string[] = [];
+  const openMenu = vi.fn<(choices: readonly RollChoice[]) => void>();
+  attachDiceRolling(el, app, () => ({}), (formula) => { hitPoints.push(formula); }, undefined, openMenu);
+  const link = el.querySelector<HTMLElement>('.atlas-dice-link')!;
+  link.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+  return { choices: openMenu.mock.lastCall?.[0] ?? [], formulas, hitPoints, link };
+}
+
+describe('a check link on a hit-points line', () => {
+  it('rolls as a check, never as hit points, and offers the modifier', () => {
+    const { choices, formulas, hitPoints, link } = hitPointsSetup('3d6 vs 12', under);
+    expect(choices.map((choice) => choice.label)).toContain('Roll with a modifier…');
+    link.click();
+    expect(hitPoints).toEqual([]);
+    expect(formulas).toEqual(['3d6 vs 12']);
+  });
+
+  it('still sends plain hit dice to the hit-points roll', () => {
+    const { choices, formulas, hitPoints, link } = hitPointsSetup('3d6+2', under);
+    expect(choices).toEqual([]);
+    link.click();
+    expect(hitPoints).toEqual(['3d6+2']);
+    expect(formulas).toEqual([]);
+  });
+});
+
+describe('a modifier for a named roll', () => {
+  it('keeps the names of the formula it changed', async () => {
+    const { app, formulas } = mapApp(over);
+    const el = document.createElement('div');
+    el.textContent = '1d20+1 vs 15';
+    document.body.append(el);
+    linkDiceIn(el);
+    const openMenu = vi.fn<(choices: readonly RollChoice[]) => void>();
+    const namedRolls = new Map([['1d20+1 vs 15', '1d20+1[Agility] vs 15']]);
+    attachDiceRolling(el, app, () => ({ namedRolls }), undefined, undefined, openMenu);
+    el.querySelector('.atlas-dice-link')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+    openMenu.mock.lastCall![0].find((choice) => choice.label === 'Roll with a modifier…')!.roll();
+    await type('+2');
+    expect(formulas).toEqual(['1d20+1[Agility]+2 vs 15']);
+  });
+});
+
+describe('a modifier dialog that outlives its statblock', () => {
+  it('rolls nothing when it is confirmed after the link\'s cleanup ran', async () => {
+    const { app, formulas } = mapApp(under);
+    const el = document.createElement('div');
+    el.textContent = '3d6 vs 15';
+    document.body.append(el);
+    linkDiceIn(el);
+    const openMenu = vi.fn<(choices: readonly RollChoice[]) => void>();
+    const cleanup = attachDiceRolling(el, app, () => ({}), undefined, undefined, openMenu);
+    el.querySelector('.atlas-dice-link')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }));
+    openMenu.mock.lastCall![0].find((choice) => choice.label === 'Roll with a modifier…')!.roll();
+    cleanup();
+    await type('-2');
+    expect(formulas).toEqual([]);
+  });
+});
+
 describe('parseModifier', () => {
   it('reads a signed or bare whole number and nothing else', () => {
     expect(parseModifier('-2')).toBe(-2);

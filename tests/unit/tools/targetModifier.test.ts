@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withTargetModifier } from '../../../src/app/tools/targetModifier';
+import { parseModifier, withTargetModifier } from '../../../src/app/tools/targetModifier';
 import { withArmedBonuses } from '../../../src/app/statblocks/rollBonuses/bonusFormula';
 import type { RollingDice } from '../../../src/app/types/diceSetTypes';
 
@@ -34,6 +34,20 @@ describe('withTargetModifier', () => {
   it('adds to a plain formula, with the given term when one is', () => {
     expect(withTargetModifier('2d6+3', 2, UNDER)).toBe('2d6+3+2');
     expect(withTargetModifier('2d6+3', 2, UNDER, '+2[Edge]')).toBe('2d6+3+2[Edge]');
+  });
+});
+
+describe('a target that would outgrow what a check holds', () => {
+  it('leaves the text unchanged where the moved target has more than nine digits', () => {
+    expect(withTargetModifier('3d6 vs 999999999', 1, UNDER)).toBe('3d6 vs 999999999');
+    expect(withTargetModifier('3d6 vs 999999998', 1, UNDER)).toBe('3d6 vs 999999999');
+    expect(withTargetModifier('3d6 vs -999999999', -1, UNDER)).toBe('3d6 vs -999999999');
+  });
+
+  it('refuses a modifier of more than nine digits', () => {
+    expect(parseModifier('999999999')).toBe(999999999);
+    expect(parseModifier('+1000000000')).toBeNull();
+    expect(parseModifier('-1234567890')).toBeNull();
   });
 });
 

@@ -28,6 +28,13 @@ describe('a block that rolls as a check', () => {
     expect(links(blockEl(container, 'attrs001')!)).toEqual(['1d20 vs 15', '1d20 vs 12']);
   });
 
+  it('is one link for the whole value, with no inner dice links in a note after the number', () => {
+    const pairs: TemplateBlock = { id: 'pairs001', type: 'pairs', field: 'skills', rollAs: 'check' };
+    const template = { ...templateOf([{ key: 'skills', label: 'Skills', type: 'pairs' }], [pairs]), diceSetId: 'builtin:d20-roll-under' };
+    const { container } = renderSheet(template, { skills: { Stealth: '15 (+2)', Lore: '12 (1d6)' } }, { app: fakeApp() });
+    expect(links(blockEl(container, 'pairs001')!)).toEqual(['1d20 vs 15', '1d20 vs 12']);
+  });
+
   it('rolls a click on the link as that check', () => {
     const rolls: { formula: string; source: unknown }[] = [];
     const { container } = renderSheet(checks(), { dx: '15', iq: '', ht: '' }, { app: fakeApp(rolls) });

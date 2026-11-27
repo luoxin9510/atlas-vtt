@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import type { App } from 'obsidian';
 import { DiceText } from './DiceText';
 import { hasInlineMarkup } from './inlineMarkdown';
 import { StatblockMarkdown } from './StatblockMarkdown';
+import { WholeValueRollContext } from './wholeValueRoll';
 
 interface InlineTextProps {
   text: string;
@@ -23,7 +24,9 @@ interface InlineTextProps {
  * cell): drawn through Markdown as a note draws it, links and marks included,
  * where it holds any, and as plain text otherwise, its dice linked alike.
  */
-export function InlineText({ text, app, sourcePath, markdown = true, dice }: InlineTextProps): React.JSX.Element {
+export function InlineText({ text, app, sourcePath, markdown = true, dice: wanted }: InlineTextProps): React.JSX.Element {
+  // Inside a check link the whole value is the one roll
+  const dice = wanted && !useContext(WholeValueRollContext);
   if (!markdown || !hasInlineMarkup(text)) return dice ? <DiceText text={text} /> : <>{text}</>;
   return <StatblockMarkdown text={text} app={app} sourcePath={sourcePath} dice={dice} />;
 }

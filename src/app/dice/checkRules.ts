@@ -17,26 +17,28 @@ export const marginRule: CheckRule = ({ margin, diceCrit }) => {
   return { success: margin >= 0, crit: null };
 };
 
-const rules = new Map<string, CheckRule>([[MARGIN_RULE_ID, marginRule]]);
+/** What each id has registered, oldest first: the last one decides, and a removed one is gone for good. */
+const rules = new Map<string, CheckRule[]>([[MARGIN_RULE_ID, [marginRule]]]);
 
 /**
  * Registers `rule` under `id`, replacing a rule of that id. Returns a function that removes it
- * again (the rule it replaced, if any, comes back); calling it after another rule took the id
- * does nothing.
+ * again: the rule it replaced comes back only while it is still registered itself, so a rule
+ * that was removed never returns, whatever the order of the removals.
  */
 export function registerCheckRule(id: string, rule: CheckRule): () => void {
-  const previous = rules.get(id);
-  rules.set(id, rule);
+  const stack = rules.get(id) ?? [];
+  stack.push(rule);
+  rules.set(id, stack);
   return (): void => {
-    if (rules.get(id) !== rule) return;
-    if (previous) rules.set(id, previous);
-    else rules.delete(id);
+    const at = stack.indexOf(rule);
+    if (at >= 0) stack.splice(at, 1);
+    if (stack.length === 0 && rules.get(id) === stack) rules.delete(id);
   };
 }
 
 /** The rule registered under `id`, or undefined when nobody registered it. */
 export function checkRule(id: string): CheckRule | undefined {
-  return rules.get(id);
+  return rules.get(id)?.at(-1);
 }
 
 /** The ids of all registered rules, built-ins first. */

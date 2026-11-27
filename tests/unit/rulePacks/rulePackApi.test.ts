@@ -110,6 +110,26 @@ describe('check rules from a pack', () => {
   });
 });
 
+describe('removing a pack\'s rules', () => {
+  it('leaves nothing behind when one pack registered the same id twice and Atlas unloads', () => {
+    const api = packs();
+    api.registerCheckRule('pack:twice', () => ({ success: true, crit: null }));
+    api.registerCheckRule('pack:twice', () => ({ success: false, crit: null }));
+    api.dispose();
+    expect(checkRuleIds()).not.toContain('pack:twice');
+  });
+
+  it('never resurrects a rule that its pack removed, when the pack that replaced it removes its own', () => {
+    const a = packs();
+    const b = packs();
+    const removeA = a.registerCheckRule('pack:shared', () => ({ success: true, crit: null }));
+    const removeB = b.registerCheckRule('pack:shared', () => ({ success: false, crit: null }));
+    removeA();
+    removeB();
+    expect(checkRuleIds()).not.toContain('pack:shared');
+  });
+});
+
 describe('rolls from a pack', () => {
   it('rolls on the open map\'s dice tool, with the options', () => {
     const map = mapView();

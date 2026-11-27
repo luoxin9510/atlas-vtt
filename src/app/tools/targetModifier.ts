@@ -8,6 +8,7 @@ import { checkDirection } from '../dice/evaluateCheck';
 import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { RollingDice } from '../types/diceSetTypes';
+import { CHECK_TARGET_DIGITS } from '../dice/splitCheck';
 import { checkText, specOfText } from './buildRoll';
 
 /** A whole number as a formula term: `+2`, `-1`. */
@@ -28,11 +29,15 @@ export function withTargetModifier(
   const { formula, check } = specOfText(text, rules ? rollParseOptionsOf(rules) : {});
   if (!check) return text + diceTerm;
   const direction = rules ? checkDirection(rollingRules(rules), check.written) : (check.written ?? 'over');
+  // A target past what a check holds is no check any more: the text stays as it was
+  if (direction === 'under' && String(Math.abs(check.target + modifier)).length > CHECK_TARGET_DIGITS) return text;
   return direction === 'under' ? checkText(formula, check.target + modifier, check.written) : checkText(formula + diceTerm, check.target, check.written);
 }
 
-/** A whole number typed as `-2`, `+3` or `3` (spaces around it allowed); null for anything else. */
+const MODIFIER = new RegExp(`^[+-]?\\d{1,${CHECK_TARGET_DIGITS}}$`);
+
+/** A whole number of at most `CHECK_TARGET_DIGITS` digits typed as `-2`, `+3` or `3` (spaces around it allowed); null for anything else. */
 export function parseModifier(text: string): number | null {
   const trimmed = text.trim();
-  return /^[+-]?\d+$/.test(trimmed) ? Number(trimmed) : null;
+  return MODIFIER.test(trimmed) ? Number(trimmed) : null;
 }

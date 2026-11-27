@@ -76,7 +76,8 @@ export class RulePacks implements RulePackApi {
   /** Called when Atlas unloads: removes every rule a pack registered, and takes no more. */
   dispose(): void {
     this.disposed = true;
-    for (const remove of [...this.registrations]) remove();
+    // Newest first, so a rule is gone before the one it replaced
+    for (const remove of [...this.registrations].reverse()) remove();
     this.registrations.clear();
   }
 

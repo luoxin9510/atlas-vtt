@@ -218,15 +218,18 @@ export default class AtlasVTTPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       if (this.unloaded) return;
-      registerColorSwatchIcons();
-      this.imageDisplayService.registerContextMenu();
-      registerStatusBarVisibility(this);
-      this.changelogService?.showUpdates();
-      runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
-      runInBackground(carryOverTokenBars(this.app, this.settingsService), 'Carrying over the token bar settings');
-      runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
-      // Last: settings, dice sets and the views exist, so packs waiting in `whenReady` may go on.
-      this.packs.markReady();
+      try {
+        registerColorSwatchIcons();
+        this.imageDisplayService.registerContextMenu();
+        registerStatusBarVisibility(this);
+        this.changelogService?.showUpdates();
+        runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
+        runInBackground(carryOverTokenBars(this.app, this.settingsService), 'Carrying over the token bar settings');
+        runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
+      } finally {
+        // Last, and even where the above threw: packs waiting in `whenReady` must not wait for ever (it does nothing once unloaded).
+        this.packs.markReady();
+      }
     });
   }
 
