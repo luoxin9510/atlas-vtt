@@ -22,13 +22,16 @@ export interface ParsedCheck {
  */
 const CHECK_END = /(?:\s+vs\s+|\s*([≤≥])\s*)([+-]?\d{1,9})\s*$/i;
 
-/** Check text split into formula and target; null when it is not one (or its formula does not parse). */
-export function parseCheck(text: string): ParsedCheck | null {
+/**
+ * Check text split into formula and target; null when it is not one (or its formula does not parse,
+ * dice written without faces having `defaultFaces`).
+ */
+export function parseCheck(text: string, defaultFaces?: number): ParsedCheck | null {
   if (text.length > FORMULA_LIMITS.characters) return null;
   const match = CHECK_END.exec(text);
   if (!match) return null;
   const formula = text.slice(0, match.index).trim();
-  if (!formula || !parseFormula(formula).ok) return null;
+  if (!formula || !parseFormula(formula, undefined, defaultFaces).ok) return null;
   const mark = match[1];
   const direction: CheckDirection | undefined = mark === undefined ? undefined : mark === '≤' ? 'under' : 'over';
   return { formula, target: Number(match[2]), ...(direction && { direction }) };

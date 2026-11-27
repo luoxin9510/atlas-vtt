@@ -3,7 +3,7 @@ import type { DiceRollOrigin } from '../types/diceRollOrigin';
 import { EventEmitter } from 'events';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { AdvantageSide, DiceSet, RolledWithSet, RollingDice } from '../types/diceSetTypes';
-import { rollingRules } from '../gameSystems/diceSets';
+import { bareDieFaces, rollingRules } from '../gameSystems/diceSets';
 import type { CheckDirection } from '../dice/checkTypes';
 import { buildRoll, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
@@ -66,7 +66,7 @@ export class DiceTool {
    * name a dice set instead of the collection's and a side of advantage.
    */
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
-    return this.record(this.parseAndRoll(specOfText(formula), options), source, origin);
+    return this.record(this.parseAndRoll(formula, options), source, origin);
   }
 
   /**
@@ -99,9 +99,9 @@ export class DiceTool {
   }
 
   /** Rolls the formula; one without dice (`+3`) is added to the dice of the set. */
-  private parseAndRoll(spec: RollSpec, options: RollOptions | undefined): DiceRollResult | null {
+  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined): DiceRollResult | null {
     const { rules, shown } = rollingWith(this.getDiceRules(), options?.set);
-    return rollSpec(spec, rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
+    return rollSpec(typeof spec === 'string' ? specOfText(spec, bareDieFaces(rules)) : spec, rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
   }
 
   /** The dice a roll of `set` (else the collection's) is made with, and their rules: what advantage can do. */
@@ -164,7 +164,7 @@ export function rollingWith(
 export function rollDiceFormula(
   formula: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, advantage?: AdvantageSide, setAppearance = false,
 ): DiceRollResult | null {
-  return rollSpec(specOfText(formula), rules, inputs, shown, advantage, setAppearance);
+  return rollSpec(specOfText(formula, bareDieFaces(rules)), rules, inputs, shown, advantage, setAppearance);
 }
 
 /** Rolls a spec (a formula, or a check) and dresses the body with its id, time, roller and set. */

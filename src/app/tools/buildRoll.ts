@@ -21,9 +21,12 @@ export interface RollSpec {
 /** The fields of a roll that the dice decide: everything but who rolled, when, and the set shown. */
 export type RollBody = Omit<DiceRollResult, 'id' | 'timestamp' | 'player' | 'diceSet' | 'source'>;
 
-/** Check text (`3d6 vs 10`, `1d20+5 ≥ 15`) as a spec; any other text is a plain formula, unchanged. */
-export function specOfText(text: string): RollSpec {
-  const parsed = parseCheck(text);
+/**
+ * Check text (`3d6 vs 10`, `1d20+5 ≥ 15`) as a spec; any other text is a plain formula, unchanged.
+ * `defaultFaces` is what dice written without faces have (`bareDieFaces`).
+ */
+export function specOfText(text: string, defaultFaces?: number): RollSpec {
+  const parsed = parseCheck(text, defaultFaces);
   if (!parsed) return { formula: text };
   return { formula: parsed.formula, check: { target: parsed.target, ...(parsed.direction && { written: parsed.direction }) } };
 }

@@ -20,15 +20,15 @@ export interface DiceNotation {
 }
 
 /**
- * One signed term: dice with an optional exploding mark, or a constant. Space
- * may stand around a sign, never inside a term ("2 d 6", "2d6 3"). "+ -1" is
- * minus one, as the 5e SRD's data writes a negative modifier ("3d6 + -1").
+ * One signed term: dice with an optional exploding mark, or a constant. Faces may be missing, for
+ * a set's default die ("2d"). Space may stand around a sign, never inside a term ("2 d 6",
+ * "2d6 3"). "+ -1" is minus one, as the 5e SRD's data writes a negative modifier ("3d6 + -1").
  */
-const TERM = /(\+\s*-|[+-]?)\s*(?:(\d*)d(\d+)(?:!!?(?:i|\d+)?)?|(\d+))\s*/iy;
+const TERM = /(\+\s*-|[+-]?)\s*(?:(\d*)d(\d*)(?:!!?(?:i|\d+)?)?|(\d+))\s*/iy;
 const MINUS_SIGNS = /[\u2212\u2013]/g;
 const BRACKETED = /^\((.*)\)$/s;
 
-function addTerm(notation: DiceNotation, match: RegExpExecArray): boolean {
+function addTerm(notation: DiceNotation, match: RegExpExecArray, defaultFaces: number | undefined): boolean {
   const [, signText, countText, sidesText, constantText] = match;
   const sign = signText?.endsWith('-') ? -1 : 1;
   if (constantText !== undefined) {
@@ -38,14 +38,18 @@ function addTerm(notation: DiceNotation, match: RegExpExecArray): boolean {
     return true;
   }
   const count = countText ? Number(countText) : 1;
-  const sides = Number(sidesText);
+  const bare = sidesText === '' && countText !== '';
+  const sides = bare && defaultFaces !== undefined ? defaultFaces : Number(sidesText);
   if (!Number.isSafeInteger(count) || !Number.isSafeInteger(sides) || count < 1 || sides < 2) return false;
   notation.dice.push({ sign, count, sides });
   return true;
 }
 
-/** The notation's terms, or null when the text is not dice notation. */
-export function parseDiceNotation(text: string): DiceNotation | null {
+/**
+ * The notation's terms, or null when the text is not dice notation. `defaultFaces` is the faces of
+ * a die written with a count and no faces (`2d`); unset, it is no notation.
+ */
+export function parseDiceNotation(text: string, defaultFaces?: number): DiceNotation | null {
   const compact = text.replace(MINUS_SIGNS, '-').trim().replace(BRACKETED, '$1').trim();
   if (compact === '') return null;
   const notation: DiceNotation = { dice: [], modifier: 0 };
@@ -56,7 +60,7 @@ export function parseDiceNotation(text: string): DiceNotation | null {
     if (!match) return null;
     const signed = match[1] !== '';
     if (position > 0 && !signed) return null;
-    if (!addTerm(notation, match)) return null;
+    if (!addTerm(notation, match, defaultFaces)) return null;
     position = TERM.lastIndex;
   }
   return notation;
@@ -66,8 +70,8 @@ export function parseDiceNotation(text: string): DiceNotation | null {
  * The average of a roll, rounded down as statblocks print it ("7d10 + 14" is
  * 52); null when the text is not notation. A constant alone is its own average.
  */
-export function diceAverage(notation: string): number | null {
-  const parsed = parseDiceNotation(notation);
+export function diceAverage(notation: string, defaultFaces?: number): number | null {
+  const parsed = parseDiceNotation(notation, defaultFaces);
   if (!parsed) return null;
   const dice = parsed.dice.reduce((sum, term) => sum + term.sign * term.count * (term.sides + 1) / 2, 0);
   const average = Math.floor(dice + parsed.modifier);

@@ -10,9 +10,9 @@ import { fillReferences } from './fillReferences';
 import type { FieldLookup } from './references';
 import type { LookupTrace, TracedLookup } from './statblockLookup';
 
-/** Whether a Dice value written without references rolls as a whole. */
-export function isDiceValue(text: string): boolean {
-  return writtenRoll(text) !== null;
+/** Whether a Dice value written without references rolls as a whole; `defaultFaces` the faces of a die written without them (`1d+1`). */
+export function isDiceValue(text: string, defaultFaces?: number): boolean {
+  return writtenRoll(text, defaultFaces) !== null;
 }
 
 /**

@@ -79,6 +79,12 @@ export function rollingRules(rules: DiceRules | RollingDice): RollingDice {
   return { dice, crit: rules.crit, ...(rules.explode && { explode: rules.explode }), ...checkFieldsOf(rules) };
 }
 
+/** The faces a die written without them (`2d`) has by `rules`: the set's first die where it opts in (`bareDie`), else none. */
+export function bareDieFaces(rules: DiceRules | RollingDice): number | undefined {
+  const rolling = rollingRules(rules);
+  return rolling.bareDie ? rolling.dice[0]?.sides : undefined;
+}
+
 /**
  * What older versions of Atlas read for a set: its dice as one default roll
  * (`2d12` where every group has the same die, else the groups joined, which

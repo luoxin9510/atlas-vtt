@@ -37,24 +37,35 @@ export interface RollPiece {
 const OPENS = String.raw`(?<![\p{L}\p{N}_])`;
 const ENDS = String.raw`(?![\p{L}\p{N}_])`;
 
-/** Dice with their modifiers, in the order the parser reads them: reroll, explode (not a single bare `!`), keep or drop, count. */
-const DIE = [
-  String.raw`\d*d(?:\d+|%|f)`,
-  String.raw`(?:r[or]?(?:(?:<=|>=|<|>)?\d+)?)?`,
-  String.raw`(?:!!(?:\d+|i)?|!(?:\d+|i)|xo?(?:>=?\d+)?)?`,
-  String.raw`(?:[kd][hl]?\d*)?`,
-  String.raw`(?:(?:c[sf](?:>=|<=|[<>=])|>=|<=)\d+)?`,
-].join('');
+/**
+ * Dice with their modifiers, in the order the parser reads them: reroll, explode (not a single bare `!`), keep or drop, count.
+ * With `bare`, a die written with a count and no faces (`2d`) counts too; a lone `d` never does.
+ */
+function dieSource(bare: boolean): string {
+  return [
+    bare ? String.raw`(?:\d*d(?:\d+|%|f)|\d+d)` : String.raw`\d*d(?:\d+|%|f)`,
+    String.raw`(?:r[or]?(?:(?:<=|>=|<|>)?\d+)?)?`,
+    String.raw`(?:!!(?:\d+|i)?|!(?:\d+|i)|xo?(?:>=?\d+)?)?`,
+    String.raw`(?:[kd][hl]?\d*)?`,
+    String.raw`(?:(?:c[sf](?:>=|<=|[<>=])|>=|<=)\d+)?`,
+  ].join('');
+}
 const LABEL = String.raw`(?:\[[\p{L}\p{N} '\-]{1,24}\])?`;
-const DIE_TERM = `${DIE}${LABEL}${ENDS}`;
-const TERM = String.raw`(?:${DIE}|\d+(?!\.\d))${LABEL}${ENDS}`;
 const SIGN = '[+\\-−]';
 const OPERATOR = String.raw`[ \t]*(?:\+[ \t]*-|[+\-−–*/×])[ \t]*`;
 
-const ROLLS = new RegExp(
-  String.raw`${OPENS}(?:(?:ATK|Attack)[ \t]*:[ \t]*${SIGN}${TERM}|${SIGN}${TERM}|${DIE_TERM})(?:${OPERATOR}${TERM})*`,
-  'giu',
-);
+function rollsPattern(bare: boolean): RegExp {
+  const die = dieSource(bare);
+  const dieTerm = `${die}${LABEL}${ENDS}`;
+  const term = String.raw`(?:${die}|\d+(?!\.\d))${LABEL}${ENDS}`;
+  return new RegExp(
+    String.raw`${OPENS}(?:(?:ATK|Attack)[ \t]*:[ \t]*${SIGN}${term}|${SIGN}${term}|${dieTerm})(?:${OPERATOR}${term})*`,
+    'giu',
+  );
+}
+
+const ROLLS = rollsPattern(false);
+const BARE_ROLLS = rollsPattern(true);
 
 const REFERENCE_AFTER = /^[\s()+\-−–*/×]*(?<![\w.])@[A-Za-z_]/;
 const REFERENCE_BEFORE = /(?<![\w.])@[A-Za-z_][\w.-]*[\s()+\-−–*/×]*$/;
@@ -74,19 +85,22 @@ export function toRollFormula(written: string): string {
   return spelled(written).replace(/\s+(?![^[]*\])/g, '');
 }
 
-/** Whether a formula is a roll: the parser accepts it, and it throws dice or opens with a sign. */
-export function isRollFormula(formula: string): boolean {
-  const parsed = parseFormula(formula);
+/**
+ * Whether a formula is a roll: the parser accepts it, and it throws dice or opens with a sign.
+ * `defaultFaces`: the faces of a die written without them (`2d`); unset, it is no die.
+ */
+export function isRollFormula(formula: string, defaultFaces?: number): boolean {
+  const parsed = parseFormula(formula, undefined, defaultFaces);
   return parsed.ok && (/^[+-]/.test(formula) || parsed.terms.some((term) => term.kind === 'dice' && term.count > 0));
 }
 
 /** The formula a text written as one roll rolls, or null where it is no roll. */
-export function writtenRoll(written: string): string | null {
-  return isRollFormula(spelled(written)) ? toRollFormula(written) : null;
+export function writtenRoll(written: string, defaultFaces?: number): string | null {
+  return isRollFormula(spelled(written), defaultFaces) ? toRollFormula(written) : null;
 }
 
 /** The text in pieces as running text reads it, before a stray number sends it to be read whole. */
-function scanned(text: string): RollPiece[] {
+function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
   const pieces: RollPiece[] = [];
   const words = (part: string): void => {
     const last = pieces[pieces.length - 1];
@@ -94,11 +108,11 @@ function scanned(text: string): RollPiece[] {
     else pieces.push({ text: part, formula: null });
   };
   let at = 0;
-  for (const found of text.matchAll(ROLLS)) {
+  for (const found of text.matchAll(defaultFaces === undefined ? ROLLS : BARE_ROLLS)) {
     if (found.index > at) words(text.slice(at, found.index));
     const end = found.index + found[0].length;
     const joined = REFERENCE_AFTER.test(text.slice(end)) || REFERENCE_BEFORE.test(text.slice(0, found.index));
-    const formula = joined ? null : writtenRoll(found[0]);
+    const formula = joined ? null : writtenRoll(found[0], defaultFaces);
     if (formula === null) words(found[0]);
     else pieces.push({ text: found[0], formula });
     at = end;
@@ -108,9 +122,9 @@ function scanned(text: string): RollPiece[] {
 }
 
 /** The whole text as one roll, its spaces around it as words; null where it is no roll. */
-function wholeRoll(text: string): RollPiece[] | null {
+function wholeRoll(text: string, defaultFaces: number | undefined): RollPiece[] | null {
   const written = text.trim();
-  const formula = written === '' ? null : writtenRoll(written);
+  const formula = written === '' ? null : writtenRoll(written, defaultFaces);
   if (formula === null) return null;
   const at = text.indexOf(written);
   const pieces: RollPiece[] = [
@@ -121,9 +135,12 @@ function wholeRoll(text: string): RollPiece[] | null {
   return pieces.filter((piece) => piece.text !== '');
 }
 
-/** A text in pieces: its words, and every roll written in it on its own. */
-export function rollPieces(text: string): RollPiece[] {
-  const pieces = scanned(text);
+/**
+ * A text in pieces: its words, and every roll written in it on its own. `defaultFaces`: the faces
+ * of a die written with a count and no faces (`2d`), for a set that opts in; unset, it is no roll.
+ */
+export function rollPieces(text: string, defaultFaces?: number): RollPiece[] {
+  const pieces = scanned(text, defaultFaces);
   const strayNumber = pieces.some((piece) => piece.formula === null && /\d/.test(piece.text));
-  return strayNumber ? wholeRoll(text) ?? pieces : pieces;
+  return strayNumber ? wholeRoll(text, defaultFaces) ?? pieces : pieces;
 }

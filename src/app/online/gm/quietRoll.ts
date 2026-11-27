@@ -1,4 +1,5 @@
 import type { SharedRoll } from '../protocol/index.ts';
+import { bareDieFaces } from '../../gameSystems/diceSets';
 import { buildRoll, specOfText } from '../../tools/buildRoll';
 import type { DiceRollResult } from '../../types/diceTypes';
 import type { DiceRules } from '../../types/diceRulesTypes';
@@ -21,7 +22,7 @@ function cryptoRandom(): number {
  */
 export function quietRollResult(formula: string, rules: DiceRules | RollingDice, id: string, now: number, random: () => number = cryptoRandom, setAppearance = false, advantage?: AdvantageSide): DiceRollResult | null {
   if (formula.trim() === '') return null;
-  const body = buildRoll(specOfText(formula), rules, random, advantage, setAppearance);
+  const body = buildRoll(specOfText(formula, bareDieFaces(rules)), rules, random, advantage, setAppearance);
   return 'ok' in body ? null : { id, timestamp: now, ...body };
 }
 
