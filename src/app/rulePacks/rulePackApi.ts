@@ -11,6 +11,7 @@ import type { ContestRule } from '../dice/contestTypes';
 import { checkRuleIds, registerCheckRule } from '../dice/checkRules';
 import type { CheckDirection, CheckRule } from '../dice/checkTypes';
 import { diceSetOfCollection } from '../services/diceSets/collectionDiceSets';
+import { hideGmOnly } from '../dice/rollVisibility';
 import { offlineDiceInputs } from '../services/offlineDiceInputs';
 import { openMapDiceTool } from '../services/statblockRolls';
 import { checkText } from '../tools/buildRoll';
@@ -166,16 +167,17 @@ export class RulePacks implements RulePackApi {
     const names = options?.names;
     if (tool?.rollContest) return tool.rollContest(first, second, { ...mapOptions(options), ...(names && { names }) });
     const { rules, shown } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
-    const rolled = rollContestFormulas(first, second, rules, offlineDiceInputs(), shown, names);
-    if (rolled && options?.visibility === 'gm') for (const result of rolled) result.hidden = true;
+    const inputs = offlineDiceInputs(this.app);
+    const rolled = rollContestFormulas(first, second, rules, inputs, shown, names);
+    if (rolled) for (const result of rolled) hideGmOnly(result, options?.visibility, inputs.gmOnly);
     return rolled;
   }
 
   /** Rolls with a collection's dice set, telling no map and showing nothing: no surface of Atlas's is reachable from here. */
   private rollOffMap(text: string, options: RulePackRollOptions | undefined): DiceRollResult | null {
     const { rules, shown } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
-    const result = rollDiceFormula(text, rules, offlineDiceInputs(), shown);
-    if (result && options?.visibility === 'gm') result.hidden = true;
-    return result;
+    const inputs = offlineDiceInputs(this.app);
+    const result = rollDiceFormula(text, rules, inputs, shown);
+    return result && hideGmOnly(result, options?.visibility, inputs.gmOnly);
   }
 }

@@ -16,6 +16,7 @@ interface DiceRollInputs {
   rollId(): string;
   roller(): string;
   onFormulaError(error: { readonly code: string }): void;
+  gmOnly?(): boolean;
 }
 /** Atlas's `DiceTool` class, as far as these tests use it. */
 export type DiceToolClass = new (bus: EventEmitter, rules: () => DiceRules | RollingDice, inputs: DiceRollInputs) => Pick<DiceSource, 'rollDice'> & { getDiceRules(): DiceRules | RollingDice };
@@ -30,11 +31,11 @@ export interface RealDice {
 }
 
 /** An Atlas map tab's dice: Atlas's real `DiceTool` on an `EventEmitter`, rolling by `rules` with `random`. */
-export function realDice(DiceTool: DiceToolClass, rules: DiceRules | RollingDice, random: () => number, viewId = 'view-1'): RealDice {
+export function realDice(DiceTool: DiceToolClass, rules: DiceRules | RollingDice, random: () => number, viewId = 'view-1', gmOnly = false): RealDice {
   const bus = new EventEmitter();
   const errors: string[] = [];
   let ids = 0;
-  const tool = new DiceTool(bus, () => rules, { random, rollId: () => `roll_${(ids += 1)}`, roller: () => 'Player', onFormulaError: (error) => errors.push(error.code) });
+  const tool = new DiceTool(bus, () => rules, { random, rollId: () => `roll_${(ids += 1)}`, roller: () => 'Player', onFormulaError: (error) => errors.push(error.code), gmOnly: () => gmOnly });
   const rolled: DiceRollResult[] = [];
   bus.on('dice-rolled', (result: DiceRollResult) => rolled.push(result));
   return {

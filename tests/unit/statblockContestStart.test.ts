@@ -9,7 +9,6 @@ vi.mock('../../src/app/ui/notice', () => ({ showNotice }));
 import { BUILT_IN_DICE_SETS } from '../../src/app/gameSystems/builtInDiceSets';
 import { attachDiceRolling, linkDiceIn, type RollChoice } from '../../src/app/services/statblockDiceLinks';
 import type { DiceRollSource } from '../../src/app/services/statblockRolls';
-import { SettingsService } from '../../src/app/services/SettingsService';
 import { cancelPendingContest } from '../../src/app/services/pendingContest';
 import { ArmedBonuses } from '../../src/app/statblocks/rollBonuses/armedBonuses';
 import { bonusId } from '../../src/app/statblocks/rollBonuses/armableValues';
@@ -96,22 +95,18 @@ describe('starting a contest from a check link', () => {
     expect(contests[0]![2]).toEqual({ sideAdvantage: { second: 'advantage' } });
   });
 
-  // Characterisation (decision 21): a statblock link roll ignores the tray's GM-only switch, and so does
-  // a contest started from links; neither path sets a visibility.
-  it('asks for no visibility, as a normal statblock link roll does, with the GM-only switch on', async () => {
+  // Decisions 7 and 21: while the GM-only switch is on, any roll the GM makes is GM-only. The map's dice tool
+  // decides that (`DiceRollInputs.gmOnly`, see statblockGmOnlyRolls.test.ts), so a contest started from links
+  // names no visibility of its own: an explicit one would override the switch.
+  it('names no visibility, leaving it to the map\'s dice tool and its GM-only switch', async () => {
     const { app, rolled, contests } = mapApp(under);
-    const spy = vi.spyOn(SettingsService, 'forApp').mockReturnValue({ rollsGmOnly: () => true } as never);
-    try {
-      const goblin = card(app, '3d6 vs 12');
-      const ogre = card(app, '3d6 vs 14');
-      goblin.startContest();
-      await tick();
-      ogre.link.click();
-      expect(contests[0]![2]).not.toHaveProperty('visibility');
-      expect(rolled).toEqual([]);
-    } finally {
-      spy.mockRestore();
-    }
+    const goblin = card(app, '3d6 vs 12');
+    const ogre = card(app, '3d6 vs 14');
+    goblin.startContest();
+    await tick();
+    ogre.link.click();
+    expect(contests[0]![2]).not.toHaveProperty('visibility');
+    expect(rolled).toEqual([]);
   });
 
   it('names a side without a token by its statblock note', async () => {

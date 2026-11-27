@@ -9,6 +9,7 @@ import { buildRoll, refusalOf, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
 import { parseContest } from '../dice/parseContest';
 import { contestSideSpec, markContest, type ContestNames } from './contestRoll';
+import { hideGmOnly, type RollVisibility } from '../dice/rollVisibility';
 
 /** How a roll is made besides its formula. */
 export interface RollOptions {
@@ -18,8 +19,11 @@ export interface RollOptions {
   advantage?: AdvantageSide | undefined;
   /** Gives an explicit matching pool the set’s names and colours; never changes its dice. */
   setAppearance?: boolean | undefined;
-  /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
-  visibility?: 'all' | 'gm' | undefined;
+  /**
+   * Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry), `'all'` shows it to
+   * everyone; unset, the GM-only switch decides (`DiceRollInputs.gmOnly`).
+   */
+  visibility?: RollVisibility | undefined;
   /** What moved the target of the check in the text (modifiers on a check that goes under); the result records them. Ignored for a roll that is no check. */
   targetSteps?: readonly TargetStep[] | undefined;
 }
@@ -50,6 +54,8 @@ export interface DiceRollInputs {
   rollId: () => string;
   roller: () => string;
   onFormulaError: (error: FormulaError) => void;
+  /** The GM's GM-only switch: the visibility of a roll that names none. Unset: no switch (off). */
+  gmOnly?: () => boolean;
 }
 
 export class DiceTool {
@@ -131,8 +137,8 @@ export class DiceTool {
     if (source) {
       result.source = source;
     }
-    if (options?.visibility === 'gm') result.hidden = true;
-    
+    hideGmOnly(result, options?.visibility, this.inputs.gmOnly);
+
     // Add to history
     this.state.rollHistory.unshift(result);
     

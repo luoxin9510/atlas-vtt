@@ -6,6 +6,7 @@ import { diceSetOfCollection } from '../../../services/diceSets/collectionDiceSe
 import type { OffMapRolls } from '../../../services/statblockRolls';
 import { rollingRules } from '../../../gameSystems/diceSets';
 import { rollDiceFormula, rollingWith } from '../../../tools/DiceTool';
+import { hideGmOnly } from '../../../dice/rollVisibility';
 import { markContest } from '../../../tools/contestRoll';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { OffMapRollsContext } from '../../render/shared/offMapRolls';
@@ -53,16 +54,19 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
   const offMap = useMemo((): OffMapRolls => ({
     roll: (formula, source, options) => {
       const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
-      const result = rollDiceFormula(formula, rules, offlineDiceInputs(), shown, options?.advantage, false, options?.targetSteps);
-      return result && { ...result, source };
+      const inputs = offlineDiceInputs(app);
+      const result = rollDiceFormula(formula, rules, inputs, shown, options?.advantage, false, options?.targetSteps);
+      return result && { ...hideGmOnly(result, options?.visibility, inputs.gmOnly), source };
     },
     rollContest: (first, second, sources, options) => {
       const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
-      const inputs = offlineDiceInputs();
+      const inputs = offlineDiceInputs(app);
       const one = rollDiceFormula(first, rules, inputs, shown, options?.sideAdvantage?.first ?? options?.advantage, false, options?.sideSteps?.first);
       const two = one && rollDiceFormula(second, rules, inputs, shown, options?.sideAdvantage?.second ?? options?.advantage, false, options?.sideSteps?.second);
       if (!one || !two) return null;
       markContest(one, two, inputs.rollId(), rules, options?.names);
+      hideGmOnly(one, options?.visibility, inputs.gmOnly);
+      hideGmOnly(two, options?.visibility, inputs.gmOnly);
       return [{ ...one, source: sources[0] }, { ...two, source: sources[1] }];
     },
     covers: (mapEl) => coversMaps && hostRef.current !== null && !mapEl.contains(hostRef.current),

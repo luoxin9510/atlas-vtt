@@ -159,7 +159,7 @@ export interface DiceRollResult {
 
 /** How a pack's roll is made. */
 export interface RulePackRollOptions {
-  /** Who sees the roll: `'gm'` keeps it from the player window and online players; unset is everyone. */
+  /** Who sees the roll: `'gm'` keeps it from the player window and online players, `'all'` shows it to everyone; unset, the GM's GM-only switch decides. */
   visibility?: 'all' | 'gm' | undefined;
   /** For `rollCheck`: succeed on a total at most (`under`) or at least (`over`) the target; unset follows the dice set. */
   direction?: CheckDirection | undefined;

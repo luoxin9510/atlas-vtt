@@ -167,7 +167,8 @@ export class PlayerRolls {
     const advantage = rules === undefined ? undefined : playerSide(formula, rules, message.advantage);
     if (mode !== 'public') return this.rollPrivately(from, formula, mode, tokenId, source, context, notes, { whisper: request?.to, set, setAppearance, advantage });
     if (dice === null || context.mapPath === null) return this.refuse('unavailable', from);
-    const options: RollOptions = { ...(set && { set }), ...(setAppearance && { setAppearance }), ...(advantage && { advantage }) };
+    // Players' rolls are not the GM's: the GM's GM-only switch never hides them
+    const options: RollOptions = { visibility: 'all', ...(set && { set }), ...(setAppearance && { setAppearance }), ...(advantage && { advantage }) };
     const origin = tokenId === null ? undefined : { viewId: dice.viewId, mapPath: context.mapPath, tokenId };
     let rolled = false;
     this.ports.rollAs(from, () => {
