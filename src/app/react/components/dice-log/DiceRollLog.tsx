@@ -4,6 +4,8 @@ import { useAtlasUI } from '../../root/AtlasUIContext';
 import { useAtlasStore } from '../../ViewStoreContext';
 import { useDiceHistory } from './useDiceHistory';
 import { DiceRollEntry } from './DiceRollEntry';
+import { DiceContestEntry } from './DiceContestEntry';
+import { groupContests } from '../../../dice/contestGroups';
 import { LabelTooltip } from '../../../packages/components/primitives/tooltip';
 import { CloseButton } from '../../../packages/components/primitives/CloseButton';
 import type { DiceTool } from '../../../tools/DiceTool';
@@ -38,7 +40,10 @@ export function DiceRollLog({ isOpen, onClose }: DiceRollLogProps): React.ReactE
     }
   }, [view]);
 
-  const { history, clearHistory, repeatRoll } = useDiceHistory(getDiceTool, storeActions, view?.serviceManager?.getEventBus());
+  const { history, clearHistory, repeatRoll, repeatContest } = useDiceHistory(getDiceTool, storeActions, view?.serviceManager?.getEventBus());
+
+  // The two rolls of a contest are one entry.
+  const groups = useMemo(() => groupContests(history, (roll) => roll.contest), [history]);
 
   const handleClose = useCallback((): void => {
     setIsPinned(false);
@@ -127,14 +132,19 @@ export function DiceRollLog({ isOpen, onClose }: DiceRollLogProps): React.ReactE
             <span>{t('dice.noRolls')}</span>
           </div>
         ) : (
-          history.map((result, index) => (
-            <DiceRollEntry
-              key={result.id}
-              result={result}
-              isNew={index === 0 && history.length > prevLengthRef.current}
-              onRepeat={() => repeatRoll(result.formula, result.source, result.advantage, result.hidden)}
-            />
-          ))
+          groups.map((group, index) => {
+            const isNew = index === 0 && history.length > prevLengthRef.current;
+            return group.kind === 'contest' ? (
+              <DiceContestEntry key={group.second.id} first={group.first} second={group.second} isNew={isNew} onRepeat={() => repeatContest(group.first, group.second)} />
+            ) : (
+              <DiceRollEntry
+                key={group.roll.id}
+                result={group.roll}
+                isNew={isNew}
+                onRepeat={() => repeatRoll(group.roll.formula, group.roll.source, group.roll.advantage, group.roll.hidden)}
+              />
+            );
+          })
         )}
       </div>
     </div>

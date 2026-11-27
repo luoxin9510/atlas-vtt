@@ -192,3 +192,22 @@ describe('a roll as the player window shows it', () => {
     expect(imageSrc).toHaveBeenCalledWith('tokens/wolf.webp');
   });
 });
+
+describe('rollForPlayers and contests', () => {
+  const roll: DiceRollResult = {
+    id: 'b', timestamp: 0, formula: '1d20 vs 10', rolls: [], modifiers: 0, total: 12,
+    contest: { id: 'c', side: 'second', names: { first: 'Ana', second: 'Bo' }, verdict: { winner: 'first', rule: 'builtin:contest-margin' } },
+  };
+
+  it('keeps the contest and its verdict but not who the sides are', () => {
+    expect(rollForPlayers(roll, undefined, null, { showNames: true, imageSrc: () => null }).result.contest)
+      .toEqual({ id: 'c', side: 'second', verdict: { winner: 'first', rule: 'builtin:contest-margin' } });
+    expect(roll.contest).toHaveProperty('names');
+  });
+
+  it('does so for a roll that names its token too', () => {
+    const withSource: DiceRollResult = { ...roll, source: { type: 'statblock', tokenId: 'wolf', tokenName: 'Wolf' } };
+    const prepared = rollForPlayers(withSource, undefined, null, { showNames: true, imageSrc: () => null });
+    expect(prepared.result.contest).not.toHaveProperty('names');
+  });
+});

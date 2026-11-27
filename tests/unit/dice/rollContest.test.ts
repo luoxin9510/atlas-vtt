@@ -143,6 +143,27 @@ describe('DiceTool.rollContest', () => {
   });
 });
 
+describe('DiceTool.rollContest validates both sides before rolling either', () => {
+  it('consumes no randoms and no ids where the second side refuses its formula', () => {
+    const random = vi.fn(() => 0.5);
+    const { tool, onFormulaError } = setup(underSet, random);
+    expect(tool.rollContest('3d6 vs 12', '999d999 vs 5')).toBeNull();
+    expect(random).not.toHaveBeenCalled();
+    expect(onFormulaError).toHaveBeenCalledTimes(1);
+    expect(tool.state.rollHistory).toEqual([]);
+    const next = tool.rollContest('12', '14')!;
+    expect(next[0].id).toBe('id-1');
+  });
+
+  it('consumes no randoms where the first side refuses its formula', () => {
+    const random = vi.fn(() => 0.5);
+    const { tool, onFormulaError } = setup(underSet, random);
+    expect(tool.rollContest('999d999 vs 5', '12')).toBeNull();
+    expect(random).not.toHaveBeenCalled();
+    expect(onFormulaError).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('DiceTool.rollDice with contest text', () => {
   it.each(['12 对 14', '12对14', '12 against 14', '12 AGAINST 14'])('rolls %j as a contest and returns the second result', (text) => {
     const { tool } = setup(underSet, scripted(...sixes(3, 3, 3, 4, 4, 4)));

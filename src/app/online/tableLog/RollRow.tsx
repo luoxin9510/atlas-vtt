@@ -14,6 +14,7 @@ import { ROLL_MODE_INFO } from './rollModes.ts';
 import { RowShell } from './RowShell.tsx';
 import { SpeakerFace } from './SpeakerFace.tsx';
 import { ThreadPill } from './ThreadPill.tsx';
+import { ContestSummary } from './ContestSummary.tsx';
 import { CheckLine } from '../../react/components/dice/RollVerdict';
 import { t } from '../../i18n';
 
@@ -24,6 +25,8 @@ export interface RollRowProps extends Omit<RowFlags, 'editing'> {
   /** The speaking token's portrait, where the roll names a speaker and the host has it. */
   readonly portrait: Portrait | null;
   readonly time: string;
+  /** The first side of the contest this roll is the second side of: the row shows both and the verdict. */
+  readonly partner?: RollEntry | undefined;
   /** Its thread's pill, where it has answers and the whole log shows. */
   readonly thread: ThreadStat | null;
   readonly api: RowApi;
@@ -47,7 +50,7 @@ function RollAvatar({ entry, face, portrait }: Pick<RollRowProps, 'entry' | 'fac
  * who rolled and what for, the roll button it answers, who sees it, the formula and its total, and
  * the dice on demand.
  */
-export const RollRow = memo(function RollRow({ entry, face, portrait, time, thread, api, ...flags }: RollRowProps): ReactElement {
+export const RollRow = memo(function RollRow({ entry, face, portrait, time, partner, thread, api, ...flags }: RollRowProps): ReactElement {
   const { id, who, name, roll, flavor, request, mode } = entry;
   const [open, setOpen] = useState(false);
   const dice = useId();
@@ -74,12 +77,16 @@ export const RollRow = memo(function RollRow({ entry, face, portrait, time, thre
           )}
           {ability !== undefined && ability !== '' && <span className="atlas-online-log__roll-ability atlas-dice-toast__ability">{ability}</span>}
           {flavor !== undefined && flavor !== request?.label && <span className="atlas-online-log__roll-flavor atlas-dice-toast__ability">{flavor}</span>}
-          <div className="atlas-online-log__roll-summary">
-            <span className="atlas-online-log__roll-formula">{formulaLine(roll)}</span>
-            <span className="atlas-online-log__roll-equals" aria-hidden="true">=</span>
-            <span className="atlas-online-log__roll-total">{roll.total}</span>
-          </div>
-          <CheckLine result={roll} className="atlas-online-log__roll-check" />
+          {partner === undefined ? (
+            <>
+              <div className="atlas-online-log__roll-summary">
+                <span className="atlas-online-log__roll-formula">{formulaLine(roll)}</span>
+                <span className="atlas-online-log__roll-equals" aria-hidden="true">=</span>
+                <span className="atlas-online-log__roll-total">{roll.total}</span>
+              </div>
+              <CheckLine result={roll} className="atlas-online-log__roll-check" />
+            </>
+          ) : <ContestSummary first={partner.roll} second={roll} />}
           <button type="button" className="atlas-online-log__roll-toggle" aria-expanded={open} aria-controls={dice} onClick={() => setOpen(!open)}>
             <ChevronDown className={classes('atlas-online-log__roll-chevron', open && 'is-open')} />
             {t('onlineLog.help.dice')}

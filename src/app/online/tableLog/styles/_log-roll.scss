@@ -226,6 +226,28 @@
     }
   }
 
+  // A contest: one side under the other, then the verdict (the player app does not load the plugin's verdict styles).
+  .atlas-online-log__contest-side {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  .atlas-online-log__roll .atlas-contest-verdict {
+    align-self: flex-start;
+    padding: $spacing-xs $spacing-m;
+    border: $border-width-s solid var(--background-modifier-border);
+    border-radius: $radius-s;
+    font-size: $font-ui-small;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--interactive-accent);
+
+    &.atlas-contest-verdict--tie {
+      color: var(--text-muted);
+    }
+  }
+
   .atlas-online-log__roll-hidden {
     display: inline-flex;
     align-items: center;

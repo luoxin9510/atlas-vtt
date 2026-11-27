@@ -2,6 +2,8 @@ import React from 'react';
 import { EyeOff } from 'lucide-react';
 import { cn } from '../../../../utils/cn';
 import { checkLine } from '../../../dice/checkLine';
+import { contestLine } from '../../../dice/contestLine';
+import type { RollContest } from '../../../dice/contestTypes';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { t } from '../../../i18n';
 
@@ -33,4 +35,11 @@ export function GmOnlyBadge({ result, className }: { result: Pick<DiceRollResult
       {t('dice.gmOnlyRolls')}
     </span>
   );
+}
+
+/** The verdict of a contest ("Ana wins", "Tie"); nothing for a roll that carries none. */
+export function ContestLine({ contest, className }: { contest: RollContest; className?: string }): React.ReactElement | null {
+  const line = contestLine(contest);
+  if (line === null) return null;
+  return <div className={cn('atlas-contest-verdict', contest.verdict?.winner === null && 'atlas-contest-verdict--tie', className)}>{line}</div>;
 }

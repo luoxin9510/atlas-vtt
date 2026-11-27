@@ -34,6 +34,8 @@ interface DiceRollPanelProps {
   style: ThrowStyle;
   onClose: () => void;
   onDone: () => void;
+  /** The dice have come to rest (a contest shows its verdict once both sides have). */
+  onLanded?: () => void;
   /** Finds the roller's portrait for the header. */
   useAvatar: UseDiceAvatar;
 }
@@ -53,11 +55,9 @@ const LINGER_STUCK_MS = 9000;
  * per modifier, visibly and audibly (`ratchet`). Adding at once would show a
  * number nobody can match to the dice.
  */
-const TICK_DELAY_MS = 420;
-const TICK_EVERY_MS = 260;
+const TICK_DELAY_MS = 420, TICK_EVERY_MS = 260;
 /** Close to the spring, so an invisible row never holds its place for long. */
-const LEAVE_MS = 430;
-const LEAVE_REDUCED_MS = 130;
+const LEAVE_MS = 430, LEAVE_REDUCED_MS = 130;
 /**
  * The morph between large and row: a spring, not a curtain. The panel's real
  * height is animated, never a scale: a scaled panel stretches its corners, its
@@ -81,7 +81,7 @@ function lingerMs(landed: boolean, compact: boolean, throws: number): number {
  * own, shows the number and leaves. A click on the panel skips the flight, or
  * closes it once the dice lie.
  */
-export function DiceRollPanel({ result, presentation, scene, compact: compactNow, leaving, muted, style, onClose, onDone, useAvatar }: DiceRollPanelProps): React.ReactElement {
+export function DiceRollPanel({ result, presentation, scene, compact: compactNow, leaving, muted, style, onClose, onDone, onLanded, useAvatar }: DiceRollPanelProps): React.ReactElement {
   // A panel leaves at the size it had: a row displaced by a newer roll would
   // otherwise open up to full size while disappearing.
   const [leavingSize, setLeavingSize] = useState<boolean | null>(null);
@@ -89,8 +89,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
   const compact = leavingSize ?? compactNow;
 
   const [landed, setLanded] = useState(false);
-  /** How many modifier steps have clicked in. */
-  const [applied, setApplied] = useState(0);
+  const [applied, setApplied] = useState(0); // modifier steps clicked in so far
   const reduced = useReducedMotion() === true;
   const stageRef = useRef<DiceStageHandle>(null);
   const [contentRef, contentHeight] = useElementHeight<HTMLDivElement>();
@@ -212,6 +211,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
             {compact ? (
               <div className="atlas-dice-roll__row">
                 <DiceRollHeader result={result} presentation={presentation} label={label} useAvatar={useAvatar} />
+                {shown !== null && result.contest !== undefined && <CheckLine result={result} />}
                 <span className="atlas-dice-roll__total atlas-dice-roll__total--row">{shown ?? formula}</span>
               </div>
             ) : (
@@ -279,6 +279,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
           frame={compact ? field : null}
           onSettled={() => {
             setLanded(true);
+            onLanded?.();
             // The verdict belongs to the roll being watched; a displaced one reports silently.
             if (!muted && !displaced.current) reveal(shownCrit(result));
           }}

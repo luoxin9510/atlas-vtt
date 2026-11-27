@@ -116,6 +116,21 @@ export interface SharedCheck {
 /** The longest rule id a shared check names. */
 const MAX_CHECK_RULE = 64;
 
+/**
+ * What marks a shared roll as one side of a contest (two checks rolled against each other): `id` is
+ * shared by the two rolls, and the verdict, `winner` the side that won or null for a tie, is on the
+ * second. The sides' names never travel: players see "First side" / "Second side". Added later: an
+ * older GM sends none and an older page shows two ordinary rolls.
+ */
+export interface SharedContest {
+  readonly id: string;
+  readonly side: 'first' | 'second';
+  readonly verdict?: { readonly winner: 'first' | 'second' | null; readonly rule: string };
+}
+
+/** The longest contest id a shared roll carries. */
+const MAX_CONTEST_ID = 64;
+
 /** A roll as players see it: Atlas's result without who rolled it, its source reduced to what players may know. */
 export interface SharedRoll {
   readonly id: string;
@@ -136,6 +151,8 @@ export interface SharedRoll {
   readonly namedModifiers?: readonly SharedNamedModifier[];
   /** The verdict where the roll was a check against a target. */
   readonly check?: SharedCheck;
+  /** Set where the roll is one side of a contest; the table log shows the pair as one entry. */
+  readonly contest?: SharedContest;
 }
 
 /** A constant of a roll written with a label: `+2[Proficiency]` is Proficiency, 2; a subtracted one is negative. */
@@ -264,6 +281,18 @@ function parseCheck(value: unknown): SharedCheck | null {
   return { target, direction, margin, success, crit, rule };
 }
 
+/** A roll's contest as a page reads it, or null for anything malformed; the verdict is on the second side only. */
+function parseContest(value: unknown): SharedContest | null {
+  if (!isRecord(value)) return null;
+  const { id, side, verdict } = value;
+  if (!isText(id, MAX_CONTEST_ID) || id === '' || (side !== 'first' && side !== 'second')) return null;
+  if (verdict === undefined) return { id, side };
+  if (side !== 'second' || !isRecord(verdict)) return null;
+  const { winner, rule } = verdict;
+  if ((winner !== 'first' && winner !== 'second' && winner !== null) || !isText(rule, MAX_CHECK_RULE) || rule === '') return null;
+  return { id, side, verdict: { winner, rule } };
+}
+
 /** A shared roll as the client reads it, or null for anything malformed: nothing else reaches the dice. */
 export function parseSharedRoll(value: unknown): SharedRoll | null {
   if (!isRecord(value)) return null;
@@ -276,6 +305,7 @@ export function parseSharedRoll(value: unknown): SharedRoll | null {
   const source = parseSource(value.source);
   // A check this page cannot read is left out and the roll kept: a later GM may write one it does not know.
   const check = value.check === undefined ? undefined : parseCheck(value.check) ?? undefined;
+  const contest = value.contest === undefined ? undefined : parseContest(value.contest) ?? undefined;
   if (rolls.some((die) => die === null) || source === null || (value.linear !== undefined && value.linear !== false)) return null;
   const namedModifiers = parseNamedModifiers(value.namedModifiers, modifiers, value.linear !== false);
   return {
@@ -285,6 +315,7 @@ export function parseSharedRoll(value: unknown): SharedRoll | null {
     ...(crit !== undefined && { crit }),
     ...(source !== undefined && { source }),
     ...(check !== undefined && { check }),
+    ...(contest !== undefined && { contest }),
   };
 }
 

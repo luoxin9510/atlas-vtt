@@ -128,3 +128,40 @@ describe('sharedRoll and checks', () => {
     expect(sharedRoll(gmRoll('hero'))).not.toHaveProperty('check');
   });
 });
+
+describe('a contest on the wire', () => {
+  const names = { first: 'Ana', second: 'Bo' };
+  const check = { target: 10, direction: 'over' as const, margin: 2, success: true, crit: null, rule: 'builtin:margin' };
+  const pair = (extra: Partial<DiceRollResult> = {}): [DiceRollResult, DiceRollResult] => [
+    { ...gmRoll('hero'), id: 'a', formula: '1d20 vs 10', check, contest: { id: 'c1', side: 'first', names }, ...extra },
+    { ...gmRoll('hero'), id: 'b', formula: '1d20 vs 10', check, contest: { id: 'c1', side: 'second', names, verdict: { winner: 'first', rule: 'builtin:contest-margin' } }, ...extra },
+  ];
+
+  it('is carried by sharedRoll with its verdict, and never with the names of the sides', () => {
+    const [first, second] = pair();
+    expect(sharedRoll(first).contest).toEqual({ id: 'c1', side: 'first' });
+    expect(sharedRoll(second).contest).toEqual({ id: 'c1', side: 'second', verdict: { winner: 'first', rule: 'builtin:contest-margin' } });
+    expect(JSON.stringify(sharedRoll(second))).not.toContain('Ana');
+    expect(sharedRoll(gmRoll('hero'))).not.toHaveProperty('contest');
+  });
+
+  it('reaches the players as two rolls of one contest, without the names', async () => {
+    const gm = await table(true);
+    for (const roll of pair()) gm.bus.emit('dice-rolled', roll, origin('hero'));
+    const sent = rollsSent(gm.sent);
+    expect(sent.map((message) => message.result.contest?.side)).toEqual(['first', 'second']);
+    expect(JSON.stringify(sent)).not.toContain('Ana');
+  });
+
+  it('is hidden from players while GM-only: both rolls are secret entries, nothing of the contest is sent', async () => {
+    const gm = await table(true);
+    for (const roll of pair({ hidden: true })) gm.bus.emit('dice-rolled', roll, origin('hero'));
+    expect(rollsSent(gm.sent)).toEqual([]);
+    expect(gm.logged).toHaveLength(2);
+    const [one, two] = gm.logged.map((logged, i) => rollEntry({ id: `e${i}`, at: 1, who: 'gm', name: 'GM' }, logged));
+    for (const entry of [one!, two!]) {
+      expect(viewOf(entry, 'p'.repeat(20))).toEqual({ id: entry.id, at: 1, who: 'gm', name: 'GM', kind: 'secret', mode: 'gm' });
+    }
+    expect(viewOf(two!, 'gm')).toMatchObject({ kind: 'roll', roll: { contest: { side: 'second' } } });
+  });
+});

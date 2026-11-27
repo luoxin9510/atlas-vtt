@@ -38,15 +38,16 @@ export interface PlayerRollView {
  * A roll as the player window shows it. It names its token, with the token's name and
  * picture on the map and the ability rolled, only when its origin names that token and
  * the shown scene shows it. Otherwise players see the dice and the total and nothing of
- * who rolled or what for. The roll itself is never changed: the GM's window and the log
- * keep it whole.
+ * who rolled or what for, nor who the sides of a contest are. The roll itself is never changed: the
+ * GM's window and the log keep it whole.
  */
 export function rollForPlayers(
-  result: DiceRollResult,
+  full: DiceRollResult,
   origin: DiceRollOrigin | undefined,
   scene: RollSceneLookup | null,
   view: PlayerRollView,
 ): PreparedDiceRoll {
+  const result = withoutSideNames(full);
   const source = result.source;
   if (!source) return { result, sourcePresentation: null };
   const shown = origin && source.tokenId && origin.tokenId === source.tokenId ? scene?.shownToken(origin) ?? null : null;
@@ -55,6 +56,13 @@ export function rollForPlayers(
     result: { ...result, source: source.abilityName ? { type: source.type, abilityName: source.abilityName } : { type: source.type } },
     sourcePresentation: presentationOf(shown, view),
   };
+}
+
+/** A contest's sides are named after statblocks and tokens, which players are not told: they see "First side" / "Second side". */
+function withoutSideNames(result: DiceRollResult): DiceRollResult {
+  if (result.contest?.names === undefined) return result;
+  const { names: _names, ...contest } = result.contest;
+  return { ...result, contest };
 }
 
 function presentationOf(shown: ShownRollToken, view: PlayerRollView): RollSourcePresentation {

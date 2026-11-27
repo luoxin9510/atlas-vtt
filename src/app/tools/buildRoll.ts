@@ -37,6 +37,15 @@ export function checkText(formula: string, target: number, written?: CheckDirect
   return `${formula} ${written === 'under' ? '≤' : written === 'over' ? '≥' : 'vs'} ${target}`;
 }
 
+/** The error that would refuse `spec` (a formula, or advantage past a limit), without rolling anything; null where it rolls. */
+export function refusalOf(spec: RollSpec, rules: DiceRules | RollingDice, advantage?: AdvantageSide): FormulaError | null {
+  const rolling = rollingRules(rules);
+  const complete = completeFormula(spec.formula, rules);
+  if (!complete.ok) return complete;
+  const helped = advantage ? withAdvantage(complete.parsed, complete.written ? [] : rolling.dice, rolling, advantage) : null;
+  return helped && 'ok' in helped ? helped : null;
+}
+
 /**
  * Rolls `spec` by `rules`: the one pipeline behind the dice tool's rolls and quiet rolls. A formula without
  * dice is completed with the set's dice, `advantage` changes a roll of the set's dice as its rule says, and

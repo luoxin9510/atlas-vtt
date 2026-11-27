@@ -34,6 +34,8 @@ export function sharedRoll(result: DiceRollResult): SharedRoll {
     })),
     ...(crit !== undefined && { crit }),
     ...(result.check !== undefined && { check: { target: result.check.target, direction: result.check.direction, margin: result.check.margin, success: result.check.success, crit: result.check.crit, rule: result.check.rule } }),
+    // Who the sides are never travels: players see "First side" / "Second side".
+    ...(result.contest !== undefined && { contest: { id: result.contest.id, side: result.contest.side, ...(result.contest.verdict && { verdict: { winner: result.contest.verdict.winner, rule: result.contest.verdict.rule } }) } }),
     ...(result.linear === false && { linear: false as const }),
     ...(result.namedModifiers !== undefined && result.namedModifiers.length > 0 && { namedModifiers: result.namedModifiers.map(({ label, value }) => ({ label, value })) }),
     ...(source !== undefined && { source: source.abilityName === undefined ? { type: source.type } : { type: source.type, abilityName: source.abilityName.slice(0, MAX_ABILITY_NAME) } }),

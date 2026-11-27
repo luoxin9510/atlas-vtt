@@ -44,3 +44,22 @@
     flex-shrink: 0;
   }
 }
+
+// The verdict of a contest: under the second panel or card, and at the end of a log entry.
+.atlas-contest-verdict {
+  align-self: flex-end;
+  padding: $spacing-xs $spacing-m;
+  border: $border-width-s solid var(--background-modifier-border);
+  border-radius: $radius-s;
+  background: var(--background-primary);
+  font-size: $font-ui-small;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--interactive-accent);
+  pointer-events: auto;
+
+  &--tie {
+    color: var(--text-muted);
+  }
+}

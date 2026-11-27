@@ -2,9 +2,11 @@ import type { EventEmitter } from 'events';
 import { useState, useEffect, useCallback } from 'react';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import type { DiceRollOrigin } from '../../../types/diceRollOrigin';
-import type { RollOptions } from '../../../tools/DiceTool';
+import type { ContestOptions, RollOptions } from '../../../tools/DiceTool';
 
 type RollDice = (formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions) => DiceRollResult | null;
+
+type RollContest = (first: string, second: string, options?: ContestOptions) => [DiceRollResult, DiceRollResult] | null;
 
 const MAX_HISTORY = 20;
 
@@ -14,7 +16,7 @@ const MAX_HISTORY = 20;
  * back to the store for persistence across map close/reopen.
  */
 export function useDiceHistory(
-  getDiceTool: () => { rollDice: RollDice; clearHistory: () => void } | null,
+  getDiceTool: () => { rollDice: RollDice; rollContest?: RollContest; clearHistory: () => void } | null,
   storeActions?: {
     diceLog: DiceRollResult[];
     addDiceLogEntry: (entry: DiceRollResult) => void;
@@ -27,6 +29,8 @@ export function useDiceHistory(
   /** Rolls a logged roll again, with the side of advantage it was rolled with. */
   /** Rolls it again; a GM-only roll (`hidden`) is repeated GM-only. */
   repeatRoll: (formula: string, source?: DiceRollResult['source'], advantage?: DiceRollResult['advantage'], hidden?: boolean) => void;
+  /** Rolls a logged contest again as a new pair, with its names, its side of advantage, and GM-only where it was. */
+  repeatContest: (first: DiceRollResult, second: DiceRollResult) => void;
 } {
   const [history, setHistory] = useState<DiceRollResult[]>(() =>
     storeActions?.diceLog ?? [],
@@ -74,5 +78,14 @@ export function useDiceHistory(
     else diceTool.rollDice(formula, source);
   }, [getDiceTool]);
 
-  return { history, clearHistory, repeatRoll };
+  const repeatContest = useCallback((first: DiceRollResult, second: DiceRollResult): void => {
+    const advantage = first.advantage ?? second.advantage;
+    getDiceTool()?.rollContest?.(first.formula, second.formula, {
+      names: first.contest?.names,
+      ...(advantage && { advantage }),
+      ...(first.hidden && { visibility: 'gm' as const }),
+    });
+  }, [getDiceTool]);
+
+  return { history, clearHistory, repeatRoll, repeatContest };
 }

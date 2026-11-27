@@ -5,7 +5,7 @@ import type { DiceRules } from '../types/diceRulesTypes';
 import type { AdvantageSide, DiceSet, RolledWithSet, RollingDice } from '../types/diceSetTypes';
 import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
 import type { CheckDirection } from '../dice/checkTypes';
-import { buildRoll, specOfText, type RollSpec } from './buildRoll';
+import { buildRoll, refusalOf, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
 import { parseContest } from '../dice/parseContest';
 import { contestSideSpec, markContest, type ContestNames } from './contestRoll';
@@ -106,6 +106,12 @@ export class DiceTool {
     const firstSpec = contestSideSpec(first);
     const secondSpec = contestSideSpec(second);
     if (!firstSpec || !secondSpec) return null;
+    const { rules } = rollingWith(this.getDiceRules(), options?.set);
+    const refused = refusalOf(firstSpec, rules, options?.advantage) ?? refusalOf(secondSpec, rules, options?.advantage);
+    if (refused) {
+      this.inputs.onFormulaError(refused);
+      return null;
+    }
     const one = this.parseAndRoll(firstSpec, options);
     const two = one && this.parseAndRoll(secondSpec, options);
     if (!one || !two) return null;
