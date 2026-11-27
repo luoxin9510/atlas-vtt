@@ -9,7 +9,14 @@ import type { RolledDie } from '../tools/diceFormula';
 /** `under`: succeed on a total at most the target; `over`: at least the target. */
 export type CheckDirection = 'under' | 'over';
 
+/** One thing that moved a check's target: a named armed bonus (`Agility`), a one-off modifier, or an unnamed number. */
+export interface TargetStep {
+  label?: string;
+  value: number;
+}
+
 export interface CheckResult {
+  /** The target the check was judged against: where the steps, if any, left it. */
   target: number;
   direction: CheckDirection;
   /** Signed: >= 0 succeeded by that much, < 0 failed by that much. under: target - total; over: total - target. */
@@ -18,6 +25,10 @@ export interface CheckResult {
   crit: 'success' | 'failure' | null;
   /** The rule that decided it (a built-in id or a registered one). */
   rule: string;
+  /** Where the target stood before `targetSteps` moved it; set only with them. */
+  baseTarget?: number;
+  /** What moved the target (modifiers on a check that goes under), in the order applied; set only where something did. */
+  targetSteps?: TargetStep[];
 }
 
 export interface CheckRuleInput {

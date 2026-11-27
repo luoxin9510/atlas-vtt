@@ -113,7 +113,7 @@ export function sameRolling(a: RollingDice, b: RollingDice): boolean {
   const sameExplode = !ea || !eb ? ea === eb
     : ea.dice === eb.dice && ea.repeats === eb.repeats && ea.highFaces === eb.highFaces && ea.lowFaces === eb.lowFaces;
   return sameDice && a.crit === b.crit && sameExplode
-    && a.check === b.check && a.checkRule === b.checkRule && a.bareDie === b.bareDie;
+    && a.check === b.check && a.checkRule === b.checkRule && a.contestRule === b.contestRule && a.bareDie === b.bareDie;
 }
 
 /** Whether a set's dice wear a name or colour, which a plain default roll cannot say. */

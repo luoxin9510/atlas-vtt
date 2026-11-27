@@ -5,6 +5,7 @@ import { readField } from '../../values/fieldValues';
 import { entryExtras, entryName, entryText } from '../../values/entryValues';
 import { singular } from '../../values/entryNoun';
 import { valueText } from '../../values/valueText';
+import { BonusLink } from '../shared/BonusLink';
 import { EntryLine } from '../shared/EntryLine';
 import { InlineText } from '../shared/InlineText';
 import { useSheet } from '../sheetContext';
@@ -22,7 +23,10 @@ function EntryExtras({ entry, shape }: { entry: FieldValue; shape: EntryShape | 
     <span className="atlas-sb-entry-extras">
       {extras.map((extra) => (
         <span key={extra.key} className="atlas-sb-entry-extra">
-          <span className="atlas-sb-entry-extra-label">{extra.label}</span> <InlineText text={valueText(extra.value)} app={app} sourcePath={sourcePath} dice />
+          <span className="atlas-sb-entry-extra-label">{extra.label}</span>{' '}
+          <BonusLink text={valueText(extra.value)} rollable={extra.type === 'number' && extra.rollAs === 'check' ? 'check' : undefined}>
+            <InlineText text={valueText(extra.value)} app={app} sourcePath={sourcePath} dice />
+          </BonusLink>
         </span>
       ))}
     </span>

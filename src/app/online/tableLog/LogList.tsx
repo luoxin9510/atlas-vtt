@@ -14,6 +14,7 @@ import { RestRow } from './RestRow.tsx';
 import { RollRow } from './RollRow.tsx';
 import { SecretRow } from './SecretRow.tsx';
 import { ImageRow, LootRow } from './ShownRows.tsx';
+import { pairRolls } from './pairRolls.ts';
 import type { LogScroll } from './useLogScroll.ts';
 import type { LogUi } from './useLogUi.ts';
 import { t } from '../../i18n';
@@ -68,8 +69,10 @@ function JumpPill({ scroll }: { readonly scroll: LogScroll }): ReactElement {
  * two days. The Tab key reaches one row; the arrow keys move between rows. A thread stands under
  * its root, which is ruled off from the answers.
  */
-export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, speakerPortrait, people, imageSrc, openImage, openFound, onTabStop }: LogListProps): ReactElement {
+export function LogList({ entries: all, stats, selected, ui, api, scroll, rollFace, speakerPortrait, people, imageSrc, openImage, openFound, onTabStop }: LogListProps): ReactElement {
   const now = useNow();
+  // The two rolls of a contest are one row.
+  const { visible: entries, partners } = pairRolls(all);
   const inThread = api.thread !== null;
   const portraitOf = (speaker: LogSpeaker | undefined): Portrait | null => (speaker === undefined ? null : speakerPortrait?.(speaker) ?? null);
   const rows = entries.filter(hasTools);
@@ -115,7 +118,7 @@ export function LogList({ entries, stats, selected, ui, api, scroll, rollFace, s
                     whisper={entry.to === undefined ? null : t('onlineLog.whisperTo', { names: audienceNames(entry.to, people, api.self) })}
                   />
                 )}
-                {entry.kind === 'roll' && <RollRow entry={entry} face={rollFace?.(entry) ?? null} portrait={portraitOf(entry.speaker)} time={time} thread={thread} api={api} {...flags} />}
+                {entry.kind === 'roll' && <RollRow entry={entry} partner={partners.get(entry.id)} face={rollFace?.(entry) ?? null} portrait={portraitOf(entry.speaker)} time={time} thread={thread} api={api} {...flags} />}
                 {entry.kind === 'secret' && <SecretRow entry={entry} self={api.self} time={time} />}
                 {entry.kind === 'image' && <ImageRow entry={entry} src={imageSrc?.(entry) ?? null} onOpen={openImage === undefined ? undefined : () => openImage(entry)} time={time} thread={thread} api={api} {...flags} />}
                 {entry.kind === 'loot' && <LootRow entry={entry} time={time} thread={thread} api={api} {...flags} />}

@@ -119,6 +119,15 @@ describe('field values', () => {
     expect(writtenFields(template)).toEqual([{ key: 'moves', label: 'Moves', type: 'entries', entry: { textKey: 'text', extras } }]);
   });
 
+  it('keeps the check option of a number part through a round trip', () => {
+    const extras = [{ key: 'skill', label: 'Skill', type: 'number', rollAs: 'check' }, { key: 'cost', label: 'Cost', type: 'number' }];
+    const { template, problems } = read([{ key: 'moves', label: 'Moves', type: 'entries', entry: { extras } }]);
+    expect(template.fields[0]?.entry?.extras?.[0]).toMatchObject({ rollAs: 'check' });
+    expect(template.fields[0]?.entry?.extras?.[1]).not.toHaveProperty('rollAs');
+    expect(problems).toEqual([]);
+    expect(writtenFields(template)).toEqual([{ key: 'moves', label: 'Moves', type: 'entries', entry: { extras } }]);
+  });
+
   it('keeps unknown keys of fields, entry shapes and their parts', () => {
     const field = {
       key: 'moves', label: 'Moves', type: 'entries', hint: 'h',

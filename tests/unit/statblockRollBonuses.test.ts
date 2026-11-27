@@ -130,3 +130,44 @@ describe('a statblock roll with armed values', () => {
     expect(withArmedBonuses('3d vs 14', armed)).toBe('3d vs 14+2[Proficiency]');
   });
 });
+
+describe('a statblock roll that moves its target', () => {
+  const under = { dice: [{ count: 3, sides: 6 }], crit: 'none' as const, check: 'under' as const };
+  const AGILITY = 'agility';
+  const agility = new Map([[AGILITY, { label: 'Agility', value: 2 }], [STEALTH, { label: 'Stealth', value: -1 }]]);
+  /** Rolls as the note beside a statblock does, by a set that rolls under; `thrown` hears every formula. */
+  const underRolls = (thrown: string[] = []): OffMapRolls => ({
+    roll: (formula, source, options) => {
+      thrown.push(formula);
+      const result = rollDiceFormula(formula, under, { random: () => 0.5, rollId: () => 'r', roller: () => 'GM', onFormulaError: () => undefined }, undefined, options?.advantage, false, options?.targetSteps);
+      return result && { ...result, source };
+    },
+    rollingDice: () => under,
+    show: () => undefined,
+  });
+
+  it('records the armed bonus on the result: 15 under with Agility +2 is 17', () => {
+    const app = appWith();
+    ArmedBonuses.forApp(app).toggle('note:Mira.md', AGILITY);
+    const thrown: string[] = [];
+    const result = rollStatblockDice(app, '3d6 vs 15', { bonuses: mira(agility) }, underRolls(thrown));
+    expect(thrown).toEqual(['3d6 vs 17']);
+    expect(result?.formula).toBe('3d6 vs 17');
+    expect(result?.check).toMatchObject({ target: 17, baseTarget: 15, targetSteps: [{ label: 'Agility', value: 2 }] });
+  });
+
+  it('puts a one-off modifier first, labelled Modifier, then the armed bonuses', () => {
+    const app = appWith();
+    ArmedBonuses.forApp(app).toggle('note:Mira.md', AGILITY);
+    const result = rollStatblockDice(app, '3d6 vs 14', { bonuses: mira(agility), targetSteps: [{ label: 'Modifier', value: 1 }] }, underRolls());
+    expect(result?.check).toMatchObject({ target: 16, baseTarget: 13, targetSteps: [{ label: 'Modifier', value: 1 }, { label: 'Agility', value: 2 }] });
+  });
+
+  it('records no steps for an over check or an unmoved target', () => {
+    const app = appWith();
+    const store = ArmedBonuses.forApp(app);
+    store.toggle('note:Mira.md', AGILITY);
+    expect(rollStatblockDice(app, '1d20 vs 15', { bonuses: mira(agility) }, offMap())?.check).not.toHaveProperty('targetSteps');
+    expect(rollStatblockDice(app, '3d6 vs 15', {}, underRolls())?.check).not.toHaveProperty('targetSteps');
+  });
+});

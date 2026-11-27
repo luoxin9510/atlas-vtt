@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseModifier, withTargetModifier } from '../../../src/app/tools/targetModifier';
+import { parseModifier, targetStepsOf, withTargetModifier } from '../../../src/app/tools/targetModifier';
 import { withArmedBonuses } from '../../../src/app/statblocks/rollBonuses/bonusFormula';
 import type { RollingDice } from '../../../src/app/types/diceSetTypes';
 
@@ -68,5 +68,29 @@ describe('withArmedBonuses with rules', () => {
 
   it('reads a bare die and the direction from the rules', () => {
     expect(withArmedBonuses('3d vs 12', [{ id: 'a', label: 'Edge', value: 1 }], UNDER_BARE)).toBe('3d vs 13');
+  });
+});
+
+describe('targetStepsOf', () => {
+  const steps = [{ label: 'Agility', value: 2 }, { label: 'Modifier', value: -1 }];
+
+  it('keeps the steps that moved the target of an under check', () => {
+    expect(targetStepsOf('3d6 vs 15', steps, UNDER)).toEqual(steps);
+    expect(targetStepsOf('3d6 ≤ 15', steps, OVER)).toEqual(steps);
+  });
+
+  it('is empty for an over check, a plain formula, no steps or steps that net nothing', () => {
+    expect(targetStepsOf('1d20 vs 15', steps, OVER)).toEqual([]);
+    expect(targetStepsOf('3d6', steps, UNDER)).toEqual([]);
+    expect(targetStepsOf('3d6 vs 15', [], UNDER)).toEqual([]);
+    expect(targetStepsOf('3d6 vs 15', [{ value: 0 }], UNDER)).toEqual([]);
+  });
+
+  it('is empty where the moved target would pass what a check holds', () => {
+    expect(targetStepsOf('3d6 vs 999999999', [{ value: 5 }], UNDER)).toEqual([]);
+  });
+
+  it('keeps an unlabeled step as it is and drops a zero step among others', () => {
+    expect(targetStepsOf('3d6 vs 15', [{ value: 2 }, { label: 'Zero', value: 0 }], UNDER)).toEqual([{ value: 2 }]);
   });
 });

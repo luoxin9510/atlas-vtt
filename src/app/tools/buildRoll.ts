@@ -1,6 +1,6 @@
 import { evaluateCheck } from '../dice/evaluateCheck';
 import { parseCheck } from '../dice/parseCheck';
-import type { CheckDirection } from '../dice/checkTypes';
+import type { CheckDirection, TargetStep } from '../dice/checkTypes';
 import { rollingRules } from '../gameSystems/diceSets';
 import type { DiceRollResult } from '../types/diceTypes';
 import type { DiceRules } from '../types/diceRulesTypes';
@@ -13,10 +13,13 @@ import { rollFormula } from './diceFormula';
 import type { FormulaError } from './parseFormula';
 import type { RollParseOptions } from './formulaTypes';
 
-/** What a roll is: a formula and, for a check, its target and the direction written with it. */
+/**
+ * What a roll is: a formula and, for a check, its target, the direction written with it and the steps
+ * that moved the target to it (`steps`, from the modifiers Atlas added; the text holds only the result).
+ */
 export interface RollSpec {
   formula: string;
-  check?: { target: number; written?: CheckDirection };
+  check?: { target: number; written?: CheckDirection; steps?: readonly TargetStep[] | undefined };
 }
 
 /** The fields of a roll that the dice decide: everything but who rolled, when, and the set shown. */
@@ -35,6 +38,15 @@ export function specOfText(text: string, options: RollParseOptions = {}): RollSp
 /** A check written out: `3d6 vs 10`, or with `≤`/`≥` where a direction was written. */
 export function checkText(formula: string, target: number, written?: CheckDirection): string {
   return `${formula} ${written === 'under' ? '≤' : written === 'over' ? '≥' : 'vs'} ${target}`;
+}
+
+/** The error that would refuse `spec` (a formula, or advantage past a limit), without rolling anything; null where it rolls. */
+export function refusalOf(spec: RollSpec, rules: DiceRules | RollingDice, advantage?: AdvantageSide): FormulaError | null {
+  const rolling = rollingRules(rules);
+  const complete = completeFormula(spec.formula, rules);
+  if (!complete.ok) return complete;
+  const helped = advantage ? withAdvantage(complete.parsed, complete.written ? [] : rolling.dice, rolling, advantage) : null;
+  return helped && 'ok' in helped ? helped : null;
 }
 
 /**
@@ -63,7 +75,7 @@ export function buildRoll(
     total,
     ...(!linear && { linear: false as const }),
     crit: getDiceCrit(rolls, rolling),
-    ...(check && { check: evaluateCheck({ rolling, rolls, total, target: check.target, ...(check.written && { written: check.written }) }) }),
+    ...(check && { check: evaluateCheck({ rolling, rolls, total, target: check.target, ...(check.written && { written: check.written }), steps: check.steps }) }),
     ...(helped && advantage && { advantage }),
   };
 }

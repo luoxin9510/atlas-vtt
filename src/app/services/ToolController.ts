@@ -32,7 +32,7 @@ export class ToolController {
     this.measureTool = new MeasureTool(eventBus);
     this.fogTool = new FogTool(eventBus);
     this.notePinTool = new NotePinTool(eventBus, app, store);
-    this.diceTool = new DiceTool(eventBus, () => mapDiceSet(app, store.getState().mapPath), offlineDiceInputs());
+    this.diceTool = new DiceTool(eventBus, () => mapDiceSet(app, store.getState().mapPath), offlineDiceInputs(app));
     this.audioTool = new AudioTool(eventBus);
   }
   

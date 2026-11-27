@@ -192,3 +192,47 @@ describe('a roll as the player window shows it', () => {
     expect(imageSrc).toHaveBeenCalledWith('tokens/wolf.webp');
   });
 });
+
+describe('rollForPlayers and the labels of target steps', () => {
+  const steps = [{ label: 'Canary Ability', value: 2 }, { value: 0 }];
+  const withSteps = (): DiceRollResult => ({
+    ...rawRoll(), formula: '3d6 vs 12',
+    check: { target: 12, direction: 'under', margin: 2, success: true, crit: null, rule: 'builtin:margin', baseTarget: 10, targetSteps: steps },
+  });
+
+  it('keeps the values and drops the labels where the token is not shown', () => {
+    const prepared = rollForPlayers(withSteps(), origin, sceneShowing(null), view);
+    expect(prepared.result.check?.targetSteps).toEqual([{ value: 2 }, { value: 0 }]);
+    expect(JSON.stringify(prepared)).not.toContain('Canary');
+  });
+
+  it('keeps them where the token is shown, with the ability', () => {
+    const prepared = rollForPlayers(withSteps(), origin, sceneShowing(wolf), view);
+    expect(prepared.result.check?.targetSteps).toEqual(steps);
+  });
+
+  it('never changes the roll it was given', () => {
+    const raw = withSteps();
+    rollForPlayers(raw, origin, sceneShowing(null), view);
+    expect(raw.check?.targetSteps).toEqual(steps);
+  });
+});
+
+describe('rollForPlayers and contests', () => {
+  const roll: DiceRollResult = {
+    id: 'b', timestamp: 0, formula: '1d20 vs 10', rolls: [], modifiers: 0, total: 12,
+    contest: { id: 'c', side: 'second', names: { first: 'Ana', second: 'Bo' }, verdict: { winner: 'first', rule: 'builtin:contest-margin' } },
+  };
+
+  it('keeps the contest and its verdict but not who the sides are', () => {
+    expect(rollForPlayers(roll, undefined, null, { showNames: true, imageSrc: () => null }).result.contest)
+      .toEqual({ id: 'c', side: 'second', verdict: { winner: 'first', rule: 'builtin:contest-margin' } });
+    expect(roll.contest).toHaveProperty('names');
+  });
+
+  it('does so for a roll that names its token too', () => {
+    const withSource: DiceRollResult = { ...roll, source: { type: 'statblock', tokenId: 'wolf', tokenName: 'Wolf' } };
+    const prepared = rollForPlayers(withSource, undefined, null, { showNames: true, imageSrc: () => null });
+    expect(prepared.result.contest).not.toHaveProperty('names');
+  });
+});

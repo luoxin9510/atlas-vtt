@@ -11,7 +11,8 @@ import { DiceStage, type DiceStageHandle } from './DiceStage';
 import { DiceRollHeader } from './DiceRollHeader';
 import { DiceRollEngraving } from './DiceRollEngraving';
 import { DiceRollChip } from './DiceRollChip';
-import { advantageText, hasBreakdown, rollBreakdown, rollLabel } from './diceRollText';
+import { advantageText, rollLabel } from './diceRollText';
+import { DiceRollSlot } from './DiceRollSlot';
 import { rollFormulaText } from '../../../tools/diceLabels';
 import { modifierSteps } from '../../../tools/namedModifiers';
 import { t } from '../../../i18n';
@@ -34,6 +35,8 @@ interface DiceRollPanelProps {
   style: ThrowStyle;
   onClose: () => void;
   onDone: () => void;
+  /** The dice have come to rest (a contest shows its verdict once both sides have). */
+  onLanded?: () => void;
   /** Finds the roller's portrait for the header. */
   useAvatar: UseDiceAvatar;
 }
@@ -53,11 +56,9 @@ const LINGER_STUCK_MS = 9000;
  * per modifier, visibly and audibly (`ratchet`). Adding at once would show a
  * number nobody can match to the dice.
  */
-const TICK_DELAY_MS = 420;
-const TICK_EVERY_MS = 260;
+const TICK_DELAY_MS = 420, TICK_EVERY_MS = 260;
 /** Close to the spring, so an invisible row never holds its place for long. */
-const LEAVE_MS = 430;
-const LEAVE_REDUCED_MS = 130;
+const LEAVE_MS = 430, LEAVE_REDUCED_MS = 130;
 /**
  * The morph between large and row: a spring, not a curtain. The panel's real
  * height is animated, never a scale: a scaled panel stretches its corners, its
@@ -81,7 +82,7 @@ function lingerMs(landed: boolean, compact: boolean, throws: number): number {
  * own, shows the number and leaves. A click on the panel skips the flight, or
  * closes it once the dice lie.
  */
-export function DiceRollPanel({ result, presentation, scene, compact: compactNow, leaving, muted, style, onClose, onDone, useAvatar }: DiceRollPanelProps): React.ReactElement {
+export function DiceRollPanel({ result, presentation, scene, compact: compactNow, leaving, muted, style, onClose, onDone, onLanded, useAvatar }: DiceRollPanelProps): React.ReactElement {
   // A panel leaves at the size it had: a row displaced by a newer roll would
   // otherwise open up to full size while disappearing.
   const [leavingSize, setLeavingSize] = useState<boolean | null>(null);
@@ -89,8 +90,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
   const compact = leavingSize ?? compactNow;
 
   const [landed, setLanded] = useState(false);
-  /** How many modifier steps have clicked in. */
-  const [applied, setApplied] = useState(0);
+  const [applied, setApplied] = useState(0); // modifier steps clicked in so far
   const reduced = useReducedMotion() === true;
   const stageRef = useRef<DiceStageHandle>(null);
   const [contentRef, contentHeight] = useElementHeight<HTMLDivElement>();
@@ -155,9 +155,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
     const { offsets, radius } = layoutDice(scene.plan.length);
     return restingFrame(offsets, radius);
   }, [scene]);
-  const breakdown = rollBreakdown(result, scene);
   const formula = [advantageText(result), rollFormulaText(result)].filter(Boolean).join(' · ');
-  const slotRem = 3.2 + (hasBreakdown(result, scene) ? 1.05 : 0) + (result.check ? 1.05 : 0);
   const exit = reduced ? { opacity: 0 } : { opacity: 0, y: -14, scale: 0.96 };
   const transition = reduced ? { duration: 0.12 } : MORPH;
 
@@ -212,6 +210,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
             {compact ? (
               <div className="atlas-dice-roll__row">
                 <DiceRollHeader result={result} presentation={presentation} label={label} useAvatar={useAvatar} />
+                {shown !== null && result.contest !== undefined && <CheckLine result={result} withTarget={false} />}
                 <span className="atlas-dice-roll__total atlas-dice-roll__total--row">{shown ?? formula}</span>
               </div>
             ) : (
@@ -221,49 +220,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
                 </div>
                 {/* Holds the height where the dice come to rest; they roll over the whole panel. */}
                 <div className="atlas-dice-roll__floor" />
-                <div className="atlas-dice-roll__slot" style={{ height: `${slotRem}rem` }}>
-                  {shown !== null ? (
-                    <>
-                      <motion.span
-                        className="atlas-dice-roll__total"
-                        initial={reduced ? false : { opacity: 0, y: 10, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={reduced ? { duration: 0.12 } : { type: 'spring', duration: 0.55, bounce: 0.3 }}
-                      >
-                        {/* Every step its own key: the counter jumps, it does not cross-fade. */}
-                        <motion.span
-                          key={shown}
-                          className="atlas-dice-roll__count"
-                          initial={reduced || appliedSteps === 0 ? false : { scale: 1.22 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', duration: 0.34, bounce: 0.42 }}
-                        >
-                          {shown}
-                        </motion.span>
-                      </motion.span>
-                      {breakdown !== null && (
-                        <motion.span
-                          className="atlas-dice-roll__breakdown"
-                          initial={reduced ? false : { opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.3, delay: reduced ? 0 : 0.12 }}
-                        >
-                          {breakdown}
-                        </motion.span>
-                      )}
-                      <CheckLine result={result} />
-                    </>
-                  ) : (
-                    <motion.span
-                      className="atlas-dice-roll__formula"
-                      initial={reduced ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.16 }}
-                    >
-                      {formula}
-                    </motion.span>
-                  )}
-                </div>
+                <DiceRollSlot result={result} scene={scene} shown={shown} formula={formula} appliedSteps={appliedSteps} reduced={reduced} />
               </>
             )}
           </div>
@@ -279,6 +236,7 @@ export function DiceRollPanel({ result, presentation, scene, compact: compactNow
           frame={compact ? field : null}
           onSettled={() => {
             setLanded(true);
+            onLanded?.();
             // The verdict belongs to the roll being watched; a displaced one reports silently.
             if (!muted && !displaced.current) reveal(shownCrit(result));
           }}

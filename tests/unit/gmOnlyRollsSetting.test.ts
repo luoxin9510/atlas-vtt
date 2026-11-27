@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { App } from 'obsidian';
 import { SettingsService } from '../../src/app/services/SettingsService';
+import { offlineDiceInputs } from '../../src/app/services/offlineDiceInputs';
 import { memoryPluginData } from '../mocks/pluginData';
 
 async function loaded(stored: unknown = null, app = new App()): Promise<{ settings: SettingsService; data: ReturnType<typeof memoryPluginData>; app: App }> {
@@ -35,5 +36,14 @@ describe('the GM-only rolls switch', () => {
     const again = new SettingsService(app, undefined, data);
     await again.initialize();
     expect(again.rollsGmOnly()).toBe(false);
+  });
+
+  it('is the switch the dice inputs of the app read, at each roll', async () => {
+    const { settings, app } = await loaded();
+    const { gmOnly } = offlineDiceInputs(app);
+    expect(gmOnly?.()).toBe(false);
+    settings.setRollsGmOnly(true);
+    expect(gmOnly?.()).toBe(true);
+    expect(offlineDiceInputs().gmOnly?.()).toBe(false);
   });
 });

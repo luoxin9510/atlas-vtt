@@ -4,9 +4,12 @@ import { EventEmitter } from 'events';
 import type { DiceRules } from '../types/diceRulesTypes';
 import type { AdvantageSide, DiceSet, RolledWithSet, RollingDice } from '../types/diceSetTypes';
 import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
-import type { CheckDirection } from '../dice/checkTypes';
-import { buildRoll, specOfText, type RollSpec } from './buildRoll';
+import type { CheckDirection, TargetStep } from '../dice/checkTypes';
+import { buildRoll, refusalOf, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
+import { parseContest } from '../dice/parseContest';
+import { rollContestPair, type ContestNames } from './contestRoll';
+import { hideGmOnly, type RollVisibility } from '../dice/rollVisibility';
 
 /** How a roll is made besides its formula. */
 export interface RollOptions {
@@ -16,8 +19,30 @@ export interface RollOptions {
   advantage?: AdvantageSide | undefined;
   /** Gives an explicit matching pool the set’s names and colours; never changes its dice. */
   setAppearance?: boolean | undefined;
-  /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
-  visibility?: 'all' | 'gm' | undefined;
+  /**
+   * Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry), `'all'` shows it to
+   * everyone; unset, the GM-only switch decides (`DiceRollInputs.gmOnly`).
+   */
+  visibility?: RollVisibility | undefined;
+  /** What moved the target of the check in the text (modifiers on a check that goes under); the result records them. Ignored for a roll that is no check. */
+  targetSteps?: readonly TargetStep[] | undefined;
+}
+
+/** How a contest is rolled: the options of any roll, and who the two sides are. */
+export interface ContestOptions extends RollOptions {
+  names?: ContestNames | undefined;
+  /** Which side of advantage each side is rolled with; a side not named here takes `advantage`. */
+  sideAdvantage?: { first?: AdvantageSide | undefined; second?: AdvantageSide | undefined } | undefined;
+  /** What moved each side's target, as `targetSteps` does for one roll (which a contest ignores). */
+  sideSteps?: { first?: readonly TargetStep[] | undefined; second?: readonly TargetStep[] | undefined } | undefined;
+  /** Where each side's roll came from and which token it was made for, as `rollDice` takes them for one roll; a side not named here takes none. */
+  sides?: { first?: ContestSideOrigin | undefined; second?: ContestSideOrigin | undefined } | undefined;
+}
+
+/** The source (what the log names) and origin (the token it was made for) of one side of a contest. */
+export interface ContestSideOrigin {
+  source?: DiceRollResult['source'] | undefined;
+  origin?: DiceRollOrigin | undefined;
 }
 
 /** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
@@ -37,6 +62,8 @@ export interface DiceRollInputs {
   rollId: () => string;
   roller: () => string;
   onFormulaError: (error: FormulaError) => void;
+  /** The GM's GM-only switch: the visibility of a roll that names none. Unset: no switch (off). */
+  gmOnly?: () => boolean;
 }
 
 export class DiceTool {
@@ -68,7 +95,9 @@ export class DiceTool {
    * name a dice set instead of the collection's and a side of advantage.
    */
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
-    return this.record(this.parseAndRoll(formula, options), source, origin, options);
+    const contest = parseContest(formula, rollParseOptionsOf(rollingWith(this.getDiceRules(), options?.set).rules));
+    if (contest) return this.rollContestSides(contest.first, contest.second, source, origin, options)?.[1] ?? null;
+    return this.record(this.parseAndRoll(formula, options, options?.targetSteps), source, origin, options);
   }
 
   /**
@@ -80,14 +109,44 @@ export class DiceTool {
     return this.record(this.parseAndRoll({ formula, check: { target, ...(written && { written }) } }, options), undefined, undefined, options);
   }
 
+  /**
+   * Rolls two checks against each other: `first`, then `second`, each a check (`3d6 vs 12`) or a bare
+   * target (`12`, the set's default roll against it), as `rollCheck` rolls one. Both are logged and
+   * announced as two normal rolls and carry a `contest` that names the pair and the verdict (on the
+   * second). Null, with nothing rolled, where a side is no check or refuses its formula. `rollDice`
+   * rolls contest text (`12 对 14`) the same way and returns the second result.
+   */
+  public rollContest(first: string, second: string, options?: ContestOptions): [DiceRollResult, DiceRollResult] | null {
+    return this.rollContestSides(first, second, undefined, undefined, options);
+  }
+
+  private rollContestSides(
+    first: string, second: string, source: DiceRollResult['source'] | undefined, origin: DiceRollOrigin | undefined, options: ContestOptions | undefined,
+  ): [DiceRollResult, DiceRollResult] | null {
+    const { rules } = rollingWith(this.getDiceRules(), options?.set);
+    const sideAdvantage = (side: 'first' | 'second'): AdvantageSide | undefined => options?.sideAdvantage?.[side] ?? options?.advantage;
+    const pair = rollContestPair(first, second, rules, () => this.inputs.rollId(), options?.names, {
+      precheck: (firstSpec, secondSpec) => {
+        const refused = refusalOf(firstSpec, rules, sideAdvantage('first')) ?? refusalOf(secondSpec, rules, sideAdvantage('second'));
+        if (refused) this.inputs.onFormulaError(refused);
+        return refused === null;
+      },
+      rollSide: (spec, side) => this.parseAndRoll(spec, { ...options, advantage: sideAdvantage(side) }, options?.sideSteps?.[side]),
+    });
+    if (!pair) return null;
+    this.record(pair[0], options?.sides?.first?.source ?? source, options?.sides?.first?.origin ?? origin, options);
+    this.record(pair[1], options?.sides?.second?.source ?? source, options?.sides?.second?.origin ?? origin, options);
+    return pair;
+  }
+
   /** Puts a rolled result in the history and announces it; a GM-only roll is marked `hidden` first. */
   private record(result: DiceRollResult | null, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
     if (!result) return null;
     if (source) {
       result.source = source;
     }
-    if (options?.visibility === 'gm') result.hidden = true;
-    
+    hideGmOnly(result, options?.visibility, this.inputs.gmOnly);
+
     // Add to history
     this.state.rollHistory.unshift(result);
     
@@ -102,9 +161,9 @@ export class DiceTool {
   }
 
   /** Rolls the formula; one without dice (`+3`) is added to the dice of the set. */
-  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined): DiceRollResult | null {
+  private parseAndRoll(spec: RollSpec | string, options: RollOptions | undefined, steps?: readonly TargetStep[]): DiceRollResult | null {
     const { rules, shown } = rollingWith(this.getDiceRules(), options?.set);
-    return rollSpec(typeof spec === 'string' ? specOfText(spec, rollParseOptionsOf(rules)) : spec, rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
+    return rollSpec(withSteps(typeof spec === 'string' ? specOfText(spec, rollParseOptionsOf(rules)) : spec, steps), rules, this.inputs, shown, options?.advantage, options?.setAppearance ?? false);
   }
 
   /** The dice a roll of `set` (else the collection's) is made with, and their rules: what advantage can do. */
@@ -166,8 +225,35 @@ export function rollingWith(
  */
 export function rollDiceFormula(
   formula: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, advantage?: AdvantageSide, setAppearance = false,
+  steps?: readonly TargetStep[],
 ): DiceRollResult | null {
-  return rollSpec(specOfText(formula, rollParseOptionsOf(rules)), rules, inputs, shown, advantage, setAppearance);
+  return rollSpec(withSteps(specOfText(formula, rollParseOptionsOf(rules)), steps), rules, inputs, shown, advantage, setAppearance);
+}
+
+/**
+ * Rolls a contest by a dice set without telling anyone, as `rollDiceFormula` rolls a formula: both
+ * sides rolled, marked as the two of one contest with the verdict on the second. Null, rolling
+ * nothing, where a side is no check, and where either side's formula is refused (reported to `inputs`,
+ * before either is rolled). `more` gives each side's advantage and moved target, as `ContestOptions` does.
+ */
+export function rollContestFormulas(
+  first: string, second: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, names?: ContestNames,
+  more: Pick<ContestOptions, 'sideAdvantage' | 'sideSteps'> = {},
+): [DiceRollResult, DiceRollResult] | null {
+  const advantage = (side: 'first' | 'second'): AdvantageSide | undefined => more.sideAdvantage?.[side];
+  return rollContestPair(first, second, rules, () => inputs.rollId(), names, {
+    precheck: (firstSpec, secondSpec) => {
+      const refused = refusalOf(firstSpec, rules, advantage('first')) ?? refusalOf(secondSpec, rules, advantage('second'));
+      if (refused) inputs.onFormulaError(refused);
+      return refused === null;
+    },
+    rollSide: (spec, side) => rollSpec(withSteps(spec, more.sideSteps?.[side]), rules, inputs, shown, advantage(side), false),
+  });
+}
+
+/** `spec` with the steps that moved its target, where it is a check and there are any. */
+function withSteps(spec: RollSpec, steps: readonly TargetStep[] | undefined): RollSpec {
+  return spec.check && steps && steps.length > 0 ? { ...spec, check: { ...spec.check, steps } } : spec;
 }
 
 /** Rolls a spec (a formula, or a check) and dresses the body with its id, time, roller and set. */

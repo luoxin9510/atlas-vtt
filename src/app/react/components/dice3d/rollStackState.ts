@@ -74,3 +74,15 @@ export function largeRollIndex(rolls: readonly StackedRoll[]): number {
   const standing = rolls.reduce((found, entry, i) => (entry.leaving ? found : i), -1);
   return standing === -1 ? rolls.length - 1 : standing;
 }
+
+/**
+ * Whether the verdict of a contest shows under this roll: it is the contest's second side (the roll
+ * the verdict is on), has landed and is not leaving, and so has the first side, unless that one is no
+ * longer on screen (dismissed, displaced or never shown), which waits for nothing.
+ */
+export function verdictShown(rolls: readonly StackedRoll[], landed: ReadonlySet<string>, roll: StackedRoll): boolean {
+  const { contest } = roll.result;
+  if (contest?.side !== 'second' || contest.verdict === undefined || roll.leaving || !landed.has(roll.result.id)) return false;
+  const partner = rolls.find((entry) => entry.result.contest?.id === contest.id && entry.result.contest.side === 'first');
+  return partner === undefined || partner.leaving === true || landed.has(partner.result.id);
+}

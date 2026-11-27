@@ -20,7 +20,8 @@
  */
 
 import type { App } from 'obsidian';
-import { rollStatblockDice, statblockRollingDice, type DiceRollSource, type OffMapRolls } from './statblockRolls';
+import { rollStatblockDice, statblockRollingDice, type ContestSide, type DiceRollSource, type OffMapRolls } from './statblockRolls';
+import { answerPendingContest, cancelPendingContest, startPendingContest } from './pendingContest';
 import { advantageSide, advantageSidesFor } from '../tools/diceAdvantage';
 import type { AdvantageSide } from '../types/diceSetTypes';
 import { t } from '../i18n';
@@ -29,7 +30,8 @@ import { splitDiceSegments, toRollFormula } from './statblockDiceText';
 import type { RollParseOptions } from '../tools/formulaTypes';
 import { rollParseOptionsOf } from '../gameSystems/diceSets';
 import { specOfText } from '../tools/buildRoll';
-import { parseModifier, withTargetModifier } from '../tools/targetModifier';
+import { parseModifier, targetStepsOf, withTargetModifier } from '../tools/targetModifier';
+import { modifierStepLabel } from '../dice/checkLine';
 import { promptForText } from '../ui/textInputDialog';
 
 const LINK_CLASS = 'atlas-dice-link';
@@ -74,6 +76,11 @@ function abilityNameFor(node: Node): string | undefined {
     '.atlas-sb-trait-name, .atlas-sb-property-name, .atlas-sb-label, strong, em, b, i',
   )?.textContent;
   return name?.trim().replace(/[:.]$/, '') || undefined;
+}
+
+/** The value whose own number a link is (`BONUS_ID_ATTRIBUTE`), if it is one. */
+function rolledBonusOf(link: HTMLElement): string | undefined {
+  return link.closest<HTMLElement>(`[${BONUS_ID_ATTRIBUTE}]`)?.getAttribute(BONUS_ID_ATTRIBUTE) ?? undefined;
 }
 
 function isSkipped(node: Node): boolean {
@@ -167,13 +174,29 @@ export function attachDiceRolling(
     }
 
     // A value that adds to rolls, rolled from its own number, is in the roll once: as the number clicked.
-    const rolledBonus = link.closest<HTMLElement>(`[${BONUS_ID_ATTRIBUTE}]`)?.getAttribute(BONUS_ID_ATTRIBUTE) ?? undefined;
+    const rolledBonus = rolledBonusOf(link);
     // The names a formula was filled in with are looked up by the formula as linked, so a modifier keeps them
     const source = getSource();
     const named = modifier === undefined ? undefined : source.namedRolls?.get(linked);
     const namedRolls = named === undefined || !source.namedRolls ? source.namedRolls
       : new Map(source.namedRolls).set(formula, withTargetModifier(named, modifier ?? 0, rules ?? undefined));
-    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus }, offMap?.(), side);
+    // The modifier is the first step of a moved target (`targetStepsOf`: none where it went on the dice)
+    const targetSteps = modifier === undefined ? undefined : targetStepsOf(linked, [{ label: modifierStepLabel(), value: modifier }], rules ?? undefined);
+    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus, ...(targetSteps && { targetSteps }) }, offMap?.(), side);
+  };
+
+  /** A link as one side of a contest: its check, and where it was clicked. */
+  const sideOf = (link: HTMLElement, advantage?: AdvantageSide | null): ContestSide => ({
+    formula: link.dataset.formula ?? '',
+    source: { ...getSource(), abilityName: abilityNameFor(link), rolledBonus: rolledBonusOf(link) },
+    offMap: offMap?.(),
+    ...(advantage && { advantage }),
+  });
+
+  /** A link activated: it answers a contest that waits, else rolls as given. */
+  const activate = (link: HTMLElement, side: AdvantageSide | null): void => {
+    if (answerPendingContest(link, isCheck(link.dataset.formula ?? ''), () => sideOf(link, side))) return;
+    roll(link, side);
   };
 
   const linkOf = (event: Event): HTMLElement | null =>
@@ -184,7 +207,7 @@ export function attachDiceRolling(
     if (!link) return;
     event.preventDefault();
     event.stopPropagation();
-    roll(link, advantageSide(event.shiftKey, event.altKey));
+    activate(link, advantageSide(event.shiftKey, event.altKey));
   };
 
   // Enter and Space roll a focused die; the editing around it never sees the key.
@@ -194,7 +217,7 @@ export function attachDiceRolling(
     if (!link) return;
     event.preventDefault();
     event.stopPropagation();
-    roll(link, advantageSide(event.shiftKey, event.altKey));
+    activate(link, advantageSide(event.shiftKey, event.altKey));
   };
 
   // Nothing is kept: each ask starts empty, and Escape or an invalid entry rolls nothing.
@@ -234,6 +257,7 @@ export function attachDiceRolling(
     ];
     if (specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check) {
       choices.push({ label: t('dice.rollWithModifier'), side: null, roll: () => askModifier(link) });
+      choices.push({ label: t('dice.contest.start'), side: null, roll: () => startPendingContest(app, sideOf(link), link, el) });
     }
     // A menu key or Shift+F10 is no right button: the menu hangs from the link.
     const box = link.getBoundingClientRect();
@@ -246,6 +270,7 @@ export function attachDiceRolling(
 
   return () => {
     cleaned = true;
+    cancelPendingContest(el);
     el.removeEventListener('click', onClick);
     el.removeEventListener('keydown', onKeyDown);
     el.removeEventListener('contextmenu', onContextMenu);

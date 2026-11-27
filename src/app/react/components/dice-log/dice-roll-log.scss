@@ -216,6 +216,18 @@ $log-width: 360px;
   text-overflow: ellipsis;
 }
 
+// One side of a contest entry: its name, its roll and its check line.
+.dice-log-entry__side {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+// A contest's verdict closes the entry, on the right like its footer.
+.dice-log-entry--contest .atlas-contest-verdict {
+  align-self: flex-start;
+}
+
 // Summary row: formula = total
 .dice-log-entry__summary {
   display: flex;

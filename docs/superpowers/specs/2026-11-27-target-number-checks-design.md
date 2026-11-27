@@ -151,7 +151,7 @@ statblock values (the statblock's set), the text-roll recogniser where a collect
 `RollOptions.visibility?: 'all' | 'gm'`. A GM-only roll goes to the GM's roll history and toast,
 is marked `hidden: true` on the result, is never sent to the player window, and reaches online
 players as the existing secret entry (`SecretEntry`). The dice tray gets a toggle (eye icon,
-`LabelTooltip`), on until switched off and highlighted while on (decision 10). Not persisted in scene files beyond what the roll log
+`LabelTooltip`), on until switched off and highlighted while on (decision 10). While it is on, any roll the GM makes that names no visibility is GM-only (owner, 2026-11-28): the switch is `DiceRollInputs.gmOnly`, read where a roll is recorded; an explicit `'all'` wins; players' online rolls are not the GM's. Not persisted in scene files beyond what the roll log
 already stores; a hidden roll in the scene's `diceLog` keeps `hidden: true` so a reload does not
 reveal it.
 

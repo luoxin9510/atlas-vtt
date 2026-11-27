@@ -9,7 +9,7 @@ import { dieLabel, dieStates, droppedAny, rollLine } from '../../../tools/diceLa
 import { AdvantageTag, listsDice, RolledDiceLine } from './RolledDiceLine';
 import { t } from '../../../i18n';
 import { shownCrit } from '../../../dice/checkLine';
-import { CheckLine, GmOnlyBadge } from './RollVerdict';
+import { CheckLine, ContestLine, GmOnlyBadge } from './RollVerdict';
 
 export type ToastPhase = 'entering' | 'visible' | 'exiting';
 
@@ -121,6 +121,7 @@ export function DiceToast({ result, presentation, phase, onDismiss, useAvatar }:
       <div className="atlas-dice-toast__result">
         <span className="atlas-dice-toast__total">{result.total}</span>
         <CheckLine result={result} />
+        {result.contest && <ContestLine contest={result.contest} />}
       </div>
     </div>
   );

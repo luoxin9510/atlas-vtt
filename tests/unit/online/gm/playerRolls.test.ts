@@ -22,12 +22,12 @@ const TOKENS: TokenEntity[] = [
 ];
 
 /** A shared scene with the hero (Ana's) and the ogre, whose dice are Atlas's real tool. */
-async function table(rules: DiceRules | RollingDice, random: () => number): Promise<ShareHarness & RealDice & { readonly scene: string; readonly alias: (x: number) => string }> {
+async function table(rules: DiceRules | RollingDice, random: () => number, gmOnly = false): Promise<ShareHarness & RealDice & { readonly scene: string; readonly alias: (x: number) => string }> {
   const owners = boundOwnership([{ id: ANA, name: 'Ana' }, { id: BEN, name: 'Ben' }]);
   owners.welcome([{ id: ANA, name: 'Ana' }, { id: BEN, name: 'Ben' }]);
   const state = sceneState({ objects: { ...sceneState().objects, tokens: Object.fromEntries(TOKENS.map((entry) => [entry.id, entry])) } });
   const share = shareHarness(state, ART, owners);
-  const atlas = realDice(DiceTool, rules, random);
+  const atlas = realDice(DiceTool, rules, random, 'view-1', gmOnly);
   share.dice = atlas.dice;
   share.share.start();
   await share.set(state);
@@ -101,6 +101,13 @@ describe('players\' rolls', () => {
     gm.share.receive(ANA, { t: 'roll', scene: gm.scene, formula: '1d6', token: null });
     expect(refusals(gm.sent)).toEqual([{ reason: 'scene', to: ANA }, { reason: 'unavailable', to: ANA }]);
     expect(gm.rolled).toEqual([]);
+  });
+
+  it('are not the GM\'s rolls: the GM\'s GM-only switch never hides them', async () => {
+    const gm = await table({ defaultRoll: '1d20', crit: 'natural' }, () => 0.5, true);
+    gm.share.receive(ANA, { t: 'roll', scene: gm.scene, formula: '1d20 + 5', token: gm.alias(1) });
+    expect(gm.rolled).toHaveLength(1);
+    expect(gm.rolled[0]).not.toHaveProperty('hidden');
   });
 
   it('take a burst of three, then one a second, per player', async () => {

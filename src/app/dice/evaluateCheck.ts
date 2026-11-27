@@ -9,7 +9,14 @@ import type { RollingDice } from '../types/diceSetTypes';
 import { defaultDiceOf, getDiceCrit } from '../tools/diceCrit';
 import type { RolledDie } from '../tools/diceFormula';
 import { MARGIN_RULE_ID, checkRule, marginRule } from './checkRules';
-import type { CheckDirection, CheckResult, CheckRule, CheckRuleInput, CheckRuleOutcome } from './checkTypes';
+import type { CheckDirection, CheckResult, CheckRuleInput, CheckRuleOutcome, TargetStep } from './checkTypes';
+import { runPackRule } from './runPackRule';
+
+/** A rule's answer where it says whether the check succeeded and whether it is critical. */
+function acceptOutcome(outcome: unknown): CheckRuleOutcome | null {
+  const { success, crit } = (outcome ?? {}) as { success?: unknown; crit?: unknown };
+  return typeof success === 'boolean' && (crit === 'success' || crit === 'failure' || crit === null) ? { success, crit } : null;
+}
 
 /**
  * Which way a check goes: the direction written (`≤`/`≥`), else the set's `check`, else under for
@@ -28,10 +35,12 @@ export interface EvaluateCheckInput {
   target: number;
   /** The direction written with the check, if any. */
   written?: CheckDirection;
+  /** What moved `target` from where the check was written; the result records them with the target they started from. */
+  steps?: readonly TargetStep[] | undefined;
 }
 
 /** The result of checking `total` against `target`; an unknown rule id falls back to `builtin:margin`. */
-export function evaluateCheck({ rolling, rolls, total, target, written }: EvaluateCheckInput): CheckResult {
+export function evaluateCheck({ rolling, rolls, total, target, written, steps }: EvaluateCheckInput): CheckResult {
   const rules = rollingRules(rolling);
   const direction = checkDirection(rules, written);
   const margin = direction === 'under' ? target - total : total - target;
@@ -45,32 +54,10 @@ export function evaluateCheck({ rolling, rolls, total, target, written }: Evalua
     defaultDice: defaultDiceOf(rolls, rules) ?? [],
     diceCrit: getDiceCrit(rolls, rules),
   };
-  const outcome = registered && rules.checkRule ? runRule(rules.checkRule, registered, input) : null;
-  if (outcome) return { target, direction, margin, ...outcome, rule: rules.checkRule ?? MARGIN_RULE_ID };
-  return { target, direction, margin, ...marginRule(input), rule: MARGIN_RULE_ID };
-}
-
-/** Rules that failed and were logged: each is logged once, not on every roll it judges. */
-const failedRules = new WeakSet<CheckRule>();
-
-/** What a pack's rule decided, or null (logged once per rule, with its id) where it threw or answered something else than a `CheckRuleOutcome`. */
-function runRule(id: string, rule: CheckRule, input: CheckRuleInput): CheckRuleOutcome | null {
-  try {
-    const outcome = rule(input);
-    const crit: unknown = outcome?.crit;
-    if (typeof outcome?.success === 'boolean' && (crit === 'success' || crit === 'failure' || crit === null)) {
-      return { success: outcome.success, crit };
-    }
-    logFailure(rule, `[Atlas] Check rule "${id}" returned no valid outcome; the margin rule decided instead.`);
-  } catch (error) {
-    logFailure(rule, `[Atlas] Check rule "${id}" threw; the margin rule decided instead.`, error);
-  }
-  return null;
-}
-
-function logFailure(rule: CheckRule, message: string, error?: unknown): void {
-  if (failedRules.has(rule)) return;
-  failedRules.add(rule);
-  if (error === undefined) console.error(message);
-  else console.error(message, error);
+  const outcome = registered && rules.checkRule ? runPackRule('Check', rules.checkRule, registered, input, acceptOutcome) : null;
+  const targetBuild = steps && steps.length > 0
+    ? { baseTarget: steps.reduce((base, step) => base - step.value, target), targetSteps: steps.map(({ label, value }) => ({ ...(label !== undefined && { label }), value })) }
+    : {};
+  if (outcome) return { target, direction, margin, ...outcome, rule: rules.checkRule ?? MARGIN_RULE_ID, ...targetBuild };
+  return { target, direction, margin, ...marginRule(input), rule: MARGIN_RULE_ID, ...targetBuild };
 }

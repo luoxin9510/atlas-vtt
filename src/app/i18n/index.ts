@@ -61,6 +61,11 @@ export function t(key: MessageKey, values?: MessageValues): string {
   return formatMessage(own, pluralRules, values);
 }
 
+/** Joins the steps of a sum ("Agility +2, Modifier −1"): the active language's comma (`common.sumSeparator`), never "and". */
+export function formatSumList(items: readonly string[]): string {
+  return items.join(t('common.sumSeparator'));
+}
+
 /** Joins `items` as the active language does: "a, b and c". */
 export function formatList(items: readonly string[]): string {
   return new Intl.ListFormat(locale, { type: 'conjunction' }).format(items);

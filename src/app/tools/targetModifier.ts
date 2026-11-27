@@ -4,6 +4,7 @@
  * only what Atlas adds passes through here. Pure.
  */
 
+import type { TargetStep } from '../dice/checkTypes';
 import { checkDirection } from '../dice/evaluateCheck';
 import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
 import type { DiceRules } from '../types/diceRulesTypes';
@@ -32,6 +33,21 @@ export function withTargetModifier(
   // A target past what a check holds is no check any more: the text stays as it was
   if (direction === 'under' && String(Math.abs(check.target + modifier)).length > CHECK_TARGET_DIGITS) return text;
   return direction === 'under' ? checkText(formula, check.target + modifier, check.written) : checkText(formula + diceTerm, check.target, check.written);
+}
+
+/**
+ * The `steps` that move the target of `text` when they are added to it as `withTargetModifier` adds
+ * their sum: those of them with a value, where `text` is a check that goes under and the moved target
+ * stays within what a check holds; else none. What a roll records of how its target was built.
+ */
+export function targetStepsOf(text: string, steps: readonly TargetStep[], rules: DiceRules | RollingDice | undefined): TargetStep[] {
+  const moving = steps.filter((step) => step.value !== 0);
+  if (moving.length === 0) return [];
+  const { check } = specOfText(text, rules ? rollParseOptionsOf(rules) : {});
+  if (!check) return [];
+  const direction = rules ? checkDirection(rollingRules(rules), check.written) : (check.written ?? 'over');
+  const moved = check.target + moving.reduce((sum, { value }) => sum + value, 0);
+  return direction === 'under' && String(Math.abs(moved)).length <= CHECK_TARGET_DIGITS ? moving : [];
 }
 
 const MODIFIER = new RegExp(`^[+-]?\\d{1,${CHECK_TARGET_DIGITS}}$`);

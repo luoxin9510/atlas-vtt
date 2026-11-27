@@ -1,5 +1,6 @@
 import type { LegacyPlayerBars } from '../resources/playerVisibilityMigration';
 import type { App, Plugin } from 'obsidian';
+import { provideGmOnlySwitch } from './gmOnlySwitch';
 import { availableHotkeys, canShareHotkey, type MapHotkeyId, type MapHotkeys } from '../keyboard/mapHotkeys';
 import { hotkeyOrigin, resolveHotkeys, withHotkey, type HotkeyOrigin } from '../keyboard/hotkeyOverrides';
 import { resolveLaserPointerSettings, type LaserPointerSettings } from '../tools/laserPointerSettings';
@@ -58,6 +59,7 @@ export class SettingsService {
     this.app = app;
     this.storageReady = storageReady;
     SettingsService.instances.set(app, this);
+    provideGmOnlySwitch(app, () => this.rollsGmOnly());
     this.settings = { ...DEFAULT_SETTINGS, navigation: { inputMode: this.deviceInputMode() } };
     this.saved = structuredClone(this.settings);
   }
