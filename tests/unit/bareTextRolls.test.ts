@@ -3,7 +3,7 @@ import { diceAverage, parseDiceNotation } from '../../src/app/statblocks/values/
 import { coerce } from '../../src/app/statblocks/values/valueCoercion';
 import { splitDiceSegments } from '../../src/app/services/statblockDiceText';
 import { isDiceValue } from '../../src/app/statblocks/values/diceValues';
-import { isRollFormula, rollPieces, toRollFormula, writtenRoll } from '../../src/app/tools/textRolls';
+import { isRollFormula, rollPieces, statblockRollPieces, toRollFormula, writtenRoll } from '../../src/app/tools/textRolls';
 
 /** The rolls a text holds: what stands there, and the formula it throws. */
 const rolls = (text: string, defaultFaces?: number): [string, string][] =>
@@ -56,7 +56,7 @@ describe('a die without faces in prose', () => {
     expect(rolls('Use 3d. Then 2d, 4d!', 6)).toEqual([]);
     expect(rolls('Roll 1d+2, 2d-1 and 3d*2', 6)).toEqual([['1d+2', '1d+2'], ['2d-1', '2d-1'], ['3d*2', '3d*2']]);
     expect(rolls('Roll 3d vs 14 or 3d ≤ 12', 6)).toEqual([['3d vs 14', '3d vs 14'], ['3d ≤ 12', '3d≤12']]);
-    expect(splitDiceSegments('The 3d model', 6)).toEqual([{ text: 'The 3d model', dice: false }]);
+    expect(rolls('1d+2', 6)).toEqual([['1d+2', '1d+2']]);
   });
 
   it('still reads a lone die as a whole value', () => {
@@ -99,5 +99,28 @@ describe('a statblock dice field and text without faces', () => {
     expect(splitDiceSegments('Bite 1d+2 damage', 6)).toEqual([
       { text: 'Bite ', dice: false }, { text: '1d+2', dice: true }, { text: ' damage', dice: false },
     ]);
+  });
+});
+
+describe('a die without faces in statblock text', () => {
+  /** The rolls statblock text holds, as the card links them. */
+  const cardRolls = (text: string, defaultFaces?: number): [string, string][] =>
+    statblockRollPieces(text, defaultFaces).flatMap((piece) => (piece.formula === null ? [] : [[piece.text, piece.formula] as [string, string]]));
+
+  it('is a roll wherever it stands when the set opts in', () => {
+    expect(cardRolls('2d cut', 6)).toEqual([['2d', '2d']]);
+    expect(cardRolls('sw 2d cut, thr 1d+1 imp', 6)).toEqual([['2d', '2d'], ['1d+1', '1d+1']]);
+    expect(cardRolls('3d (fire)', 6)).toEqual([['3d', '3d']]);
+    expect(cardRolls('Roll 3d.', 6)).toEqual([['3d', '3d']]);
+    expect(splitDiceSegments('sw 2d cut', 6)).toEqual([{ text: 'sw ', dice: false }, { text: '2d', dice: true }, { text: ' cut', dice: false }]);
+  });
+
+  it('is no roll when the set does not opt in', () => {
+    expect(cardRolls('2d cut')).toEqual([]);
+    expect(cardRolls('sw 2d cut, thr 1d+1 imp')).toEqual([]);
+  });
+
+  it('reads faced dice as it always did', () => {
+    expect(cardRolls('Bite 1d6+2 and 2d6', 6)).toEqual([['1d6+2', '1d6+2'], ['2d6', '2d6']]);
   });
 });

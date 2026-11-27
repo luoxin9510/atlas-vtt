@@ -5,7 +5,7 @@
  * `2` as `+2`, which Atlas completes with the game's dice.
  */
 
-import { rollPieces } from '../../tools/textRolls';
+import { statblockRollPieces } from '../../tools/textRolls';
 
 /** A whole number as written on a card: an optional sign (minus sign and en dash included) on at most four digits. */
 const WHOLE_NUMBER = /^([+\-−–]?)(\d{1,4})$/;
@@ -25,7 +25,7 @@ export function bonusOf(text: string): string | null {
  * written without them (`1d+1`), where the statblock's set opts in.
  */
 export function bonusLink(text: string, rollable: boolean | undefined, defaultFaces?: number): string | null {
-  if (rollable !== true || rollPieces(text, defaultFaces).some((piece) => piece.formula !== null)) return null;
+  if (rollable !== true || statblockRollPieces(text, defaultFaces).some((piece) => piece.formula !== null)) return null;
   return bonusOf(text);
 }
 
@@ -38,7 +38,7 @@ export function bonusLink(text: string, rollable: boolean | undefined, defaultFa
 export function valueRoll(text: string, rollable: boolean | undefined, defaultFaces?: number): string | null {
   const bonus = bonusLink(text, rollable, defaultFaces);
   if (bonus !== null) return bonus;
-  const pieces = rollPieces(text, defaultFaces);
+  const pieces = statblockRollPieces(text, defaultFaces);
   const rolls = pieces.filter((piece) => piece.formula !== null);
   const [only] = rolls;
   if (rolls.length !== 1 || !only || pieces.some((piece) => piece.formula === null && /\d/.test(piece.text))) return null;

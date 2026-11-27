@@ -13,7 +13,7 @@
  */
 
 import { parseFormula } from '../../tools/parseFormula';
-import { rollPieces, toRollFormula } from '../../tools/textRolls';
+import { statblockRollPieces, toRollFormula } from '../../tools/textRolls';
 import { formulaLabel } from '../rollBonuses/bonusFormula';
 import { fillReferences, stringsIn, type Filled } from './fillReferences';
 import { namesReference, type FieldLookup } from './references';
@@ -49,12 +49,12 @@ function namedRoll(filled: Filled, from: number, to: number, defaultFaces: numbe
   return parsed.ok && parsed.linear ? formula : null;
 }
 
-/** Every roll of `text` once its references are filled in by `lookup`, in order (`rollPieces`), each with its references named where they may be. `defaultFaces`: the faces of a die written without them. */
+/** Every roll of `text` once its references are filled in by `lookup`, in order (`statblockRollPieces`), each with its references named where they may be. `defaultFaces`: the faces of a die written without them. */
 export function referenceRolls(text: string, lookup: FieldLookup, defaultFaces?: number): ReferenceRoll[] {
   const filled = fillReferences(text, lookup);
   const rolls: ReferenceRoll[] = [];
   let at = 0;
-  for (const piece of rollPieces(filled.text, defaultFaces)) {
+  for (const piece of statblockRollPieces(filled.text, defaultFaces)) {
     const end = at + piece.text.length;
     if (piece.formula !== null) rolls.push({ formula: piece.formula, named: filled.filled.length === 0 ? null : namedRoll(filled, at, end, defaultFaces) });
     at = end;

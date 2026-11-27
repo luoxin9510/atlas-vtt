@@ -125,8 +125,11 @@ function checkTail(after: string): number {
 /** A die with a count and no faces on its own: in running text it is a word ("a 3d model"), not a roll. */
 const LONE_BARE_DIE = /^\d+d$/i;
 
-/** The text in pieces as running text reads it, before a stray number sends it to be read whole. */
-function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
+/**
+ * The text in pieces as running text reads it, before a stray number sends it to be read whole.
+ * `loneBareDice`: a die with a count and no faces on its own (`2d cut`) is a roll, as in statblock text.
+ */
+function scanned(text: string, defaultFaces: number | undefined, loneBareDice: boolean): RollPiece[] {
   const pieces: RollPiece[] = [];
   const words = (part: string): void => {
     const last = pieces[pieces.length - 1];
@@ -134,16 +137,22 @@ function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
     else pieces.push({ text: part, formula: null });
   };
   let at = 0;
-  for (const found of text.matchAll(defaultFaces === undefined ? ROLLS : BARE_ROLLS)) {
-    if (found.index < at) continue;
+  const pattern = new RegExp(defaultFaces === undefined ? ROLLS : BARE_ROLLS);
+  // A match that starts inside a check's tail is dropped and the search restarts where the check ends.
+  for (let found = pattern.exec(text); found !== null; found = pattern.exec(text)) {
+    if (found.index < at) {
+      pattern.lastIndex = at;
+      continue;
+    }
     if (found.index > at) words(text.slice(at, found.index));
     const end = found.index + found[0].length + checkTail(text.slice(found.index + found[0].length));
     const joined = REFERENCE_AFTER.test(text.slice(end)) || REFERENCE_BEFORE.test(text.slice(0, found.index));
     const written = text.slice(found.index, end);
-    const formula = joined || (defaultFaces !== undefined && LONE_BARE_DIE.test(written)) ? null : writtenRoll(written, defaultFaces);
+    const formula = joined || (defaultFaces !== undefined && !loneBareDice && LONE_BARE_DIE.test(written)) ? null : writtenRoll(written, defaultFaces);
     if (formula === null) words(written);
     else pieces.push({ text: written, formula });
     at = end;
+    pattern.lastIndex = at;
   }
   if (at < text.length) words(text.slice(at));
   return pieces;
@@ -163,12 +172,25 @@ function wholeRoll(text: string, defaultFaces: number | undefined): RollPiece[] 
   return pieces.filter((piece) => piece.text !== '');
 }
 
-/**
- * A text in pieces: its words, and every roll written in it on its own. `defaultFaces`: the faces
- * of a die written with a count and no faces (`2d`), for a set that opts in; unset, it is no roll.
- */
-export function rollPieces(text: string, defaultFaces?: number): RollPiece[] {
-  const pieces = scanned(text, defaultFaces);
+function piecesOf(text: string, defaultFaces: number | undefined, loneBareDice: boolean): RollPiece[] {
+  const pieces = scanned(text, defaultFaces, loneBareDice);
   const strayNumber = pieces.some((piece) => piece.formula === null && /\d/.test(piece.text));
   return strayNumber ? wholeRoll(text, defaultFaces) ?? pieces : pieces;
+}
+
+/**
+ * A note's text in pieces: its words, and every roll written in it on its own. `defaultFaces`: the
+ * faces of a die written with a count and no faces (`2d`), for a set that opts in; unset, it is no
+ * roll. In prose a die without faces needs a modifier, an operator or a check after it ("a 3d model").
+ */
+export function rollPieces(text: string, defaultFaces?: number): RollPiece[] {
+  return piecesOf(text, defaultFaces, false);
+}
+
+/**
+ * Statblock text in pieces: as `rollPieces`, but statblock text is game data, so where the set
+ * opts in (`defaultFaces`) a die with a count and no faces on its own (`2d cut`, `3d (fire)`) is a roll.
+ */
+export function statblockRollPieces(text: string, defaultFaces?: number): RollPiece[] {
+  return piecesOf(text, defaultFaces, true);
 }

@@ -56,4 +56,23 @@ describe('check text in text rolls', () => {
       expect(pieces.filter((piece) => piece.formula !== null), text).toHaveLength(1);
     }
   });
+
+  it('restarts the scan where a check ends, so a roll starting inside the target is not lost', () => {
+    expect(rollPieces('Save 1d6 vs -3 +2d6 fire').map((piece) => piece.text)).toEqual(['Save ', '1d6 vs -3', ' ', '+2d6', ' fire']);
+    expect(rolls('Save 1d6 vs -3 +2d6 fire')).toEqual([['1d6 vs -3', '1d6 vs -3'], ['+2d6', '+2d6']]);
+    expect(rolls('1d6 vs -3+1d4')).toEqual([['1d6 vs -3', '1d6 vs -3'], ['1d4', '1d4']]);
+    expect(rolls('1d6 vs 3 +2d6')).toEqual([['1d6 vs 3', '1d6 vs 3'], ['+2d6', '+2d6']]);
+  });
+
+  it('keeps every text whole when it is joined from its pieces', () => {
+    for (const text of ['Save 1d6 vs -3 +2d6 fire', '1d6 vs -3+1d4', '1d6+1d4', '2d6 2d6', '1d20 vs 14 2d6', '1d20 ≥ -2 2d6', '1d6 vs -3, 1d4', 'Save 1d6 vs -3 now']) {
+      expect(rollPieces(text).map((piece) => piece.text).join('')).toBe(text);
+    }
+    expect(rolls('1d6+1d4')).toEqual([['1d6+1d4', '1d6+1d4']]);
+    expect(rolls('2d6 2d6')).toEqual([['2d6', '2d6'], ['2d6', '2d6']]);
+    expect(rolls('1d20 vs 14 2d6')).toEqual([['1d20 vs 14', '1d20 vs 14'], ['2d6', '2d6']]);
+    expect(rolls('1d20 ≥ -2 2d6')).toEqual([['1d20 ≥ -2', '1d20≥-2'], ['2d6', '2d6']]);
+    expect(rolls('1d6 vs -3, 1d4')).toEqual([['1d6 vs -3', '1d6 vs -3'], ['1d4', '1d4']]);
+    expect(rolls('Save 1d6 vs -3 now')).toEqual([['1d6 vs -3', '1d6 vs -3']]);
+  });
 });
