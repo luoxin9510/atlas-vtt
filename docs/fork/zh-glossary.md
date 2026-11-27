@@ -137,5 +137,8 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 - **Names beside Chinese**: `onlineLog.found.by` '由{finder}发现' sits flush because {finder} can be 你 (onlineLog.author.youLower); `onlineDock.rest.label` '{character} 请求 {button}' keeps a space because {button} is statblock text of any script.
 - **Ellipsis**: mirror the English value ("…" or "...").
 - **Critical**: 大成功 / 大失败, as Chinese TTRPG communities say, not 暴击.
+- **Checks** (target-number checks, 2026-11-27 grill): check 检定; target 目标值; margin 差值
+  (shown as 成功，差 {n} / 失败，差 {n}, never a system's own term such as 成功度); direction
+  方向, under 掷低为好, over 掷高为好; check rule 检定规则; GM-only roll 仅主持人可见 / 暗骰.
 - Existing wording left as it is (out of scope for this phase): `toolbar.sessionView`
   场面视图, `pin.icon.npc` NPC.

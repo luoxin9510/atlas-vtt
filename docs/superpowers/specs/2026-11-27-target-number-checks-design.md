@@ -1,6 +1,35 @@
 # Target-number checks (P1)
 
-Status: design, 2026-11-27. Branch `feature/target-checks`, PR into `fork/work`.
+Status: grilled and agreed with the owner, 2026-11-27 (15 decisions, below). Branch
+`feature/target-checks`, PR into `fork/work`.
+
+## Decisions from the grill
+
+1. Scope stays whole: notation, check rules, bare-faced dice, GM-only rolls, display.
+2. Notation `vs` plus `≤`/`≥`; ASCII `<=`/`>=` keep meaning tallies.
+3. Direction: preset/set field `check`; unset follows `crit: 'roll-under'`, else over.
+4. Display wording (zh): 成功，差 N / 失败，差 N / 大成功 / 大失败，差 N; en: "Success by N" style.
+   System-specific words (a pack's own term for margin) are the pack's business, not Atlas'.
+5. P1 ships one built-in rule (`builtin:margin`) and an internal registry; P3 opens it to packs.
+6. Bare-faced dice only where the set opts in (`bareDie: true`).
+7. GM-only rolls: tray toggle; hidden from the player window; secret entry online; `hidden` kept
+   in the scene's roll log.
+8. Entry points: tray input, clickable check text, `DiceTool.rollCheck`. Sheet buttons per skill
+   belong to the rule pack (G2), built on `rollCheck`.
+9. The partial work stopped before the grill (branch `wip/p1-before-grill`) is reviewed against
+   this spec; matching parts are reused with tests written first, the rest dropped.
+10. The GM-only toggle stays on until switched off (highlighted while on), across scenes and restarts.
+11. A check clicked outside a map uses the open map's collection; with no map open, the library's
+    default collection; with no system there, `over`.
+12. New terms go into `docs/fork/zh-glossary.md` (done).
+13. Implementation is test-first (`tdd`), one subagent per task, reviewed before each commit.
+14. Review: `code-review` (standards + spec), then an independent fresh-context review; PR body
+    via `pr` with the review record.
+15. Platform PRs (P1, P3, P2) are merged into `fork/work` by the agent once reviews pass and the
+    full gate is green; the owner is told afterwards. (Owner decision 2026-11-27.)
+
+Online fact checked during the grill: `parseSharedRoll` keeps only keys it knows, so an optional
+`check` field needs no protocol level bump; older player apps show the total without the line.
 
 ## Why
 
@@ -110,7 +139,7 @@ statblock values (the statblock's set), the text-roll recogniser where a collect
 `RollOptions.visibility?: 'all' | 'gm'`. A GM-only roll goes to the GM's roll history and toast,
 is marked `hidden: true` on the result, is never sent to the player window, and reaches online
 players as the existing secret entry (`SecretEntry`). The dice tray gets a toggle (eye icon,
-`LabelTooltip`), remembered per view. Not persisted in scene files beyond what the roll log
+`LabelTooltip`), on until switched off and highlighted while on (decision 10). Not persisted in scene files beyond what the roll log
 already stores; a hidden roll in the scene's `diceLog` keeps `hidden: true` so a reload does not
 reveal it.
 
@@ -121,8 +150,7 @@ reveal it.
 - Card toast, roll log entry, 3D panel caption: the line under the total; crit styling reuses the
   existing crit classes, driven by `check.crit` when there is a check, else by `crit` as today.
 - Online: `SharedRoll` gains an optional `check` with strict parsing; protocol level unchanged
-  because the field is optional and older players ignore unknown keys (verify in the plan;
-  bump the level if the parser rejects unknown keys).
+  because the field is optional and older players' parsers drop unknown keys (checked).
 - `quietRoll` and `rollDiceFormula` share one result builder so both get `check`.
 
 ## Entry points in this plan

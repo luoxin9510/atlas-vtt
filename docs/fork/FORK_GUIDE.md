@@ -52,7 +52,10 @@ grep -n '^#\{1,2\} ' CLAUDE.md          # list the sections and their lines
   final whole-branch review). Ledgers live in `.superpowers/sdd/<plan>/` (gitignored).
 - Each plan runs on a `feature/*` branch with one commit per task. When a plan is done and the
   full gate is green, push the branch and open a PR into `fork/work` (stack on the previous
-  feature branch while its PR is open). Merging is the user's decision.
+  feature branch while its PR is open). Merging is the user's decision, except for the
+  rule-pack platform PRs (target-number checks, rule-pack interface, fixed-value initiative):
+  the owner decided on 2026-11-27 that the agent merges those once the reviews pass and the
+  full gate is green, and reports afterwards.
 - The full gate: `npx tsc --noEmit`, `npm run lint`, `npm run check:play`, `npm run check:relay`,
   `npm run check:boundaries`, `npx vitest run --project unit`.
 - Open follow-ups are tracked in `docs/fork/online-followups.md`; strike items when done.
