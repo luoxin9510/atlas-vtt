@@ -28,7 +28,7 @@ describe('dice without faces in text rolls', () => {
 
   it('are found in running text', () => {
     expect(rolls('Deals 1d+2 damage', 6)).toEqual([['1d+2', '1d+2']]);
-    expect(rolls('Hit for 2d-1 or 3d.', 6)).toEqual([['2d-1', '2d-1'], ['3d', '3d']]);
+    expect(rolls('Hit for 2d-1 or 3d*2.', 6)).toEqual([['2d-1', '2d-1'], ['3d*2', '3d*2']]);
   });
 
   it('need a count, and never start or end inside a word', () => {
@@ -46,6 +46,24 @@ describe('dice without faces in text rolls', () => {
     expect(rolls('3d vs 12', 6)).toEqual([['3d vs 12', '3d vs 12']]);
     expect(rolls('3d6 vs 12')).toEqual([['3d6 vs 12', '3d6 vs 12']]);
     expect(rolls('3d vs 12')).toEqual([]);
+  });
+});
+
+describe('a die without faces in prose', () => {
+  it('is no roll unless a modifier, an operator or a check follows it', () => {
+    expect(rolls('The 3d model', 6)).toEqual([]);
+    expect(rolls('A 2d grid on a 3d map', 6)).toEqual([]);
+    expect(rolls('Use 3d. Then 2d, 4d!', 6)).toEqual([]);
+    expect(rolls('Roll 1d+2, 2d-1 and 3d*2', 6)).toEqual([['1d+2', '1d+2'], ['2d-1', '2d-1'], ['3d*2', '3d*2']]);
+    expect(rolls('Roll 3d vs 14 or 3d ≤ 12', 6)).toEqual([['3d vs 14', '3d vs 14'], ['3d ≤ 12', '3d≤12']]);
+    expect(splitDiceSegments('The 3d model', 6)).toEqual([{ text: 'The 3d model', dice: false }]);
+  });
+
+  it('still reads a lone die as a whole value', () => {
+    expect(writtenRoll('3d', 6)).toBe('3d');
+    expect(isRollFormula('3d', 6)).toBe(true);
+    expect(isDiceValue('3d', 6)).toBe(true);
+    expect(coerce('dice', '3d', undefined, 6)).toMatchObject({ ok: true, value: '3d' });
   });
 });
 

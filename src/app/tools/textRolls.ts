@@ -122,6 +122,9 @@ function checkTail(after: string): number {
   return CHECK_TAIL.exec(after)?.[0].length ?? 0;
 }
 
+/** A die with a count and no faces on its own: in running text it is a word ("a 3d model"), not a roll. */
+const LONE_BARE_DIE = /^\d+d$/i;
+
 /** The text in pieces as running text reads it, before a stray number sends it to be read whole. */
 function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
   const pieces: RollPiece[] = [];
@@ -132,11 +135,12 @@ function scanned(text: string, defaultFaces: number | undefined): RollPiece[] {
   };
   let at = 0;
   for (const found of text.matchAll(defaultFaces === undefined ? ROLLS : BARE_ROLLS)) {
+    if (found.index < at) continue;
     if (found.index > at) words(text.slice(at, found.index));
     const end = found.index + found[0].length + checkTail(text.slice(found.index + found[0].length));
     const joined = REFERENCE_AFTER.test(text.slice(end)) || REFERENCE_BEFORE.test(text.slice(0, found.index));
     const written = text.slice(found.index, end);
-    const formula = joined ? null : writtenRoll(written, defaultFaces);
+    const formula = joined || (defaultFaces !== undefined && LONE_BARE_DIE.test(written)) ? null : writtenRoll(written, defaultFaces);
     if (formula === null) words(written);
     else pieces.push({ text: written, formula });
     at = end;

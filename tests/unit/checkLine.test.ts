@@ -31,6 +31,15 @@ describe('checkLine', () => {
     expect(checkLine(rolled({ check: check(-11, 'failure') }))).toBe('Critical failure by 11');
   });
 
+  it('names a critical failure that still met its target without a margin', () => {
+    expect(checkLine(rolled({ check: check(6, 'failure') }))).toBe('Critical failure');
+    expect(checkLine(rolled({ check: check(0, 'failure') }))).toBe('Critical failure');
+    expect(checkLine(rolled({ check: check(-1, 'failure') }))).toBe('Critical failure by 1');
+    expect(checkLine(rolled({ check: check(-4, 'success') }))).toBe('Critical success');
+    setLocale('zh', TRANSLATIONS);
+    expect(checkLine(rolled({ check: check(6, 'failure') }))).toBe('大失败');
+  });
+
   it('reads in Chinese', () => {
     setLocale('zh', TRANSLATIONS);
     expect(checkLine(rolled({ check: check(3) }))).toBe('成功，差 3');

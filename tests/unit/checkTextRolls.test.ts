@@ -36,4 +36,24 @@ describe('check text in text rolls', () => {
   it('reads a whole value as a check too', () => {
     expect(rollPieces(' 2 + 1d6 vs 10 ')).toEqual([{ text: ' ', formula: null }, { text: '2 + 1d6 vs 10', formula: '2+1d6 vs 10' }, { text: ' ', formula: null }]);
   });
+
+  it('is exactly one roll piece, whatever its target, and the pieces joined are the text', () => {
+    const texts = [
+      'Save 1d6 vs -3 now', 'Save 1d6 vs +5 now', 'Save 1d6 vs 3 now', 'Try 1d20+5 ≥ -2 or 3d6 ≤ +10.',
+      '1d6 vs -3', 'x 3d6≤-4 y', 'x 3d6≥+4 y',
+    ];
+    for (const text of texts) {
+      const pieces = rollPieces(text);
+      expect(pieces.map((piece) => piece.text).join(''), text).toBe(text);
+      const rolled = pieces.filter((piece) => piece.formula !== null).length;
+      expect(rolled, text).toBe((text.match(/vs|≤|≥/g) ?? []).length);
+    }
+    expect(rolls('Save 1d6 vs -3 now')).toEqual([['1d6 vs -3', '1d6 vs -3']]);
+    expect(rolls('Save 1d6 vs +5 now')).toEqual([['1d6 vs +5', '1d6 vs 5']]);
+    for (const text of ['Save 3d vs -3 now', 'Save 3d ≥ +5 now']) {
+      const pieces = rollPieces(text, 6);
+      expect(pieces.map((piece) => piece.text).join(''), text).toBe(text);
+      expect(pieces.filter((piece) => piece.formula !== null), text).toHaveLength(1);
+    }
+  });
 });

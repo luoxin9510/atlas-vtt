@@ -18,6 +18,8 @@ export const MAX_ABILITY_NAME = 200;
 const MAX_ROLL_ID = 64;
 /** The largest total Atlas's grammar lets a formula make. */
 const MAX_TOTAL = 1_000_000_000;
+/** The widest margin a check holds: a target and a total, each within `MAX_TOTAL`, are that far apart at most. */
+const MAX_MARGIN = 2 * MAX_TOTAL;
 /** The longest label a die's term carries. */
 const MAX_DIE_LABEL = 24;
 /** The most labelled constants a shared roll names: Atlas's formula holds no more terms. */
@@ -251,11 +253,11 @@ function parseNamedModifiers(value: unknown, modifiers: number, linear: boolean)
   return Math.abs(plain) <= MAX_TOTAL ? entries : undefined;
 }
 
-/** A roll's check as a page reads it, or null for anything malformed. */
+/** A roll's check as a page reads it, or null for anything malformed or unknown. */
 function parseCheck(value: unknown): SharedCheck | null {
   if (!isRecord(value)) return null;
   const { target, direction, margin, success, crit, rule } = value;
-  if (!isInteger(target, -MAX_TOTAL, MAX_TOTAL) || !isInteger(margin, -MAX_TOTAL, MAX_TOTAL)) return null;
+  if (!isInteger(target, -MAX_TOTAL, MAX_TOTAL) || !isInteger(margin, -MAX_MARGIN, MAX_MARGIN)) return null;
   if (direction !== 'under' && direction !== 'over') return null;
   if (typeof success !== 'boolean' || (crit !== 'success' && crit !== 'failure' && crit !== null)) return null;
   if (!isText(rule, MAX_CHECK_RULE) || rule === '') return null;
@@ -272,8 +274,9 @@ export function parseSharedRoll(value: unknown): SharedRoll | null {
   if (!Array.isArray(value.rolls) || value.rolls.length > MAX_ROLLED_DICE) return null;
   const rolls = value.rolls.map(parseDie);
   const source = parseSource(value.source);
-  const check = value.check === undefined ? undefined : parseCheck(value.check);
-  if (check === null || rolls.some((die) => die === null) || source === null || (value.linear !== undefined && value.linear !== false)) return null;
+  // A check this page cannot read is left out and the roll kept: a later GM may write one it does not know.
+  const check = value.check === undefined ? undefined : parseCheck(value.check) ?? undefined;
+  if (rolls.some((die) => die === null) || source === null || (value.linear !== undefined && value.linear !== false)) return null;
   const namedModifiers = parseNamedModifiers(value.namedModifiers, modifiers, value.linear !== false);
   return {
     id, timestamp, formula, rolls: rolls as SharedDie[], modifiers, total,

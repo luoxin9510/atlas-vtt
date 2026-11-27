@@ -39,6 +39,7 @@ export const dice: Translation = {
   'dice.check.failure': '失败，差 {n}',
   'dice.check.critSuccess': '大成功',
   'dice.check.critFailure': '大失败，差 {n}',
+  'dice.check.critFailureOnly': '大失败',
   'dice.gmOnlyRolls': '仅主持人可见',
   'dice.formulaInput.label': '骰子公式或检定',
   'dice.formulaInput.placeholder': '3d6 vs 14',

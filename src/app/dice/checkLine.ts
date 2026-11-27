@@ -12,7 +12,7 @@ export function checkLine(result: Pick<DiceRollResult, 'check'>): string | null 
   if (check === undefined) return null;
   const n = Math.abs(check.margin);
   if (check.crit === 'success') return t('dice.check.critSuccess');
-  if (check.crit === 'failure') return t('dice.check.critFailure', { n });
+  if (check.crit === 'failure') return check.margin >= 0 ? t('dice.check.critFailureOnly') : t('dice.check.critFailure', { n });
   return check.success ? t('dice.check.success', { n }) : t('dice.check.failure', { n });
 }
 

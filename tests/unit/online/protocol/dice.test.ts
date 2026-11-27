@@ -147,6 +147,7 @@ describe('advantage', () => {
 describe('a shared roll\'s check', () => {
   const check = { target: 14, direction: 'under', margin: 3, success: true, crit: null, rule: 'builtin:margin' } as const;
   const rolled = { ...ROLL, formula: '3d6 vs 14', check };
+  const { check: _dropped, ...ROLL_WITHOUT_CHECK } = rolled;
 
   it('is read back as it was written', () => {
     expect(parseSharedRoll(JSON.parse(JSON.stringify(rolled)))).toEqual(rolled);
@@ -158,13 +159,21 @@ describe('a shared roll\'s check', () => {
     expect(parseSharedRoll(ROLL)).not.toHaveProperty('check');
   });
 
-  it('keeps no roll whose check is malformed', () => {
+  it('keeps the roll but not a check it cannot read', () => {
     const bad: unknown[] = [
-      'yes', null, { ...check, target: 1.5 }, { ...check, target: 1_000_000_001 }, { ...check, margin: '3' }, { ...check, margin: -1_000_000_001 },
+      'yes', null, { ...check, target: 1.5 }, { ...check, target: 1_000_000_001 }, { ...check, margin: '3' }, { ...check, margin: -2_000_000_001 },
       { ...check, direction: 'sideways' }, { ...check, success: 'true' }, { ...check, crit: 'high' }, { ...check, crit: undefined },
       { ...check, rule: 7 }, { ...check, rule: 'x'.repeat(100) }, { ...check, rule: undefined },
     ];
-    for (const entry of bad) expect(parseSharedRoll({ ...rolled, check: entry }), JSON.stringify(entry)).toBeNull();
+    for (const entry of bad) expect(parseSharedRoll({ ...rolled, check: entry }), JSON.stringify(entry)).toEqual(ROLL_WITHOUT_CHECK);
+  });
+
+  it('keeps every margin a target and a total within the limits can make', () => {
+    const wide = { target: -999_999_999, direction: 'over', margin: 1_999_999_999, success: true, crit: null, rule: 'builtin:margin' } as const;
+    const roll = { ...ROLL, formula: '1d6 vs -999999999', total: 1_000_000_000, check: wide };
+    expect(parseSharedRoll(JSON.parse(JSON.stringify(roll)))).toEqual(roll);
+    const low = { ...wide, target: 999_999_999, margin: -1_999_999_999, success: false };
+    expect(parseSharedRoll({ ...roll, total: -1_000_000_000, check: low })).toEqual({ ...roll, total: -1_000_000_000, check: low });
   });
 
   it('drops keys it does not know', () => {
