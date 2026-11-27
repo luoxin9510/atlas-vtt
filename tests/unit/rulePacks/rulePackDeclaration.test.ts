@@ -39,8 +39,25 @@ describe('docs/fork/rule-pack-api.d.ts', () => {
       declare const realResult: RealResult; declare const declaredResult: DeclaredResult;
       export const e: DeclaredResult = realResult;
       export const f: RealResult = declaredResult;
+      import type { ContestRule as DeclaredContest, ContestVerdict as DeclaredVerdict, RollContest as DeclaredRollContest } from './rule-pack-api';
+      import type { ContestRule as RealContest, ContestVerdict as RealVerdict, RollContest as RealRollContest } from '../../src/app/dice/contestTypes';
+      declare const realContest: RealContest; declare const declaredContest: DeclaredContest;
+      export const g: DeclaredContest = realContest;
+      export const h: RealContest = declaredContest;
+      declare const realVerdict: RealVerdict; declare const declaredVerdict: DeclaredVerdict;
+      export const i: DeclaredVerdict = realVerdict;
+      export const j: RealVerdict = declaredVerdict;
+      declare const realRc: RealRollContest; declare const declaredRc: DeclaredRollContest;
+      export const k: DeclaredRollContest = realRc;
+      export const l: RealRollContest = declaredRc;
     `);
     expect(errors).toEqual([]);
+  });
+
+  it('declares the ready event name, which is the real one', () => {
+    const text = readFileSync(declaration, 'utf8');
+    expect(text).toContain("'atlas-vtt:rule-packs-ready'");
+    expect(text).toMatch(/RULE_PACKS_READY_EVENT/);
   });
 
   it('would notice a drift (the check is live)', () => {

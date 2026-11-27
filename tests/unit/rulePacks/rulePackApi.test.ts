@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_DICE_SETS } from '../../../src/app/gameSystems/builtInDiceSets';
 import { checkRuleIds, MARGIN_RULE_ID } from '../../../src/app/dice/checkRules';
 import { evaluateCheck } from '../../../src/app/dice/evaluateCheck';
-import { RulePacks } from '../../../src/app/rulePacks/rulePackApi';
+import { contestRuleIds } from '../../../src/app/dice/contestRules';
+import { evaluateContest } from '../../../src/app/dice/evaluateContest';
+import { RulePacks, RULE_PACKS_READY_EVENT } from '../../../src/app/rulePacks/rulePackApi';
 import type { DiceRollResult } from '../../../src/app/types/diceTypes';
 
 vi.mock('../../../src/app/services/diceSets/collectionDiceSets', () => ({
@@ -24,17 +26,23 @@ function mapView(): FakeMap {
   const tool = {
     rollDice: (...args: unknown[]): DiceRollResult => { rolled.push({ kind: 'dice', args }); return result; },
     rollCheck: (...args: unknown[]): DiceRollResult => { rolled.push({ kind: 'check', args }); return result; },
+    rollContest: (...args: unknown[]): [DiceRollResult, DiceRollResult] => { rolled.push({ kind: 'contest', args }); return [result, result]; },
   };
   const view = { containerEl: {}, serviceManager: { getToolController: () => ({ getDiceTool: () => tool }) } };
   return { view, rolled };
 }
 
+const triggered: Array<{ name: string; args: unknown[] }> = [];
 const appWith = (...views: unknown[]): never => ({
-  workspace: { getLeavesOfType: () => views.map((view) => ({ view })) },
+  workspace: {
+    getLeavesOfType: () => views.map((view) => ({ view })),
+    trigger: (name: string, ...args: unknown[]): void => { triggered.push({ name, args }); },
+  },
 }) as never;
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
+  triggered.length = 0;
   cleanup.splice(0).forEach((undo) => undo());
   vi.restoreAllMocks();
 });
@@ -160,5 +168,112 @@ describe('rolls from a pack', () => {
     const api = packs();
     expect(api.rollDice('not dice')).toBeNull();
     expect(api.rollCheck('1d20', 1.5)).toBeNull();
+  });
+});
+
+describe('the ready event', () => {
+  it('names the event', () => {
+    expect(RULE_PACKS_READY_EVENT).toBe('atlas-vtt:rule-packs-ready');
+  });
+
+  it('triggers it once when Atlas is ready, with the interface as the argument', () => {
+    const api = packs();
+    expect(triggered).toEqual([]);
+    api.markReady();
+    expect(triggered).toEqual([{ name: 'atlas-vtt:rule-packs-ready', args: [api] }]);
+  });
+
+  it('triggers it again for a reloaded Atlas, with the fresh interface', () => {
+    const first = packs();
+    first.markReady();
+    first.dispose();
+    const second = packs();
+    second.markReady();
+    expect(triggered.map((t) => t.args[0])).toEqual([first, second]);
+  });
+
+  it('does not trigger it when Atlas unloaded before it was ready', () => {
+    const api = packs();
+    api.dispose();
+    api.markReady();
+    expect(triggered).toEqual([]);
+  });
+});
+
+describe('contest rules from a pack', () => {
+  const sides = (): Parameters<typeof evaluateContest> => [
+    { target: 10, direction: 'over', margin: 3, success: true, crit: null, rule: 'builtin:margin' },
+    { target: 10, direction: 'over', margin: 1, success: true, crit: null, rule: 'builtin:margin' },
+    { defaultRoll: '1d20', crit: 'none', contestRule: 'pack:second' },
+  ];
+
+  it('decides contests while registered, and falls back once removed', () => {
+    const api = packs();
+    const remove = api.registerContestRule('pack:second', () => ({ winner: 'second' }));
+    expect(api.contestRuleIds()).toContain('pack:second');
+    expect(evaluateContest(...sides())).toMatchObject({ winner: 'second', rule: 'pack:second' });
+    remove();
+    expect(api.contestRuleIds()).not.toContain('pack:second');
+    expect(evaluateContest(...sides()).winner).toBe('first');
+  });
+
+  it('refuses ids Atlas reserves and empty ones', () => {
+    const api = packs();
+    expect(() => api.registerContestRule('builtin:contest-margin', () => ({ winner: null }))).toThrow(/builtin:/);
+    expect(() => api.registerContestRule('builtin:mine', () => ({ winner: null }))).toThrow(/builtin:/);
+    expect(() => api.registerContestRule('', () => ({ winner: null }))).toThrow();
+    expect(contestRuleIds()).not.toContain('builtin:mine');
+  });
+
+  it('drops a pack\'s contest rules when Atlas unloads, newest first, and takes none after', () => {
+    const api = packs();
+    api.registerContestRule('pack:twice', () => ({ winner: 'first' }));
+    api.registerContestRule('pack:twice', () => ({ winner: 'second' }));
+    api.dispose();
+    expect(contestRuleIds()).not.toContain('pack:twice');
+    const late = api.registerContestRule('pack:late', () => ({ winner: null }));
+    expect(contestRuleIds()).not.toContain('pack:late');
+    expect(() => late()).not.toThrow();
+  });
+});
+
+describe('rolling a contest from a pack', () => {
+  it('rolls on the open map\'s dice tool, with the options', () => {
+    const map = mapView();
+    const api = packs(appWith(map.view));
+    const rolled = api.rollContest('1d20 vs 12', '14', { visibility: 'gm', names: { first: 'A' } });
+    expect(rolled).toHaveLength(2);
+    expect(map.rolled[0]).toMatchObject({ kind: 'contest', args: ['1d20 vs 12', '14', { visibility: 'gm', names: { first: 'A' } }] });
+  });
+
+  it('rolls without a map: two linked checks and a verdict, shown to nobody', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const api = packs();
+    const rolled = api.rollContest('1d20 vs 15', '1d20 vs 9', { names: { first: 'Ann', second: 'Bo' } });
+    expect(rolled).not.toBeNull();
+    const [one, two] = rolled ?? [];
+    expect(one?.contest).toMatchObject({ side: 'first', names: { first: 'Ann', second: 'Bo' } });
+    expect(two?.contest?.id).toBe(one?.contest?.id);
+    expect(two?.contest?.verdict).toMatchObject({ winner: 'second' });
+    expect(one?.hidden).toBeUndefined();
+  });
+
+  it('takes a bare target as the set\'s default roll against it', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const rolled = packs().rollContest('12', '14');
+    expect(rolled?.[0].check?.target).toBe(12);
+    expect(rolled?.[1].check?.target).toBe(14);
+  });
+
+  it('marks both rolls of a GM-only contest hidden', () => {
+    const rolled = packs().rollContest('1d20 vs 12', '1d20 vs 12', { visibility: 'gm' });
+    expect(rolled?.[0].hidden).toBe(true);
+    expect(rolled?.[1].hidden).toBe(true);
+  });
+
+  it('returns null, rolling nothing, for a side that is no check', () => {
+    const api = packs();
+    expect(api.rollContest('not dice', '12')).toBeNull();
+    expect(api.rollContest('12', 'abc')).toBeNull();
   });
 });

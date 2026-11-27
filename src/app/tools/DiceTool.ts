@@ -216,6 +216,24 @@ export function rollDiceFormula(
   return rollSpec(withSteps(specOfText(formula, rollParseOptionsOf(rules)), steps), rules, inputs, shown, advantage, setAppearance);
 }
 
+/**
+ * Rolls a contest by a dice set without telling anyone, as `rollDiceFormula` rolls a formula: both
+ * sides rolled, marked as the two of one contest with the verdict on the second. Null, rolling
+ * nothing, where a side is no check, and where a side's formula is refused (reported to `inputs`).
+ */
+export function rollContestFormulas(
+  first: string, second: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, names?: ContestNames,
+): [DiceRollResult, DiceRollResult] | null {
+  const firstSpec = contestSideSpec(first);
+  const secondSpec = contestSideSpec(second);
+  if (!firstSpec || !secondSpec) return null;
+  const one = rollSpec(firstSpec, rules, inputs, shown, undefined, false);
+  const two = one && rollSpec(secondSpec, rules, inputs, shown, undefined, false);
+  if (!one || !two) return null;
+  markContest(one, two, inputs.rollId(), rules, names);
+  return [one, two];
+}
+
 /** `spec` with the steps that moved its target, where it is a check and there are any. */
 function withSteps(spec: RollSpec, steps: readonly TargetStep[] | undefined): RollSpec {
   return spec.check && steps && steps.length > 0 ? { ...spec, check: { ...spec.check, steps } } : spec;
