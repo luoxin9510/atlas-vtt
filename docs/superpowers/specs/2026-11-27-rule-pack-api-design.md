@@ -54,8 +54,9 @@ commercial game names in code, tests or docs.
 10. Right-clicking a check link offers "Roll with a modifier…": a small input takes `-2` and rolls once
     with it (moving the target for `under`, decision 4). Armed bonuses still apply; nothing is remembered.
 11. Contests start three ways: right-click a check link → "Start a contest…", then click the opponent's
-    check link (Escape cancels); the dropdown input accepts `12 对 14` / `12 vs 14` shorthand and full
-    `3d6 vs 12 对 3d6 vs 14`; and `rollContest(a, b)` in the interface.
+    check link (Escape cancels); the dropdown input accepts the shorthand `12 对 14` and the full form
+    `3d6 vs 12 对 3d6 vs 14` (never `12 vs 14`, which is already a check of 12 against 14; the English
+    form is settled in the P3b grill); and `rollContest(a, b)` in the interface. (Owner, 2026-11-27.)
 12. Built-in contest rule: a success beats a failure; otherwise the larger margin wins; equal margins
     are a tie, shown as such. Packs may register other contest rules.
 13. "Import character file…" opens the system file picker (several files); Atlas reads, never copies,
