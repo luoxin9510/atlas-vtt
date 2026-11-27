@@ -258,7 +258,24 @@ export interface LineBlock extends BlockBase { type: 'line'; fields: FieldKey[];
  * `rollable` ("Roll as a bonus"), on a Value, Metric, Table or Labels and values: every whole number it shows is a
  * roll link, rolled as a bonus (`2` rolls `+2`) with the game's own dice, as a signed bonus in its text already is.
  */
-export interface Rollable { rollable?: true }
+export interface Rollable {
+  rollable?: true;
+  /**
+   * `rollAs: 'check'` ("Roll as a check"), instead of `rollable`: the leading whole number of a value is the target of a
+   * check, `15` rolling the set's default roll against it (`3d6 vs 15`). Written alone, so that an older Atlas, which
+   * does not know it, rolls nothing rather than the number as a bonus; where both are written the check wins.
+   */
+  rollAs?: 'check';
+}
+
+/** How a block rolls a number it shows: as a bonus (`+2`) or as the target of a check (`vs 15`). */
+export type RollMode = 'bonus' | 'check';
+
+/** The way a block rolls its numbers (`rollAs`, else `rollable`), undefined where it rolls none. */
+export function rollModeOf(block: Rollable): RollMode | undefined {
+  if (block.rollAs === 'check') return 'check';
+  return block.rollable === true ? 'bonus' : undefined;
+}
 /**
  * `addsToRolls` ("Add to next roll"), on a Value, Metric or Labels and values: each whole number it shows gets a
  * switch on the card that arms it for the statblock's next roll, which adds it as a term named by its label

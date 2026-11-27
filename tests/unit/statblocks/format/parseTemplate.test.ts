@@ -181,6 +181,25 @@ describe('parseTemplate: repairing the body', () => {
     expect(written.layout.blocks).toMatchObject([{ rollable: true }, { rollable: 'yes' }]);
   });
 
+  it('reads "Roll as a check" only as check, and writes it back with the template', () => {
+    const fields = [{ key: 'agi', label: 'Agility', type: 'number' }, { key: 'exp', label: 'Experiences', type: 'pairs' }];
+    const result = parseTemplate(minimal({
+      fields,
+      layout: { maxColumns: 2, blocks: [
+        { id: 'traits01', type: 'metric', fields: ['agi'], rollAs: 'check' },
+        { id: 'experie1', type: 'pairs', field: 'exp', rollAs: 'bonus' },
+      ] },
+    }));
+    const [metric, pairs] = result.template?.layout.blocks ?? [];
+    expect(metric).toMatchObject({ type: 'metric', rollAs: 'check' });
+    expect(metric).not.toHaveProperty('rollable');
+    expect(pairs).not.toHaveProperty('rollAs');
+    expect(result.problems).toHaveLength(1);
+    const written = serializeTemplate(result.template as StatblockTemplate);
+    expect(JSON.parse(written)).toMatchObject({ layout: { blocks: [{ rollAs: 'check' }, { rollAs: 'bonus' }] } });
+    expect(parseTemplate(written).template?.layout.blocks[0]).toMatchObject({ rollAs: 'check' });
+  });
+
   it('reads derivedFrom, source and importedFrom only when whole', () => {
     const template = parsed(minimal({
       derivedFrom: { templateId: 'builtin:generic-creature', revision: -1 },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { diceLinkProps } from '../../../services/statblockDiceLinks';
 import { splitDiceSegments } from '../../../services/statblockDiceText';
-import type { StatBlock } from '../../model/templateTypes';
+import { rollModeOf, type StatBlock } from '../../model/templateTypes';
 import { isDiceValue } from '../../values/diceValues';
 import type { BlockDisplay } from '../blockDisplay';
 import { bonusId } from '../../rollBonuses/armableValues';
@@ -41,7 +41,7 @@ export function StatView({ block, display }: BlockViewProps<StatBlock>): React.J
   const tracked = trackedShown(block.field, state);
   const value = <DisplayText display={display} />;
   const shown = display.state === 'value' ? display.text?.text ?? '' : '';
-  const linked = dice ? <span {...diceLinkProps(dice)}>{value}</span> : <BonusLink text={shown} rollable={block.rollable}>{value}</BonusLink>;
+  const linked = dice ? <span {...diceLinkProps(dice)}>{value}</span> : <BonusLink text={shown} rollable={rollModeOf(block)}>{value}</BonusLink>;
   const text = tracked ? <TrackedText field={block.field} value={tracked} /> : linked;
   // A tracked number whose maximum another field holds is filled in there
   const maxElsewhere = tracked !== null && state.tracked.get(block.field)?.maxField !== block.field;

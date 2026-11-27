@@ -13,7 +13,7 @@ import type { SheetMode, StatblockTokenContext } from './sheetTypes';
 import type { ResourceDefinition } from '../../resources/resourceTypes';
 import { trackedResources } from '../../resources/trackedResources';
 import { trackedNumbers, type TrackedNumber } from '../values/trackedNumbers';
-import type { RollParseOptions } from '../../tools/formulaTypes';
+import type { ValueRollOptions } from '../values/valueRolls';
 
 /** What deciding and writing a block's text needs; no React, no Obsidian. */
 export interface SheetState {
@@ -37,8 +37,8 @@ export interface SheetState {
   scriptReads: ReadonlyMap<string, readonly ScriptRead[]>;
   /** What a roll link on a value rolls, to the same roll naming the `@` references it was filled in from (`namedReferenceRolls`). */
   namedRolls: ReadonlyMap<string, string>;
-  /** How the statblock's text is read as rolls: the faces of a die written without them (`1d+1`) are its set's first die where the set opts in (`bareDie`). */
-  rollParse: RollParseOptions;
+  /** How the statblock's text is read as rolls: the faces of a die written without them (`1d+1`) are its set's first die where the set opts in (`bareDie`), and the set's default roll a number rolled as a check is the target of (`checkRoll`). */
+  rollParse: ValueRollOptions;
 }
 
 export interface SheetStateInput {
@@ -52,7 +52,7 @@ export interface SheetStateInput {
   /** The collection's resources, where known (else the token's): a number one of them reads is not tracked by the template. */
   resources?: readonly ResourceDefinition[] | undefined;
   /** How its text is read as rolls; the faces of a die written without them where its set opts in (`bareFacesOfStatblock`). */
-  rollParse?: RollParseOptions | undefined;
+  rollParse?: ValueRollOptions | undefined;
 }
 
 const NONE_FOLDED: ReadonlySet<string> = new Set();

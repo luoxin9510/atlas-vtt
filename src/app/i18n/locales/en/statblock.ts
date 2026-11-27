@@ -32,6 +32,7 @@ export const statblock = {
   'statblock.playersRead': 'Can see',
   'statblock.pluginMissing': 'Install and enable the Fantasy Statblocks plugin to preview statblocks.',
   'statblock.rollAsBonus': 'Roll as a bonus',
+  'statblock.rollAsCheck': 'Roll as a check',
   'statblock.spellcasting': 'Spellcasting',
   'statblock.traitDescription': 'trait description',
   'statblock.traitName': 'trait name',
