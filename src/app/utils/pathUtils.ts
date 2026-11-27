@@ -96,6 +96,9 @@ export const baseName = (path: string): string => path.slice(path.lastIndexOf('/
 /** A note's name as people read it: `Bestiary/Marsh Warden.md` → `Marsh Warden`. */
 export const noteName = (path: string): string => baseName(path).replace(/\.md$/i, '');
 
+/** A statblock's name: its note's, `Bestiary/Goblin.md` → `Goblin`. */
+export const statblockNameOf = (path: string): string => noteName(path);
+
 /** The folder of a vault path: `a/b/goblin.webp` → `a/b`; empty at the vault root. */
 export const parentPath = (path: string): string => path.slice(0, Math.max(0, path.lastIndexOf('/')));
 

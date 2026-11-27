@@ -107,22 +107,19 @@ export class DiceTool {
   private rollContestSides(
     first: string, second: string, source: DiceRollResult['source'] | undefined, origin: DiceRollOrigin | undefined, options: ContestOptions | undefined,
   ): [DiceRollResult, DiceRollResult] | null {
-    const firstSpec = contestSideSpec(first);
-    const secondSpec = contestSideSpec(second);
-    if (!firstSpec || !secondSpec) return null;
     const { rules } = rollingWith(this.getDiceRules(), options?.set);
-    const refused = refusalOf(firstSpec, rules, options?.advantage) ?? refusalOf(secondSpec, rules, options?.advantage);
-    if (refused) {
-      this.inputs.onFormulaError(refused);
-      return null;
-    }
-    const one = this.parseAndRoll(firstSpec, options, options?.sideSteps?.first);
-    const two = one && this.parseAndRoll(secondSpec, options, options?.sideSteps?.second);
-    if (!one || !two) return null;
-    markContest(one, two, this.inputs.rollId(), rollingWith(this.getDiceRules(), options?.set).rules, options?.names);
-    this.record(one, source, origin, options);
-    this.record(two, source, origin, options);
-    return [one, two];
+    const pair = rollContestPair(first, second, rules, () => this.inputs.rollId(), options?.names, {
+      precheck: (firstSpec, secondSpec) => {
+        const refused = refusalOf(firstSpec, rules, options?.advantage) ?? refusalOf(secondSpec, rules, options?.advantage);
+        if (refused) this.inputs.onFormulaError(refused);
+        return refused === null;
+      },
+      rollSide: (spec, side) => this.parseAndRoll(spec, options, options?.sideSteps?.[side]),
+    });
+    if (!pair) return null;
+    this.record(pair[0], source, origin, options);
+    this.record(pair[1], source, origin, options);
+    return pair;
   }
 
   /** Puts a rolled result in the history and announces it; a GM-only roll is marked `hidden` first. */
@@ -224,14 +221,36 @@ export function rollDiceFormula(
 export function rollContestFormulas(
   first: string, second: string, rules: DiceRules | RollingDice, inputs: DiceRollInputs, shown?: RolledWithSet, names?: ContestNames,
 ): [DiceRollResult, DiceRollResult] | null {
+  return rollContestPair(first, second, rules, () => inputs.rollId(), names, {
+    rollSide: (spec) => rollSpec(spec, rules, inputs, shown, undefined, false),
+  });
+}
+
+/** What differs between rolling a contest with a dice tool and without one. */
+interface ContestRoller {
+  /** Looks at both sides before anything is rolled; false stops the contest (and has said why). */
+  precheck?: (first: RollSpec, second: RollSpec) => boolean;
+  /** Rolls one side as a spec; null where it refuses. */
+  rollSide: (spec: RollSpec, side: 'first' | 'second') => DiceRollResult | null;
+}
+
+/**
+ * The core of rolling a contest: both sides read as checks, rolled in turn, marked as the two of one
+ * contest with the verdict on the second. Null, rolling nothing further, where a side is no check, the
+ * precheck stops it, or a side refuses.
+ */
+function rollContestPair(
+  first: string, second: string, rules: DiceRules | RollingDice, rollId: () => string, names: ContestNames | undefined, { precheck, rollSide }: ContestRoller,
+): [DiceRollResult, DiceRollResult] | null {
   const firstSpec = contestSideSpec(first);
   const secondSpec = contestSideSpec(second);
   if (!firstSpec || !secondSpec) return null;
-  const one = rollSpec(firstSpec, rules, inputs, shown, undefined, false);
-  const two = one && rollSpec(secondSpec, rules, inputs, shown, undefined, false);
-  if (!one || !two) return null;
-  markContest(one, two, inputs.rollId(), rules, names);
-  return [one, two];
+  if (precheck && !precheck(firstSpec, secondSpec)) return null;
+  const firstRoll = rollSide(firstSpec, 'first');
+  const secondRoll = firstRoll && rollSide(secondSpec, 'second');
+  if (!firstRoll || !secondRoll) return null;
+  markContest(firstRoll, secondRoll, rollId(), rules, names);
+  return [firstRoll, secondRoll];
 }
 
 /** `spec` with the steps that moved its target, where it is a check and there are any. */

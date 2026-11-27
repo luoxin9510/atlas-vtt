@@ -21,6 +21,7 @@ import { armedValues, armedTargetSteps, namedBareBonus, withArmedBonuses } from 
 import { splitCheckText } from '../dice/splitCheck';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
+import { statblockNameOf } from '../utils/pathUtils';
 
 export interface DiceRollSource {
   /** The view that owns this statblock; used for routing, never saved on the roll. */
@@ -213,7 +214,7 @@ export interface ContestSide {
 
 /** Who a side is: its token, else its statblock's note. */
 function sideName(source: DiceRollSource): string | undefined {
-  return source.tokenName || source.statblockPath?.split('/').pop()?.replace(/\.[^.]*$/, '') || undefined;
+  return source.tokenName || (source.statblockPath && statblockNameOf(source.statblockPath)) || undefined;
 }
 
 /**
@@ -225,8 +226,8 @@ function sideName(source: DiceRollSource): string | undefined {
  */
 export function rollStatblockContest(app: App, first: ContestSide, second: ContestSide): [DiceRollResult, DiceRollResult] | null {
   const armed = [armedOf(app, first.source), armedOf(app, second.source)] as const;
-  const one = thrownFormula(app, first.formula, armed[0], first.source, first.offMap);
-  const two = thrownFormula(app, second.formula, armed[1], second.source, second.offMap);
+  const firstRoll = thrownFormula(app, first.formula, armed[0], first.source, first.offMap);
+  const secondRoll = thrownFormula(app, second.formula, armed[1], second.source, second.offMap);
   const set = templateDiceSet(app, first.source.statblockPath);
   const names = { first: sideName(first.source), second: sideName(second.source) };
   const sideSteps = { first: targetStepsFor(app, first.formula, armed[0], first.source, first.offMap), second: targetStepsFor(app, second.formula, armed[1], second.source, second.offMap) };
@@ -238,11 +239,11 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
   const map = mapDice(app, context?.viewId ?? first.source.viewId);
   let results: [DiceRollResult, DiceRollResult] | null = null;
   if (map) {
-    results = map.tool.rollContest?.(one, two, options) ?? null;
+    results = map.tool.rollContest?.(firstRoll, secondRoll, options) ?? null;
     const covered = map.containerEl !== undefined && first.offMap?.covers?.(map.containerEl) === true;
     if (results && (!map.onScreen || covered)) results.forEach((result) => first.offMap?.show(result, true));
   } else if (first.offMap?.rollContest) {
-    results = first.offMap.rollContest(one, two, [rollSourceOf(first.source), rollSourceOf(second.source)], options);
+    results = first.offMap.rollContest(firstRoll, secondRoll, [rollSourceOf(first.source), rollSourceOf(second.source)], options);
     results?.forEach((result) => first.offMap?.show(result, false));
   }
   if (results) {

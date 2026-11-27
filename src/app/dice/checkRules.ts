@@ -6,6 +6,7 @@
  */
 
 import type { CheckRule } from './checkTypes';
+import { ruleRegistry } from './ruleRegistry';
 
 /** The default rule: success on a margin of 0 or more, criticals from the set's dice crit. */
 export const MARGIN_RULE_ID = 'builtin:margin';
@@ -17,31 +18,13 @@ export const marginRule: CheckRule = ({ margin, diceCrit }) => {
   return { success: margin >= 0, crit: null };
 };
 
-/** What each id has registered, oldest first: the last one decides, and a removed one is gone for good. */
-const rules = new Map<string, CheckRule[]>([[MARGIN_RULE_ID, [marginRule]]]);
+const registry = ruleRegistry<CheckRule>(MARGIN_RULE_ID, marginRule);
 
-/**
- * Registers `rule` under `id`, replacing a rule of that id. Returns a function that removes it
- * again: the rule it replaced comes back only while it is still registered itself, so a rule
- * that was removed never returns, whatever the order of the removals.
- */
-export function registerCheckRule(id: string, rule: CheckRule): () => void {
-  const stack = rules.get(id) ?? [];
-  stack.push(rule);
-  rules.set(id, stack);
-  return (): void => {
-    const at = stack.indexOf(rule);
-    if (at >= 0) stack.splice(at, 1);
-    if (stack.length === 0 && rules.get(id) === stack) rules.delete(id);
-  };
-}
+/** Registers `rule` under `id`, replacing a rule of that id; returns the function that removes it again (see `RuleRegistry`). */
+export const registerCheckRule = (id: string, rule: CheckRule): (() => void) => registry.register(id, rule);
 
 /** The rule registered under `id`, or undefined when nobody registered it. */
-export function checkRule(id: string): CheckRule | undefined {
-  return rules.get(id)?.at(-1);
-}
+export const checkRule = (id: string): CheckRule | undefined => registry.get(id);
 
 /** The ids of all registered rules, built-ins first. */
-export function checkRuleIds(): string[] {
-  return [...rules.keys()];
-}
+export const checkRuleIds = (): string[] => registry.ids();
