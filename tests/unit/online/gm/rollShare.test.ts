@@ -103,10 +103,13 @@ describe('the GM\'s GM-only rolls', () => {
     expect(gm.logged[0]?.roll).not.toHaveProperty('hidden');
   });
 
-  it('reach the log the same way while the player view shows no GM rolls', async () => {
+  it('leave players no trace while the player view shows no GM rolls, like any GM roll', async () => {
     const gm = await table(false);
     gm.bus.emit('dice-rolled', secretRoll(), origin('hero'));
-    expect(gm.logged[0]).toMatchObject({ mode: 'gm', to: ['gm'] });
+    expect(rollsSent(gm.sent)).toEqual([]);
+    expect(gm.logged).toHaveLength(1);
+    expect(gm.logged[0]).toMatchObject({ shared: false });
+    expect(gm.logged[0]).not.toHaveProperty('mode');
   });
 
   it('show players a secret entry and the GM the whole roll', async () => {

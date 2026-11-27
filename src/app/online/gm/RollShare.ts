@@ -85,10 +85,10 @@ export class RollShare {
   private readonly rolled = (result: DiceRollResult, origin?: DiceRollOrigin): void => {
     const who = this.roller ?? 'gm';
     const notes = this.notes;
+    // A GM's roll the players are not shown is in the GM's own log only, GM-only or not: no trace for players.
+    if (who === 'gm' && !this.ports.showGmRolls()) return void this.ports.logged?.({ who, roll: sharedRoll(result), token: null, shared: false, ...notes }, result.source);
     // A GM-only roll is the GM's alone: players are sent a secret entry (the audience of a `gm` roll), never the roll.
     if (result.hidden === true) return void this.ports.logged?.({ who, roll: sharedRoll(result), token: null, shared: true, mode: 'gm', to: rollAudience('gm', who), ...notes }, result.source);
-    // A GM's roll the players are not shown is in the GM's own log only.
-    if (who === 'gm' && !this.ports.showGmRolls()) return void this.ports.logged?.({ who, roll: sharedRoll(result), token: null, shared: false, ...notes }, result.source);
     const dice = this.dice;
     const scene = this.ports.scene();
     // Only an origin in this tab can name a token the shared scene shows.

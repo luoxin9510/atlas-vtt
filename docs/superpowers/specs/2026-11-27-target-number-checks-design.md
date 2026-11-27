@@ -8,11 +8,11 @@ Status: grilled and agreed with the owner, 2026-11-27 (15 decisions, below). Bra
 1. Scope stays whole: notation, check rules, bare-faced dice, GM-only rolls, display.
 2. Notation `vs` plus `≤`/`≥`; ASCII `<=`/`>=` keep meaning tallies.
 3. Direction: preset/set field `check`; unset follows `crit: 'roll-under'`, else over.
-4. Display wording (zh): 成功，差 N / 失败，差 N / 大成功 / 大失败，差 N; en: "Success by N" style.
+4. Display wording (zh): 成功，超出 N / 失败，差 N / 大成功 / 大失败，差 N (大失败 alone when the total met the target); en: "Success by N" style. (Success wording 超出 and the GM-only trace rule in 7 changed by the owner after the review, 2026-11-27.)
    System-specific words (a pack's own term for margin) are the pack's business, not Atlas'.
 5. P1 ships one built-in rule (`builtin:margin`) and an internal registry; P3 opens it to packs.
 6. Bare-faced dice only where the set opts in (`bareDie: true`).
-7. GM-only rolls: tray toggle; hidden from the player window; secret entry online; `hidden` kept
+7. GM-only rolls: tray toggle; hidden from the player window; online a secret entry only while GM rolls are shown to players (else no trace, like any GM roll); `hidden` kept
    in the scene's roll log.
 8. Entry points: tray input, clickable check text, `DiceTool.rollCheck`. Sheet buttons per skill
    belong to the rule pack (G2), built on `rollCheck`.

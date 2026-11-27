@@ -42,7 +42,7 @@ describe('checkLine', () => {
 
   it('reads in Chinese', () => {
     setLocale('zh', TRANSLATIONS);
-    expect(checkLine(rolled({ check: check(3) }))).toBe('成功，差 3');
+    expect(checkLine(rolled({ check: check(3) }))).toBe('成功，超出 3');
     expect(checkLine(rolled({ check: check(-2) }))).toBe('失败，差 2');
     expect(checkLine(rolled({ check: check(5, 'success') }))).toBe('大成功');
     expect(checkLine(rolled({ check: check(-11, 'failure') }))).toBe('大失败，差 11');

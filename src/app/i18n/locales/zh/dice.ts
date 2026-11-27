@@ -35,7 +35,7 @@ export const dice: Translation = {
   'dice.rollFormula': '投掷 {formula}',
   'dice.showRollsToPlayers': '向玩家显示我的投掷',
   'dice.showRollsToPlayersHint': '你的投掷也会出现在玩家窗口里。',
-  'dice.check.success': '成功，差 {n}',
+  'dice.check.success': '成功，超出 {n}',
   'dice.check.failure': '失败，差 {n}',
   'dice.check.critSuccess': '大成功',
   'dice.check.critFailure': '大失败，差 {n}',
