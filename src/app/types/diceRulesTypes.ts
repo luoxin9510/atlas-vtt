@@ -44,6 +44,8 @@ export interface DiceRules {
   check?: CheckDirection;
   /** The check rule (see `dice/checkRules`) that judges a check; unset: `builtin:margin`. An unknown id is kept as data. */
   checkRule?: string;
+  /** The contest rule (see `dice/contestRules`) that decides which of two checks won; unset: `builtin:contest-margin`. An unknown id is kept as data. */
+  contestRule?: string;
   /** `Nd` with no faces means the set's first die. */
   bareDie?: true;
 }

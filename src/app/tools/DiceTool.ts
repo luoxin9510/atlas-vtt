@@ -7,6 +7,8 @@ import { rollParseOptionsOf, rollingRules } from '../gameSystems/diceSets';
 import type { CheckDirection } from '../dice/checkTypes';
 import { buildRoll, specOfText, type RollSpec } from './buildRoll';
 import type { FormulaError } from './parseFormula';
+import { parseContest } from '../dice/parseContest';
+import { contestSideSpec, markContest, type ContestNames } from './contestRoll';
 
 /** How a roll is made besides its formula. */
 export interface RollOptions {
@@ -18,6 +20,11 @@ export interface RollOptions {
   setAppearance?: boolean | undefined;
   /** Who sees the roll: `'gm'` keeps it from the player window and online players (they see a secret entry); unset is everyone. */
   visibility?: 'all' | 'gm' | undefined;
+}
+
+/** How a contest is rolled: the options of any roll, and who the two sides are. */
+export interface ContestOptions extends RollOptions {
+  names?: ContestNames | undefined;
 }
 
 /** How a check is rolled: the options of any roll, and a direction that overrides the system's. */
@@ -68,6 +75,8 @@ export class DiceTool {
    * name a dice set instead of the collection's and a side of advantage.
    */
   public rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null {
+    const contest = parseContest(formula, rollParseOptionsOf(rollingWith(this.getDiceRules(), options?.set).rules));
+    if (contest) return this.rollContestSides(contest.first, contest.second, source, origin, options)?.[1] ?? null;
     return this.record(this.parseAndRoll(formula, options), source, origin, options);
   }
 
@@ -78,6 +87,32 @@ export class DiceTool {
   public rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null {
     const written = options?.direction;
     return this.record(this.parseAndRoll({ formula, check: { target, ...(written && { written }) } }, options), undefined, undefined, options);
+  }
+
+  /**
+   * Rolls two checks against each other: `first`, then `second`, each a check (`3d6 vs 12`) or a bare
+   * target (`12`, the set's default roll against it), as `rollCheck` rolls one. Both are logged and
+   * announced as two normal rolls and carry a `contest` that names the pair and the verdict (on the
+   * second). Null, with nothing rolled, where a side is no check or refuses its formula. `rollDice`
+   * rolls contest text (`12 对 14`) the same way and returns the second result.
+   */
+  public rollContest(first: string, second: string, options?: ContestOptions): [DiceRollResult, DiceRollResult] | null {
+    return this.rollContestSides(first, second, undefined, undefined, options);
+  }
+
+  private rollContestSides(
+    first: string, second: string, source: DiceRollResult['source'] | undefined, origin: DiceRollOrigin | undefined, options: ContestOptions | undefined,
+  ): [DiceRollResult, DiceRollResult] | null {
+    const firstSpec = contestSideSpec(first);
+    const secondSpec = contestSideSpec(second);
+    if (!firstSpec || !secondSpec) return null;
+    const one = this.parseAndRoll(firstSpec, options);
+    const two = one && this.parseAndRoll(secondSpec, options);
+    if (!one || !two) return null;
+    markContest(one, two, this.inputs.rollId(), rollingWith(this.getDiceRules(), options?.set).rules, options?.names);
+    this.record(one, source, origin, options);
+    this.record(two, source, origin, options);
+    return [one, two];
   }
 
   /** Puts a rolled result in the history and announces it; a GM-only roll is marked `hidden` first. */

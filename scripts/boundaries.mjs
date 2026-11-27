@@ -53,6 +53,7 @@ export const BOUNDARIES = {
       "src/app/resources/sceneVisibility.ts",
       "src/app/dice/checkLine.ts",
       "src/app/dice/checkTypes.ts",
+      "src/app/dice/contestTypes.ts",
       "src/app/dice/splitCheck.ts",
       "src/app/tools/diceCrit.ts",
       "src/app/tools/diceExplosion.ts",

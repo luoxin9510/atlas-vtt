@@ -1,4 +1,5 @@
 import type { CheckResult } from '../dice/checkTypes';
+import type { RollContest } from '../dice/contestTypes';
 import type { DiceCrit } from '../tools/diceCrit';
 import type { NamedModifier, RolledDie } from '../tools/diceFormula';
 import type { AdvantageSide, RolledWithSet } from './diceSetTypes';
@@ -23,6 +24,8 @@ export interface DiceRollResult {
   crit?: DiceCrit;
   /** The verdict where the roll was a check against a target (`3d6 vs 10`); its formula is then the check text. */
   check?: CheckResult;
+  /** Set where the roll is one side of a contest (two checks against each other); both results share its `id`, the verdict is on the second. */
+  contest?: RollContest;
   /** The dice set a bare bonus rolled with, where it was not the collection's own (a statblock template's). */
   diceSet?: RolledWithSet;
   /** The side of advantage the roll was made with, where the set's rule changed it; the dice it dropped are marked `dropped`. */
