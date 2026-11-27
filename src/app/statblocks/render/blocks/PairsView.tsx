@@ -1,5 +1,6 @@
 import React from 'react';
-import type { PairsBlock } from '../../model/templateTypes';
+import { type PairsBlock } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import { bonusId, type ArmableValues } from '../../rollBonuses/armableValues';
 import { BONUS_ID_ATTRIBUTE } from '../../rollBonuses/armedBonuses';
 import { useRollBonusTarget } from '../../rollBonuses/rollBonusContext';
@@ -42,7 +43,7 @@ function PairList({ block, pairs, signed, armable }: PairListProps): React.JSX.E
             <span data-roll-name={name || undefined} {...(arm && { className: 'atlas-sb-arm-line', [BONUS_ID_ATTRIBUTE]: id })}>
               {name && <InlineText text={name} app={app} sourcePath={sourcePath} dice={false} />}
               {name && value && ' '}
-              {value && <BonusLink text={value} rollable={block.rollable}><InlineText text={value} app={app} sourcePath={sourcePath} dice /></BonusLink>}
+              {value && <BonusLink text={value} rollable={rollModeOf(block)}><InlineText text={value} app={app} sourcePath={sourcePath} dice /></BonusLink>}
               {arm && <ArmSwitch id={id} label={arm.label} />}
             </span>
           </React.Fragment>
@@ -64,7 +65,7 @@ export function PairsView({ block, display }: BlockViewProps<PairsBlock>): React
   const target = useRollBonusTarget();
   const armable = block.addsToRolls ? target?.armable : undefined;
   const arms = armable !== undefined && pairs.some((pair) => armable.has(bonusId(block.field, pair.key)));
-  const shown = (block.rollable && pairs.length > 0) || arms
+  const shown = (rollModeOf(block) && pairs.length > 0) || arms
     ? <PairList block={block} pairs={pairs} signed={signed} armable={armable} />
     : <ValueText shown={{ text, problems: [] }} />;
 

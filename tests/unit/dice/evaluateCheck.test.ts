@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerCheckRule } from '../../../src/app/dice/checkRules';
 import { checkDirection, evaluateCheck } from '../../../src/app/dice/evaluateCheck';
 import type { DiceRules } from '../../../src/app/types/diceRulesTypes';
@@ -98,6 +98,39 @@ describe('check rules by id', () => {
     const rolling = d20Set('none', { checkRule: 'pack:unknown' });
     expect(evaluateCheck({ rolling, rolls, total: 10, target: 10 })).toMatchObject({ success: true, rule: 'builtin:margin' });
     expect(evaluateCheck({ rolling, rolls, total: 9, target: 10 })).toMatchObject({ success: false, rule: 'builtin:margin' });
+  });
+
+  it('falls back to the margin rule, naming it and logging the rule id once, when the rule throws', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    cleanup.push(() => logged.mockRestore());
+    cleanup.push(registerCheckRule('test:throws', () => { throw new Error('boom'); }));
+    const rolling = d20Set('none', { checkRule: 'test:throws' });
+    expect(evaluateCheck({ rolling, rolls, total: 10, target: 10 })).toMatchObject({ success: true, rule: 'builtin:margin' });
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0]?.[0])).toContain('test:throws');
+  });
+
+  it('logs a failing rule once, not on every roll it judges', () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    cleanup.push(() => logged.mockRestore());
+    cleanup.push(registerCheckRule('test:always-throws', () => { throw new Error('boom'); }));
+    const rolling = d20Set('none', { checkRule: 'test:always-throws' });
+    for (let roll = 0; roll < 3; roll += 1) evaluateCheck({ rolling, rolls, total: 10, target: 10 });
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a success that is no boolean', { success: 'yes', crit: null }],
+    ['a crit that is no known value', { success: true, crit: 'big' }],
+    ['a missing crit', { success: true }],
+    ['no outcome at all', undefined],
+  ])('falls back to the margin rule on %s', (_name, outcome) => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    cleanup.push(() => logged.mockRestore());
+    cleanup.push(registerCheckRule('test:bad', () => outcome as never));
+    const rolling = d20Set('none', { checkRule: 'test:bad' });
+    expect(evaluateCheck({ rolling, rolls, total: 9, target: 10 })).toMatchObject({ success: false, crit: null, rule: 'builtin:margin' });
+    expect(logged).toHaveBeenCalledTimes(1);
   });
 
   it('stops using a rule once it is unregistered', () => {

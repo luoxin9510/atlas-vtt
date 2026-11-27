@@ -22,6 +22,8 @@ export const MAX_BLOCK_DEPTH = 32;
 const TEXT = 'text';
 /** A switch that is written only while it is on. */
 const ON = 'true';
+/** The way a block rolls its numbers besides as a bonus (`rollable`): as the target of a check. */
+const ROLL_AS = ['check'] as const;
 /** Block field references are text; '' is a block not yet bound to a field (`createBlock`), which the editor saves. */
 const KEY = 'a field key';
 const asFieldRef = asString;
@@ -81,6 +83,7 @@ const BODY_READERS: { [T in FileBlockType]: BodyRead<T> } = {
     ...optionalOneOf(r, 'display', DISPLAYS),
     ...r.opt('rollFrom', asFieldRef, KEY),
     ...r.opt('rollable', asTrue, ON),
+    ...optionalOneOf(r, 'rollAs', ROLL_AS),
     ...r.opt('addsToRolls', asTrue, ON),
   })),
   metric: (r) => {
@@ -88,7 +91,14 @@ const BODY_READERS: { [T in FileBlockType]: BodyRead<T> } = {
     const raw = r.rawValue('fields');
     const fields = Array.isArray(raw) && raw.length > 0 ? r.requiredList('fields', asFieldRef, 'field keys') : [];
     if (fields.length === 0) return { missing: 'fields' };
-    return { type: 'metric', ...r.opt('heading', asString, TEXT), fields, ...r.opt('rollable', asTrue, ON), ...r.opt('addsToRolls', asTrue, ON) };
+    return {
+      type: 'metric',
+      ...r.opt('heading', asString, TEXT),
+      fields,
+      ...r.opt('rollable', asTrue, ON),
+      ...optionalOneOf(r, 'rollAs', ROLL_AS),
+      ...r.opt('addsToRolls', asTrue, ON),
+    };
   },
   scores: (r) => withField(r, (field) => ({
     type: 'scores',
@@ -98,6 +108,7 @@ const BODY_READERS: { [T in FileBlockType]: BodyRead<T> } = {
     ...optionalOneOf(r, 'display', DISPLAYS),
     ...r.optList('columns', (item, index) => readScoreColumn(item, index, r.where, r.problems), 'columns'),
     ...r.opt('rollable', asTrue, ON),
+    ...optionalOneOf(r, 'rollAs', ROLL_AS),
   })),
   tags: (r) => withField(r, (field) => ({
     type: 'tags', field, look: oneOf(r, 'look', TAG_LOOKS), ...r.opt('label', asString, TEXT),
@@ -119,6 +130,7 @@ const BODY_READERS: { [T in FileBlockType]: BodyRead<T> } = {
     ...r.opt('label', asString, TEXT),
     ...optionalOneOf(r, 'display', DISPLAYS),
     ...r.opt('rollable', asTrue, ON),
+    ...optionalOneOf(r, 'rollAs', ROLL_AS),
     ...r.opt('addsToRolls', asTrue, ON),
   })),
   track: (r) => withField(r, (field) => ({

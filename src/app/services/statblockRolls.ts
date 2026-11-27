@@ -13,11 +13,11 @@ import type { DiceRollOrigin, TokenRollContext } from '../types/diceRollOrigin';
 import { rollOrigin } from '../tools/diceRollOrigins';
 import type { AdvantageSide, RollingDice } from '../types/diceSetTypes';
 import { templateDiceSet } from '../statblocks/resolve/templateDiceSet';
-import type { RollOptions } from '../tools/DiceTool';
+import type { CheckOptions, RollOptions } from '../tools/DiceTool';
 import { ArmedBonuses, type ArmedBonus } from '../statblocks/rollBonuses/armedBonuses';
 import type { ArmableValues } from '../statblocks/rollBonuses/armableValues';
 import { armedValues, namedBareBonus, withArmedBonuses } from '../statblocks/rollBonuses/bonusFormula';
-import { bareDieFaces } from '../gameSystems/diceSets';
+import { splitCheckText } from '../dice/splitCheck';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
 
@@ -67,8 +67,10 @@ export interface OffMapRolls {
   covers?(mapEl: HTMLElement): boolean;
 }
 
-interface DiceToolLike {
+/** The part of a map's dice tool that rolls use. */
+export interface DiceToolLike {
   rollDice(formula: string, source?: DiceRollResult['source'], origin?: DiceRollOrigin, options?: RollOptions): DiceRollResult | null;
+  rollCheck(formula: string, target: number, options?: CheckOptions): DiceRollResult | null;
   rollingDice?(set?: RollOptions['set']): RollingDice;
 }
 
@@ -105,6 +107,11 @@ function mapDice(app: App, viewId: string | undefined): MapDice | null {
   return hidden;
 }
 
+/** The dice tool of a map open in Atlas (one on screen first), for rolls that belong to no statblock; null while none is open. */
+export function openMapDiceTool(app: App): DiceToolLike | null {
+  return mapDice(app, undefined)?.tool ?? null;
+}
+
 function rollSourceOf(source: DiceRollSource): NonNullable<DiceRollResult['source']> {
   const rollSource: NonNullable<DiceRollResult['source']> = { type: 'statblock' };
   if (source.tokenId) rollSource.tokenId = source.tokenId;
@@ -137,12 +144,13 @@ export function statblockRollingDice(app: App, source: DiceRollSource, offMap?: 
  */
 function thrownFormula(app: App, formula: string, armed: readonly ArmedBonus[], source: DiceRollSource, offMap: OffMapRolls | null | undefined): string {
   const rules = statblockRollingDice(app, source, offMap);
-  const faces = rules ? bareDieFaces(rules) : undefined;
-  const plain = withArmedBonuses(formula, armed, faces);
+  const plain = withArmedBonuses(formula, armed, rules ?? undefined);
   const named = source.namedRolls?.get(formula) ?? namedBareBonus(formula, source.abilityName);
   if (named === null) return plain;
-  const withNames = withArmedBonuses(named, armed, faces);
-  return (rules ? completeFormula(withNames, rules) : parseFormula(withNames)).ok ? withNames : plain;
+  const withNames = withArmedBonuses(named, armed, rules ?? undefined);
+  // A check is judged by its formula: the target after it is no part of what the dice roll
+  const rolled = splitCheckText(withNames)?.formula ?? withNames;
+  return (rules ? completeFormula(rolled, rules) : parseFormula(rolled)).ok ? withNames : plain;
 }
 
 /**

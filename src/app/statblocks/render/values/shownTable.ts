@@ -1,6 +1,7 @@
 import { noteTable } from '../../values/tableValues';
 import { cellOf, type TableColumn, type TableGrid } from '../../model/tableGrid';
-import type { FieldValue, ScoreColumn, ScoresBlock, TableCell, TemplateField } from '../../model/templateTypes';
+import { type FieldValue, type RollMode, type ScoreColumn, type ScoresBlock, type TableCell, type TemplateField } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import { isEmptyValue } from '../../values/emptyValue';
 import { formatSigned, numericValue } from '../../values/numberText';
 import { pairValue } from '../../values/pairValues';
@@ -25,8 +26,8 @@ export interface ShownTable {
   cells: ShownText[][];
   /** Its worked-out rows, drawn while it holds one row. */
   derived: DerivedRow[];
-  /** Whether a whole number in a cell or worked-out cell rolls as a bonus (`ScoresBlock.rollable`). */
-  rollable?: boolean | undefined;
+  /** How a whole number in a cell or worked-out cell rolls, as a bonus or as a check (`rollModeOf`); unset, it does not. */
+  rollable?: RollMode | undefined;
 }
 
 function shownCell(cell: TableCell, signed: boolean): ShownText {
@@ -59,6 +60,7 @@ function derivedCell(row: ScoreColumn, column: TableColumn, cell: TableCell, she
 /** The table `grid` as `block` draws it for the statblock: its cells as they show, its worked-out rows. */
 export function shownGrid(block: ScoresBlock, field: TemplateField, grid: TableGrid, sheet: SheetState): ShownTable {
   const signed = block.display === 'signed';
+  const mode = rollModeOf(block);
   const [only] = grid.rows;
   const derived = grid.rows.length === 1 && only
     ? (block.columns ?? []).map((row) => ({
@@ -71,7 +73,7 @@ export function shownGrid(block: ScoresBlock, field: TemplateField, grid: TableG
     header: field.header !== false,
     cells: grid.rows.map((row) => row.map((cell) => shownCell(cell, signed))),
     derived,
-    ...(block.rollable && { rollable: true }),
+    ...(mode && { rollable: mode }),
   };
 }
 

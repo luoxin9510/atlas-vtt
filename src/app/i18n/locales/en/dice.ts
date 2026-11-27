@@ -15,6 +15,8 @@ export const dice = {
   'dice.roll': 'Roll',
   'dice.rollWithAdvantage': 'Roll with advantage',
   'dice.rollWithDisadvantage': 'Roll with disadvantage',
+  'dice.rollWithModifier': 'Roll with a modifier…',
+  'dice.modifierInvalid': 'Enter a whole number such as -2 or +3.',
   'dice.shiftClick': 'Shift-click',
   'dice.altClick': 'Alt-click',
   'dice.optionClick': 'Option-click',

@@ -32,6 +32,7 @@ export const statblock: Translation = {
   'statblock.playersRead': '可查看',
   'statblock.pluginMissing': '请安装并启用 Fantasy Statblocks 插件以预览属性块。',
   'statblock.rollAsBonus': '作为加值投掷',
+  'statblock.rollAsCheck': '作为检定投掷',
   'statblock.spellcasting': '施法',
   'statblock.traitDescription': '特质描述',
   'statblock.traitName': '特质名称',

@@ -9,6 +9,7 @@
 import type { Comparison, ComparisonOperator } from './diceComparison';
 import { MAX_EXPLOSIONS, type Explosion } from './diceExplosion';
 import type { ConstantTerm, DiceKeep, DiceReroll, DiceTally, DiceTerm } from './formulaTypes';
+import type { RollParseOptions } from './formulaTypes';
 
 export type TermDraft = Omit<DiceTerm, 'negative'> | Omit<ConstantTerm, 'negative'>;
 
@@ -50,11 +51,11 @@ function matchDice(text: string, at: number, defaultFaces: number | undefined): 
 }
 
 /**
- * The term at `at` and where it ends, or null when none starts there. `defaultFaces` is the number
+ * The term at `at` and where it ends, or null when none starts there. `options.defaultFaces` is the number
  * of faces of a die written without them (`3d`); unset, such a die is no term.
  */
-export function readTerm(text: string, at: number, defaultFaces?: number): { term: TermDraft; end: number } | null {
-  const head = matchDice(text, at, defaultFaces);
+export function readTerm(text: string, at: number, options: RollParseOptions = {}): { term: TermDraft; end: number } | null {
+  const head = matchDice(text, at, options.defaultFaces);
   if (!head) {
     const constant = matchAt(CONSTANT, text, at);
     if (!constant) return null;

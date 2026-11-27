@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import type { CellAt } from '../../model/tableGrid';
 import { HEADER_ROW } from '../../model/tableGrid';
 import type { TableAlign } from '../../model/templateTypes';
+import type { RollSwitch } from '../../values/valueRolls';
 import { SheetContext, useSheet } from '../sheetContext';
 import { BonusLink } from '../shared/BonusLink';
 import { InlineText } from '../shared/InlineText';
@@ -52,7 +53,7 @@ function alignStyle(align: TableAlign | null): React.CSSProperties | undefined {
  * A cell's text, Markdown drawn as a note's table draws it, or a zero-width space that keeps an empty cell one line
  * high, as Obsidian keeps one with a line break. In a rollable table a whole number rolls as a bonus.
  */
-export function CellText({ shown, rollable }: { shown: ShownText; rollable?: boolean | undefined }): React.JSX.Element {
+export function CellText({ shown, rollable }: { shown: ShownText; rollable?: RollSwitch }): React.JSX.Element {
   const sheet = useContext(SheetContext);
   const text = <InlineText text={shown.text} app={sheet?.app} sourcePath={sheet?.sourcePath} dice />;
   return (

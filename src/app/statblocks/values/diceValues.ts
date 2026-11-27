@@ -9,19 +9,20 @@ import { writtenRoll } from '../../tools/textRolls';
 import { fillReferences } from './fillReferences';
 import type { FieldLookup } from './references';
 import type { LookupTrace, TracedLookup } from './statblockLookup';
+import type { RollParseOptions } from '../../tools/formulaTypes';
 
-/** Whether a Dice value written without references rolls as a whole; `defaultFaces` the faces of a die written without them (`1d+1`). */
-export function isDiceValue(text: string, defaultFaces?: number): boolean {
-  return writtenRoll(text, defaultFaces) !== null;
+/** Whether a Dice value written without references rolls as a whole; `options.defaultFaces` the faces of a die written without them (`1d+1`). */
+export function isDiceValue(text: string, options: RollParseOptions = {}): boolean {
+  return writtenRoll(text, options) !== null;
 }
 
 /**
  * Whether a Dice value rolls once its `@` references are filled in by `lookup` (`1d8 + @str`): every
  * one must name a number, and the filled text must roll. The value itself keeps its references.
  */
-export function rollsWithReferences(text: string, lookup: FieldLookup, defaultFaces?: number): boolean {
+export function rollsWithReferences(text: string, lookup: FieldLookup, options: RollParseOptions = {}): boolean {
   const filled = fillReferences(text, lookup);
-  return filled.unresolved.length === 0 && isDiceValue(filled.text, defaultFaces);
+  return filled.unresolved.length === 0 && isDiceValue(filled.text, options);
 }
 
 const sameTrace = (a: LookupTrace, b: LookupTrace): boolean => a.length === b.length && a.every((read, at) => read === b[at]);

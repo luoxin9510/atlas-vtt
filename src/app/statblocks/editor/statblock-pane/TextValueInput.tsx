@@ -7,6 +7,7 @@ import { PLAIN_TEXT } from '../markdown-typing/textFields';
 import { useFieldDraft } from './useFieldDraft';
 import { WarningDot } from './ValueMarks';
 import { valuePlaceholder, valueProblem } from './valuePatches';
+import type { RollParseOptions } from '../../../tools/formulaTypes';
 
 export interface ValueInputProps {
   field: TemplateField;
@@ -22,9 +23,9 @@ const STEPS: Readonly<Record<string, number>> = { ArrowUp: 1, ArrowDown: -1 };
 const PLAIN_TYPES: ReadonlySet<TemplateField['type']> = new Set(['number', 'dice']);
 
 /** "avg 13" for dice that roll; nothing for text that is not dice yet. */
-function averageHint(field: TemplateField, draft: string, defaultFaces: number | undefined): string | null {
+function averageHint(field: TemplateField, draft: string, options: RollParseOptions): string | null {
   if (field.type !== 'dice') return null;
-  const average = diceAverage(draft, defaultFaces);
+  const average = diceAverage(draft, options);
   return average === null ? null : `avg ${formatNumber(Math.round(average * 10) / 10)}`;
 }
 
@@ -37,9 +38,9 @@ export function TextValueInput({ field, autoFocus, placeholder }: ValueInputProp
   const inputRef = useRef<HTMLInputElement>(null);
   const { pane, draft, setDraft, onKey, focusProps } = useFieldDraft(field, inputRef, autoFocus);
   // A die written without faces has those of the statblock's set where it opts in
-  const { defaultFaces } = pane.sheet;
-  const problem = valueProblem(field, draft, defaultFaces);
-  const hint = averageHint(field, draft, defaultFaces);
+  const { rollParse } = pane.sheet;
+  const problem = valueProblem(field, draft, rollParse);
+  const hint = averageHint(field, draft, rollParse);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     if (onKey(event)) return;

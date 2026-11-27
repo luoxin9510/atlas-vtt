@@ -70,7 +70,7 @@ describe('StatblockSheet with a template set that opts in to bare dice', () => {
 
 describe('DiceText inside a sheet', () => {
   it.each([[6, ['1d+2']], [undefined, []]])('links bare dice by the sheet faces (%s)', (defaultFaces, expected) => {
-    const state = sheetState({ template: PLAIN, record: {}, mode: 'view', defaultFaces });
+    const state = sheetState({ template: PLAIN, record: {}, mode: 'view', rollParse: { defaultFaces } });
     const { container } = render(
       <SheetContext.Provider value={{ state, app: undefined, sourcePath: undefined }}><DiceText text="Bites for 1d+2" /></SheetContext.Provider>,
     );
@@ -82,7 +82,7 @@ describe('linkDiceIn with the faces of a statblock', () => {
   it.each([[6, ['1d+2']], [undefined, []]])('links bare dice only where faces are given (%s)', (defaultFaces, expected) => {
     const el = document.createElement('div');
     el.textContent = 'Bites for 1d+2';
-    linkDiceIn(el, defaultFaces);
+    linkDiceIn(el, { defaultFaces });
     expect([...el.querySelectorAll<HTMLElement>('.atlas-dice-link')].map((link) => link.dataset.formula)).toEqual(expected);
   });
 });

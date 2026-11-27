@@ -37,8 +37,7 @@ import { presentedSceneOf, type PresentedSceneSource } from './src/app/services/
 import { AssetService } from './src/app/services/AssetService';
 import { SettingsService } from './src/app/services/SettingsService';
 import { addStarterTokens } from './src/app/services/starterTokens';
-import { migratePlayerResourceVisibility } from './src/app/resources/playerVisibilityMigration';
-import { storeLegacyCollectionResources } from './src/app/services/collectionScenes';
+import { carryOverTokenBars } from './src/app/plugin/tokenBarCarryOver';
 import type { WidgetSyncService } from './src/app/services/WidgetSyncService';
 import { registerDiceLookSync } from './src/app/plugin/diceLookSync';
 import { registerAccentColorSync } from './src/app/plugin/accentColorSync';
@@ -61,6 +60,7 @@ import { registerPartySync } from './src/app/plugin/partySync';
 import type { OnlinePlay } from './src/app/plugin/onlinePlay';
 import { registerSettingsTab } from './src/app/plugin/settingsTab';
 import type { TableChat } from './src/app/online/gm/tableChat';
+import { RulePacks, type RulePackApi } from './src/app/rulePacks/rulePackApi';
 import { registerPlayerWindowReloadCleanup } from './src/app/plugin/playerWindowReload';
 import { registerReturnToAtlasOnClose } from './src/app/plugin/returnToAtlasOnClose';
 import { runStartupMigration } from './src/app/plugin/startupMigration';
@@ -102,6 +102,12 @@ export default class AtlasVTTPlugin extends Plugin {
     return this.onlinePlay?.chat() ?? null;
   }
 
+  /** What rule pack plugins use: wait for Atlas, register check rules, roll dice and checks. Its registrations end when Atlas unloads. */
+  get rulePacks(): RulePackApi {
+    return this.packs;
+  }
+
+  private readonly packs = new RulePacks(this.app);
   private onlinePlay: OnlinePlay | null = null;
   /**
    * Obsidian may unload Atlas while `onload` still awaits (a reload during startup, such as two
@@ -212,27 +218,19 @@ export default class AtlasVTTPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       if (this.unloaded) return;
-      registerColorSwatchIcons();
-      this.imageDisplayService.registerContextMenu();
-      registerStatusBarVisibility(this);
-      this.changelogService?.showUpdates();
-      runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
-      runInBackground(this.carryOverTokenBars(), 'Carrying over the token bar settings');
-      runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
+      try {
+        registerColorSwatchIcons();
+        this.imageDisplayService.registerContextMenu();
+        registerStatusBarVisibility(this);
+        this.changelogService?.showUpdates();
+        runInBackground(addStarterTokens(this.app, AssetService.getInstance(this.app), this.settingsService), 'Adding the starter tokens');
+        runInBackground(carryOverTokenBars(this.app, this.settingsService), 'Carrying over the token bar settings');
+        runInBackground(migrateLegacySnapshots(this.app, AssetService.getInstance(this.app)), 'Moving scene snapshots into their collections');
+      } finally {
+        // Last, and even where the above threw: packs waiting in `whenReady` must not wait for ever (it does nothing once unloaded).
+        this.packs.markReady();
+      }
     });
-  }
-
-  /**
-   * Once per collection and vault: the HP and secondary bars of collections saved before
-   * resources existed become their resources, and what the old player-window switches
-   * showed becomes "visible to players" on them.
-   */
-  private async carryOverTokenBars(): Promise<void> {
-    await this.settingsService.initialize();
-    const assets = AssetService.getInstance(this.app);
-    await assets.initialize();
-    await storeLegacyCollectionResources(this.app);
-    await migratePlayerResourceVisibility(this.settingsService, assets);
   }
 
   /** Obsidian calls this when `data.json` changed on disk, e.g. a sync brought another device's settings. */
@@ -242,6 +240,7 @@ export default class AtlasVTTPlugin extends Plugin {
 
   onunload(): void {
     this.unloaded = true;
+    this.packs.dispose();
     setAtlasPluginId('');
     this.changelogService?.destroy();
     void this.settingsService?.saveSettingsNow();

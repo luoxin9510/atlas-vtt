@@ -92,7 +92,7 @@ export function usePaneEditor(options: PaneEditorOptions): PaneEditor {
   if (!sameIds(foldedRef.current, foldedNow)) foldedRef.current = foldedNow;
   const foldedSet = foldedRef.current;
   const defaultFaces = statblockBareFaces(app, template.diceSetId, collectionId, notePath);
-  const sheet = useMemo(() => sheetState({ template, record, mode: 'editing', folded: foldedSet, defaultFaces }), [template, record, foldedSet, defaultFaces]);
+  const sheet = useMemo(() => sheetState({ template, record, mode: 'editing', folded: foldedSet, rollParse: { defaultFaces } }), [template, record, foldedSet, defaultFaces]);
   const spots = useMemo(() => editableSpots(template, sheet), [template, sheet]);
   const latest = useRef({ record, options, conflicts });
   latest.current = { record, options, conflicts };

@@ -17,6 +17,7 @@ import { parsePairText } from './pairValues';
 import { quoted } from './valueText';
 import { NUMBER_SUM, withReferencesAsOne } from './fillReferences';
 import { namesReference } from './references';
+import type { RollParseOptions } from '../../tools/formulaTypes';
 
 /** `value: undefined` means the key is cleared. */
 export type CoercionResult =
@@ -26,7 +27,7 @@ export type CoercionResult =
 /** What a choice field accepts; other types ignore it. */
 export type CoercionConstraints = ChoiceShape;
 
-type Coercer = (text: string, input: string, constraints: CoercionConstraints | undefined, defaultFaces: number | undefined) => CoercionResult;
+type Coercer = (text: string, input: string, constraints: CoercionConstraints | undefined, options: RollParseOptions) => CoercionResult;
 
 function kept(value: FieldValue): CoercionResult {
   return { ok: true, value };
@@ -49,10 +50,10 @@ function coerceRating(text: string, input: string): CoercionResult {
   return parseRating(text) === null ? refused(input, t('sbValues.coerce.notRating', { value: quoted(text) })) : kept(text);
 }
 
-function coerceDice(text: string, input: string, _constraints?: CoercionConstraints, defaultFaces?: number): CoercionResult {
+function coerceDice(text: string, input: string, _constraints?: CoercionConstraints, options: RollParseOptions = {}): CoercionResult {
   // `2d6 + @str` is kept as written: the card shows and rolls it with the number in
-  if (isDiceValue(namesReference(text) ? withReferencesAsOne(text) : text, defaultFaces)) return kept(text);
-  const problem = t(parseDiceNotation(text, defaultFaces) ? 'sbValues.coerce.noDice' : 'sbValues.coerce.notDice', { value: quoted(text) });
+  if (isDiceValue(namesReference(text) ? withReferencesAsOne(text) : text, options)) return kept(text);
+  const problem = t(parseDiceNotation(text, options) ? 'sbValues.coerce.noDice' : 'sbValues.coerce.notDice', { value: quoted(text) });
   return refused(input, problem);
 }
 
@@ -120,13 +121,13 @@ const COERCERS: Readonly<Record<FieldType, Coercer>> = {
 
 /**
  * The value `input` stores in a field of `type`. Blank input clears the key.
- * `constraints` are the field's choice options. `defaultFaces`: the faces of a die a Dice value writes
+ * `constraints` are the field's choice options. `options.defaultFaces`: the faces of a die a Dice value writes
  * without them (`1d+1`), where the statblock's set opts in (`bareDieFaces`).
  */
-export function coerce(type: FieldType, input: string, constraints?: CoercionConstraints, defaultFaces?: number): CoercionResult {
+export function coerce(type: FieldType, input: string, constraints?: CoercionConstraints, options: RollParseOptions = {}): CoercionResult {
   const text = input.trim();
   if (text === '') return { ok: true, value: undefined };
   // A type from a newer template is not in the table; its text is kept as typed.
   const coercer = Object.hasOwn(COERCERS, type) ? COERCERS[type] : COERCERS.text;
-  return coercer(text, input, constraints, defaultFaces);
+  return coercer(text, input, constraints, options);
 }

@@ -56,6 +56,15 @@ describe('the registry', () => {
     expect(checkRule('test:taken')).toBe(never);
   });
 
+  it('never brings back a rule that was unregistered, whatever the order', () => {
+    const first = registerCheckRule('test:order', always);
+    const second = registerCheckRule('test:order', never);
+    first();
+    expect(checkRule('test:order')).toBe(never);
+    second();
+    expect(checkRule('test:order')).toBeUndefined();
+  });
+
   it('does not know an id nobody registered', () => {
     expect(checkRule('test:missing')).toBeUndefined();
   });

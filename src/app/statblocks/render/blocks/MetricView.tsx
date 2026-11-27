@@ -15,7 +15,8 @@ import { FieldPrompt, StandIn, ValueText } from '../values/ValueText';
 import { ValueEditingContext, ValueSlot } from '../valueSlot';
 import { useBlockChrome } from '../blockChrome';
 import { TrackedText, trackedShown } from '../values/trackedShown';
-import type { FieldKey, MetricBlock } from '../../model/templateTypes';
+import { type FieldKey, type MetricBlock } from '../../model/templateTypes';
+import { rollModeOf } from '../../values/rollMode';
 import type { BlockViewProps } from './blockViewProps';
 import { t } from '../../../i18n';
 
@@ -60,7 +61,7 @@ function MetricCell({ block, number }: { block: MetricBlock; number: MetricNumbe
   // A tracked number whose maximum another field holds is filled in there
   const maxElsewhere = tracked !== null && state.tracked.get(key)?.maxField !== key;
   const untracked = hasText(shown) || shown.problems.length > 0
-    ? <BonusLink text={shown.text} rollable={block.rollable}><ValueText shown={shown} /></BonusLink>
+    ? <BonusLink text={shown.text} rollable={rollModeOf(block)}><ValueText shown={shown} /></BonusLink>
     : editing ? <FieldPrompt prompt={key ? valuePrompt(field, label) : unnamedPrompt} /> : <span className="atlas-sb-value atlas-sb-metric__blank">{BLANK}</span>;
   const value = tracked ? <TrackedText field={key} value={tracked} /> : untracked;
 
@@ -69,7 +70,7 @@ function MetricCell({ block, number }: { block: MetricBlock; number: MetricNumbe
       className="atlas-sb-metric__number"
       {...{ [METRIC_INDEX_ATTRIBUTE]: index }}
       data-prop={key || undefined}
-      data-roll-name={block.rollable && key ? label : undefined}
+      data-roll-name={rollModeOf(block) && key ? label : undefined}
       {...(armable && { [BONUS_ID_ATTRIBUTE]: id })}
       {...hitPointsAttribute(Boolean(key) && (field?.meaning === 'hit-points' || namesHitPoints(key, label)))}
     >

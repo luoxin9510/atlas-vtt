@@ -14,6 +14,7 @@ import { isPlainRecord } from './fieldValueOf';
 import { readCounterRows } from './counterValues';
 import { coerce } from './valueCoercion';
 import { quoted, valueText } from './valueText';
+import type { RollParseOptions } from '../../tools/formulaTypes';
 
 export interface ValueMisfit {
   /** What the chip says: "Not a number". */
@@ -83,11 +84,11 @@ function shortQuote(value: FieldValue): string {
 /**
  * Why typed text does not fit a field of its type ("“1/4” isn't a number."),
  * or null where it does. Only numbers, ratings, dice and choices check text.
- * `defaultFaces`: the faces of a die written without them (`1d+1`), where the statblock's set opts in.
+ * `options.defaultFaces`: the faces of a die written without them (`1d+1`), where the statblock's set opts in.
  */
-export function textProblem(field: FitField, text: string, defaultFaces?: number): string | null {
+export function textProblem(field: FitField, text: string, options: RollParseOptions = {}): string | null {
   if (!CHECKED_TEXT.has(field.type) || isEmptyValue(text)) return null;
-  const result = coerce(field.type, text, field, defaultFaces);
+  const result = coerce(field.type, text, field, options);
   return result.ok ? null : result.problem;
 }
 
@@ -109,17 +110,17 @@ export function referenceMisfit(field: Pick<FitField, 'type'>, shown: FieldValue
  * Why a stored value does not fit its field's type, or null where it fits or
  * is empty. A single value in a number, rating, dice or choice field is read
  * as the text a statblock writes for it; other values by their shape. Types of
- * a newer template are taken as they come. `defaultFaces` as in `textProblem`.
+ * a newer template are taken as they come. `options` as in `textProblem`.
  */
-export function valueMisfit(field: FitField, value: FieldValue | undefined, defaultFaces?: number): ValueMisfit | null {
+export function valueMisfit(field: FitField, value: FieldValue | undefined, options: RollParseOptions = {}): ValueMisfit | null {
   if (value === undefined || isEmptyValue(value) || !Object.hasOwn(TYPE_MISFITS, field.type)) return null;
-  const problem = misfitProblem(field, value, defaultFaces);
+  const problem = misfitProblem(field, value, options);
   return problem === null ? null : { label: t(TYPE_MISFITS[field.type].label), problem };
 }
 
-function misfitProblem(field: FitField, value: FieldValue, defaultFaces: number | undefined): string | null {
-  if (CHECKED_TEXT.has(field.type) && isScalar(value)) return textProblem(field, valueText(value), defaultFaces);
+function misfitProblem(field: FitField, value: FieldValue, options: RollParseOptions): string | null {
+  if (CHECKED_TEXT.has(field.type) && isScalar(value)) return textProblem(field, valueText(value), options);
   // Several picks may be stored as a list, or as a record of options and numbers.
-  if (picksChoice(field) && !holdsRecords(value)) return textProblem(field, valueText(value), defaultFaces);
+  if (picksChoice(field) && !holdsRecords(value)) return textProblem(field, valueText(value), options);
   return SHAPE_FITS[field.type](value) ? null : t(TYPE_MISFITS[field.type].problem, { value: shortQuote(value) });
 }

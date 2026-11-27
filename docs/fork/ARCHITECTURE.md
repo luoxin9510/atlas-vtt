@@ -2,7 +2,7 @@ Architecture overview of Atlas VTT as of upstream 0.9.1 (commit 5499fd87), writt
 
 Paths are relative to the repo root. Line numbers refer to that commit. Anything marked "unverified" was not read in code.
 
-## 1. Plugin entry (`main.ts`, 308 lines)
+## 1. Plugin entry (`main.ts`, 293 lines)
 
 `AtlasVTTPlugin extends Plugin` (`main.ts:90`). It holds shared state that every view reads: `settingsService`, `widgetSyncService` (lazy), `globalAssetManager`, plus private `imageDisplayService`, `changelogService`, `onlinePlay`.
 
@@ -15,9 +15,9 @@ Paths are relative to the repo root. Line numbers refer to that commit. Anything
 6. `await storageReady; await settingsService.initialize()` (`:181-182`). After each later await the code checks `this.unloaded` (`:183`, `:187`), because Obsidian may unload mid-`onload`.
 7. Dice look sync, statblock panels, `ChangelogService`, `registerUpdateWatch`, `GlobalAssetManagerService`, `ImageDisplayService`, `registerOnlinePlay` (`:184-201`).
 8. Setting tab, header editor suggest, `registerAtlasLinks`, leaf sync, return-to-Atlas-on-close, player-window reload cleanup, `registerCommands`, statblock file/initiative menus (`:202-223`).
-9. `workspace.onLayoutReady` (`:225-234`): swatch icons, image context menu, status bar, changelog popup, and three background migrations (starter tokens, token bar carry-over, legacy snapshots).
+9. `workspace.onLayoutReady` (`:225-234`): swatch icons, image context menu, status bar, changelog popup, and three background migrations (starter tokens, token bar carry-over (`plugin/tokenBarCarryOver.ts`), legacy snapshots), then `rulePacks.markReady()` as the last line.
 
-`onunload` (`:255-283`) sets `unloaded`, flushes settings, then calls `release(app)` on every singleton, destroys the widget sync, image display, `PlayerWindowService`, asset manager, tile decoder / map image services, image processing and the spectral engine. `onExternalSettingsChange` (`:251`) reloads settings when `data.json` changes on disk (sync).
+`onunload` (`:255-283`) sets `unloaded`, disposes the rule packs, flushes settings, then calls `release(app)` on every singleton, destroys the widget sync, image display, `PlayerWindowService`, asset manager, tile decoder / map image services, image processing and the spectral engine. `onExternalSettingsChange` (`:251`) reloads settings when `data.json` changes on disk (sync).
 
 ## 2. Registrations
 
@@ -126,6 +126,17 @@ A target-number check is dice text ending in a target (`3d6 vs 14`, `1d20+5 ≥ 
 - `src/app/tools/buildRoll.ts` is the one pipeline behind `DiceTool` rolls, `rollCheck` and the GM's quiet rolls: `specOfText` turns text into a `RollSpec`, `buildRoll` completes, rolls (advantage included) and judges it, `checkText` writes it back as the result's `formula`. Code that edits a formula string (armed bonuses in `statblocks/rollBonuses/bonusFormula.ts`, `formulaWithNamedTerms`) splits the check first and edits the formula part, so a check stays a check.
 - Online: `sharedRoll` (`online/gm/RollShare.ts`) is the single builder of `SharedRoll`, carrying `check` (strict parse in `online/protocol/dice.ts`; see `online-contract.md`).
 - GM-only rolls: `DiceTool` marks the result `hidden`; `DiceRollDisplay` skips it for the player window and `RollShare.rolled` sends players a secret log entry instead of the roll while GM rolls are shown to them (otherwise nothing, like any GM roll). The scene's saved roll log keeps the flag.
+
+## Rule packs
+
+How other plugins (rule packs) plug into Atlas; the user-facing guide is `rule-pack-api.md`.
+
+- `src/app/rulePacks/rulePackApi.ts`: `RulePackApi` (the interface) and `RulePacks` (Atlas's side, one per plugin). `main.ts` holds it as `private readonly packs` and exposes it as the `rulePacks` getter. The types packs copy are `docs/fork/rule-pack-api.d.ts`; `tests/unit/rulePacks/rulePackDeclaration.test.ts` keeps both in step.
+- Lifecycle: `RulePacks` is created with the plugin; `markReady()` runs last in the `onLayoutReady` callback of `onload` (it resolves `whenReady()`; nothing after `dispose()`); `onunload` calls `dispose()`, which runs every remaining unregister function and refuses later registrations.
+- Registrations are cleared in two places: the function `registerCheckRule` returns (also dropped from the set `RulePacks` keeps), and `dispose()`. The registry itself is `dice/checkRules.ts`; ids starting with `builtin:` are refused for packs.
+- Rolls: `rollDice` / `rollCheck` use the open map's `DiceTool` (`openMapDiceTool`), else roll quietly off the map with a collection's dice set (`rollingWith`, `offlineDiceInputs`), the way the statblock pane does.
+- Where a modifier goes: `tools/targetModifier.ts` (`withTargetModifier`) puts armed bonuses and the one-off "Roll with a modifier..." into the target of an `under` check and onto the dice otherwise. Rolls read text through one `RollParseOptions` object (`tools/formulaTypes.ts`, built by `rollParseOptionsOf`) instead of a trailing `defaultFaces`.
+- Roll as a check: a statblock block's `rollAs: 'check'` (`statblocks/model/templateTypes.ts`, `rollModeOf`) makes the value's leading number a target (`statblocks/resolve/statblockCheckRoll.ts`).
 
 ## Verified follow-ups and open points
 

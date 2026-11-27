@@ -35,7 +35,7 @@ export function StatblockMarkdown({
 }: MarkdownTextProps): React.JSX.Element {
   const ref = useRef<HTMLSpanElement>(null);
   // Dice written without faces are dice where the statblock's set opts in; text outside a sheet has none
-  const defaultFaces = useContext(SheetContext)?.state.defaultFaces;
+  const rollParse = useContext(SheetContext)?.state.rollParse;
   // Blocks join texts (a list of saves, the parts of a subheading); what reads the text on has the limit of one.
   const text = boundedText(given);
   const shownAsRead = !markdown || !app;
@@ -57,7 +57,7 @@ export function StatblockMarkdown({
 
     // Safe to rewrite: this subtree is Obsidian's markdown output, which this
     // effect rebuilds from scratch on every run. React never owns these nodes.
-    if (dice) linkDiceIn(el, defaultFaces);
+    if (dice) linkDiceIn(el, rollParse);
     const stopLinks = followLinksIn(el, app, sourcePath);
 
     return () => {
@@ -65,7 +65,7 @@ export function StatblockMarkdown({
       component.unload();
       el.replaceChildren();
     };
-  }, [text, app, sourcePath, markdown, dice, defaultFaces]);
+  }, [text, app, sourcePath, markdown, dice, rollParse]);
 
   if (shownAsRead) {
     return (

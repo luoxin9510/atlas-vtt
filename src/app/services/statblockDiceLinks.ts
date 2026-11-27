@@ -26,6 +26,11 @@ import type { AdvantageSide } from '../types/diceSetTypes';
 import { t } from '../i18n';
 import { BONUS_ID_ATTRIBUTE } from '../statblocks/rollBonuses/armedBonuses';
 import { splitDiceSegments, toRollFormula } from './statblockDiceText';
+import type { RollParseOptions } from '../tools/formulaTypes';
+import { rollParseOptionsOf } from '../gameSystems/diceSets';
+import { specOfText } from '../tools/buildRoll';
+import { parseModifier, withTargetModifier } from '../tools/targetModifier';
+import { promptForText } from '../ui/textInputDialog';
 
 const LINK_CLASS = 'atlas-dice-link';
 
@@ -78,9 +83,9 @@ function isSkipped(node: Node): boolean {
   return SKIPPED_TAGS.has(parent.tagName);
 }
 
-function linkTextNode(textNode: Text, defaultFaces: number | undefined): void {
+function linkTextNode(textNode: Text, options: RollParseOptions): void {
   const text = textNode.nodeValue ?? '';
-  const segments = splitDiceSegments(text, defaultFaces);
+  const segments = splitDiceSegments(text, options);
   if (!segments.some((segment) => segment.dice)) return;
 
   const fragment = createFragment();
@@ -104,9 +109,9 @@ function linkTextNode(textNode: Text, defaultFaces: number | undefined): void {
 /**
  * Wraps dice notation in `root` with clickable spans.
  * Only safe on static, Atlas-owned DOM — see the note at the top of this file.
- * `defaultFaces`: the faces of a die written without them (`1d+2`), where the statblock's set opts in.
+ * `options.defaultFaces`: the faces of a die written without them (`1d+2`), where the statblock's set opts in.
  */
-export function linkDiceIn(root: HTMLElement, defaultFaces?: number): void {
+export function linkDiceIn(root: HTMLElement, options: RollParseOptions = {}): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) =>
       isSkipped(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
@@ -119,7 +124,7 @@ export function linkDiceIn(root: HTMLElement, defaultFaces?: number): void {
     current = walker.nextNode();
   }
 
-  targets.forEach((textNode) => linkTextNode(textNode, defaultFaces));
+  targets.forEach((textNode) => linkTextNode(textNode, options));
 }
 
 /**
@@ -139,12 +144,21 @@ export function attachDiceRolling(
   offMap?: () => OffMapRolls | null,
   openMenu?: RollMenuOpener,
 ): () => void {
+  let cleaned = false;
+  const isCheck = (formula: string): boolean => {
+    const rules = statblockRollingDice(app, getSource(), offMap?.());
+    return specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check !== undefined;
+  };
+  // A check is never a hit-points roll: its total is judged against a target, not taken as hit points.
   const hitDice = (link: HTMLElement, formula: string): boolean =>
-    onRollHitPoints !== undefined && /d\d/i.test(formula) && link.closest(HIT_POINTS_SELECTOR) !== null;
+    onRollHitPoints !== undefined && /d\d/i.test(formula) && link.closest(HIT_POINTS_SELECTOR) !== null && !isCheck(formula);
 
-  const roll = (link: HTMLElement, side: AdvantageSide | null): void => {
-    const formula = link.dataset.formula;
-    if (!formula) return;
+  const roll = (link: HTMLElement, side: AdvantageSide | null, modifier?: number): void => {
+    const linked = link.dataset.formula;
+    if (!linked) return;
+    // A one-off modifier goes where armed bonuses do (`withTargetModifier`); they are added after it.
+    const rules = modifier === undefined ? null : statblockRollingDice(app, getSource(), offMap?.());
+    const formula = modifier === undefined ? linked : withTargetModifier(linked, modifier, rules ?? undefined);
 
     const abilityName = abilityNameFor(link);
     if (hitDice(link, formula)) {
@@ -154,7 +168,12 @@ export function attachDiceRolling(
 
     // A value that adds to rolls, rolled from its own number, is in the roll once: as the number clicked.
     const rolledBonus = link.closest<HTMLElement>(`[${BONUS_ID_ATTRIBUTE}]`)?.getAttribute(BONUS_ID_ATTRIBUTE) ?? undefined;
-    rollStatblockDice(app, formula, { ...getSource(), abilityName, rolledBonus }, offMap?.(), side);
+    // The names a formula was filled in with are looked up by the formula as linked, so a modifier keeps them
+    const source = getSource();
+    const named = modifier === undefined ? undefined : source.namedRolls?.get(linked);
+    const namedRolls = named === undefined || !source.namedRolls ? source.namedRolls
+      : new Map(source.namedRolls).set(formula, withTargetModifier(named, modifier ?? 0, rules ?? undefined));
+    rollStatblockDice(app, formula, { ...source, namedRolls, abilityName, rolledBonus }, offMap?.(), side);
   };
 
   const linkOf = (event: Event): HTMLElement | null =>
@@ -178,6 +197,29 @@ export function attachDiceRolling(
     roll(link, advantageSide(event.shiftKey, event.altKey));
   };
 
+  // Nothing is kept: each ask starts empty, and Escape or an invalid entry rolls nothing.
+  const askModifier = (link: HTMLElement): void => {
+    void promptForText({
+      title: t('dice.rollWithModifier'),
+      confirmLabel: t('dice.roll'),
+      placeholder: '-2',
+      singleLine: true,
+      validate: (text) => {
+        const modifier = parseModifier(text);
+        if (modifier === null) return t('dice.modifierInvalid');
+        // A modifier that would take the target past what a check holds leaves the text as it was: refused
+        const linked = link.dataset.formula ?? '';
+        const rules = statblockRollingDice(app, getSource(), offMap?.()) ?? undefined;
+        return modifier !== 0 && withTargetModifier(linked, modifier, rules) === linked ? t('dice.modifierInvalid') : null;
+      },
+    }).then((text) => {
+      // The dialog may outlive the statblock it was asked from
+      if (cleaned) return;
+      const modifier = text === null ? null : parseModifier(text);
+      if (modifier !== null) roll(link, null, modifier);
+    });
+  };
+
   const onContextMenu = (event: MouseEvent): void => {
     const link = linkOf(event);
     const formula = link?.dataset.formula;
@@ -190,6 +232,9 @@ export function attachDiceRolling(
       { label: t('dice.roll'), side: null, roll: () => roll(link, null) },
       ...sides.map((side): RollChoice => ({ label: SIDE_LABELS[side](), side, roll: () => roll(link, side) })),
     ];
+    if (specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check) {
+      choices.push({ label: t('dice.rollWithModifier'), side: null, roll: () => askModifier(link) });
+    }
     // A menu key or Shift+F10 is no right button: the menu hangs from the link.
     const box = link.getBoundingClientRect();
     openMenu(choices, event.button === 2 ? { x: event.clientX, y: event.clientY } : { x: box.left, y: box.bottom }, link);
@@ -200,6 +245,7 @@ export function attachDiceRolling(
   el.addEventListener('contextmenu', onContextMenu);
 
   return () => {
+    cleaned = true;
     el.removeEventListener('click', onClick);
     el.removeEventListener('keydown', onKeyDown);
     el.removeEventListener('contextmenu', onContextMenu);

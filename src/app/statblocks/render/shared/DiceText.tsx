@@ -6,11 +6,11 @@ import { SheetContext } from '../sheetContext';
 /**
  * Text as it reads, its dice notation and bare bonuses as roll links: the
  * React twin of `linkDiceIn`, for text no Markdown renderer drew. A die written without faces
- * is one where the statblock the text is in has a set that opts in (`SheetState.defaultFaces`).
+ * is one where the statblock the text is in has a set that opts in (`SheetState.rollParse`).
  */
 export function DiceText({ text }: { text: string }): React.JSX.Element {
-  const defaultFaces = useContext(SheetContext)?.state.defaultFaces;
-  const segments = useMemo(() => splitDiceSegments(text, defaultFaces), [text, defaultFaces]);
+  const rollParse = useContext(SheetContext)?.state.rollParse;
+  const segments = useMemo(() => splitDiceSegments(text, rollParse), [text, rollParse]);
   return (
     <>
       {segments.map((segment, index) =>

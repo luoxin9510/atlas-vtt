@@ -24,6 +24,7 @@ grep -n '^#\{1,2\} ' CLAUDE.md          # list the sections and their lines
 | Scene / token file fields on disk | `Token resources` (file format bullets), `Map images`, `Dynamic lighting` |
 | Grids, coordinates, map stretch | `Hexagonal Grids`, `Cell Numbering` |
 | System presets | `Game system presets` |
+| Checks, dice sets, `plugin.rulePacks` (rule pack plugins) | `Game system presets` (Checks bullets); guide `docs/fork/rule-pack-api.md` |
 | UI text and locales | `Translations` |
 | Notes linking to scenes | `Links to Atlas files in notes` |
 | Undo history, teardown, loading | `Undo/Redo History`, `Rendering and teardown`, `Loading and skeletons` |
