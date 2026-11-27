@@ -3,7 +3,8 @@
 Spec: `docs/superpowers/specs/2026-11-27-target-number-checks-design.md`. Branch
 `feature/target-checks` from `fork/work`, one commit per task, PR into `fork/work` when the full
 gate is green (`npx tsc --noEmit`, `npm run lint`, `npm run check:play`, `npm run check:relay`,
-`npm run check:boundaries`, `npx vitest run --project unit`). Merging is the owner's decision.
+`npm run check:boundaries`, `npx vitest run --project unit`). Each task is written test-first
+(`tdd`). After `code-review` and an independent review pass, the agent merges (spec decision 15).
 
 Rules for every task: explicit return types; files under ~300 lines; no inline eslint-disable or
 ts-ignore; UI text through `t()` with en and zh keys; no system names from commercial games in
