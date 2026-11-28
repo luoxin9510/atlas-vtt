@@ -254,6 +254,14 @@ describe('importing the same source again', () => {
     expect(h.notices[0]).toBe('1 updated');
   });
 
+  it('re-imports even when the importer names a template the library lacks: the note keeps its own (decision 30)', async () => {
+    register(() => character('Robin'));
+    const h = harness([file('Robin.gcs')], { findImportedNote: () => NOTE, templateExists: () => Promise.resolve(false) });
+    await importCharacterFiles(h.deps);
+    expect(h.reimports).toHaveLength(1);
+    expect(h.notices[0]).toBe('1 updated');
+  });
+
   it('skips the file when told no', async () => {
     register(() => character('Robin'));
     const h = harness([file('Robin.gcs')], { findImportedNote: () => NOTE, confirmReimport: () => Promise.resolve(false) });

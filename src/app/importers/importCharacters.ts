@@ -129,13 +129,17 @@ async function importFile(file: PickedFile, collection: string, deps: ImportDeps
   let character: ImportedCharacter;
   try {
     character = validatedCharacter(await importer.parse(file.bytes, file.fileName));
-    if (!(await deps.templateExists(character.templateId))) throw new Error(t('importers.invalid.templateMissing', { id: character.templateId }));
   } catch (error) {
     summary.failed.push({ name: file.fileName, reason: messageOf(error) });
     return;
   }
+  const existing = file.path === null ? null : deps.findImportedNote(collection, importer.id, file.path);
+  // A re-import keeps the note's own template (decision 30), so only a new note needs the importer's.
+  if (existing === null && !(await deps.templateExists(character.templateId))) {
+    summary.failed.push({ name: file.fileName, reason: t('importers.invalid.templateMissing', { id: character.templateId }) });
+    return;
+  }
   try {
-    const existing = file.path === null ? null : deps.findImportedNote(collection, importer.id, file.path);
     if (existing === null) await createNew(importer, file, character, collection, deps, summary);
     else await reimportExisting(existing, importer, file, character, collection, deps, summary);
   } catch (error) {
