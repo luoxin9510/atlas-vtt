@@ -11,6 +11,7 @@
 @use '../src/app/onboarding/onboarding';
 @use '../src/app/changelog/changelog';
 @use '../src/app/support/issue-report';
+@use '../src/app/services/note-dice-layer';
 @use '../src/app/online/gm/styles/dock';
 @use '../src/app/online/marks/styles/marks';
 @use '../src/app/online/tableLog/styles/table-log';

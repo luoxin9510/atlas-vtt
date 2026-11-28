@@ -16,7 +16,7 @@ import type { DiceRollOrigin } from '../../../types/diceRollOrigin';
 import type { PreparedDiceRoll } from './diceSourcePresentation';
 import { DiceRollStack } from '../dice3d/DiceRollStack';
 import { closeAllRolls, closeRoll, dismissRoll, pushRoll, type StackedRoll } from '../dice3d/rollStackState';
-import { canRunMapHotkeys } from '../../../keyboard/mapHotkeys';
+import { canActOverWorkspace, canRunMapHotkeys } from '../../../keyboard/mapHotkeys';
 import { DiceToast } from './DiceToast';
 import { DICE_TOAST_KNOT_PATHS, DICE_TOAST_KNOT_SYMBOL_ID } from './diceToastOrnament';
 import { useDiceToasts } from './useDiceToasts';
@@ -63,6 +63,8 @@ interface DiceRollDisplayProps {
   cardSounds?: boolean;
   /** Leaves out GM-only rolls (`hidden`): set where the players look, never in the GM's own windows. */
   forPlayers?: boolean;
+  /** With a `container`: Escape dismisses the rolls on screen, in the window the container is in (the workspace dice layer). */
+  dismissOnEscape?: boolean;
 }
 
 const CARD_VOLUME = 0.7;
@@ -71,7 +73,7 @@ const CARD_VOLUME = 0.7;
  * Every dice roll, at the top centre of the map: thrown as 3D dice, or as a
  * result card when 3D dice are off or the roll holds dice no real body shows.
  */
-export function DiceRollDisplay({ container, prepare, muted = false, eventBus: suppliedBus, subscribe, cardSounds = false, forPlayers = false }: DiceRollDisplayProps): React.ReactElement | null {
+export function DiceRollDisplay({ container, prepare, muted = false, eventBus: suppliedBus, subscribe, cardSounds = false, forPlayers = false, dismissOnEscape = false }: DiceRollDisplayProps): React.ReactElement | null {
   const { app, view } = useAtlasUI();
   const eventBus = suppliedBus ?? view?.serviceManager?.getEventBus();
   const display = useDiceDisplay(app ?? undefined);
@@ -107,11 +109,17 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
   // takes it (a modal, the palette, the dashboard) or someone is typing. The
   // player window takes no keyboard input, so only the map view listens.
   const showing = rolls.some((roll) => !roll.leaving) || toasts.some((toast) => toast.phase !== 'exiting');
-  const win = useViewWindow(view?.containerEl);
+  const win = useViewWindow(container && dismissOnEscape ? container : view?.containerEl);
+  const listens = container ? dismissOnEscape : true;
   useEffect(() => {
-    if (container || !showing) return;
+    if (!listens || !showing) return;
     const handler = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape' || !canRunMapHotkeys(e, view?.viewId)) return;
+      // The workspace layer also leaves Escape to an open link preview, which closes on it; map
+      // shortcuts don't, since a preview can linger (or be pinned) over a map
+      const allowed = container
+        ? canActOverWorkspace(e) && !activeDocument.querySelector('.hover-popover')
+        : canRunMapHotkeys(e, view?.viewId);
+      if (e.key !== 'Escape' || !allowed) return;
       e.preventDefault();
       e.stopPropagation();
       setRolls(closeAllRolls);
@@ -119,7 +127,7 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
     };
     win.addEventListener('keydown', handler, true);
     return (): void => win.removeEventListener('keydown', handler, true);
-  }, [container, showing, view, win, dismissAllToasts]);
+  }, [container, listens, showing, view, win, dismissAllToasts]);
 
   const close = useCallback((id: string): void => setRolls((prev) => closeRoll(prev, id)), []);
   const dismiss = useCallback((id: string): void => setRolls((prev) => dismissRoll(prev, id)), []);

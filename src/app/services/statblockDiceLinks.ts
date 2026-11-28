@@ -146,12 +146,14 @@ export function linkDiceIn(root: HTMLElement, options: RollParseOptions = {}): v
 export function attachDiceRolling(
   el: HTMLElement,
   app: App,
-  getSource: () => DiceRollSource,
+  getSourceOf: () => DiceRollSource,
   onRollHitPoints?: HitPointsRollHandler,
   offMap?: () => OffMapRolls | null,
   openMenu?: RollMenuOpener,
 ): () => void {
   let cleaned = false;
+  // The window the link is in rolls its dice, popouts included
+  const getSource = (): DiceRollSource => ({ ...getSourceOf(), doc: el.ownerDocument });
   const isCheck = (formula: string): boolean => {
     const rules = statblockRollingDice(app, getSource(), offMap?.());
     return specOfText(formula, rules ? rollParseOptionsOf(rules) : {}).check !== undefined;

@@ -23,6 +23,7 @@ import type { CoveredPages } from './coveredPages.ts';
 import { TableConnection, type TableStatus } from './TableConnection.ts';
 import { TableRoster } from './tableRoster.ts';
 import { closingText, tableEndOf, tableEndText, type TableEnd } from './tableEnd.ts';
+import type { OffMapRollShare } from './OffMapRollShare.ts';
 import type { OnlineTableEvents } from './tableEvents.ts';
 import { buildShares } from './tableShares.ts';
 import { connectionHandlers, logRests, sceneWatch } from './tableWiring.ts';
@@ -79,6 +80,7 @@ export class OnlineTable {
   /** The fork level each player's app declared. */
   private readonly forkClients: ForkClients;
   private readonly pauseShare: PauseShare;
+  private readonly offMap: OffMapRollShare;
   /** Why the relay's image cache cannot be used now (images go over the socket); null while it can. */
   get imageCache(): ImageCacheReason | null {
     return this.tickets.status;
@@ -114,6 +116,7 @@ export class OnlineTable {
     this.notes = shares.notes;
     this.books = shares.books;
     this.covers = shares.covers;
+    this.offMap = shares.offMap;
     this.watch = sceneWatch({
       app, ownership, forkClients: this.forkClients, tickets: this.tickets, pauseShare, shares, events, mapPath,
       send: (body, to, tag) => this.connection.send(body, to, tag),
@@ -196,6 +199,7 @@ export class OnlineTable {
     this.books.start();
     this.found.start();
     this.notes.start();
+    this.offMap.start();
     // Every rest that reaches a character of this table the GM's Atlas takes while it runs is logged: approved requests and the GM's own.
     this.stopLoggingRests = logRests(this.log, this.ownership, this.books.share);
     this.watch.check();
@@ -261,6 +265,7 @@ export class OnlineTable {
     this.stopLoggingRests();
     this.found.stop();
     this.notes.stop();
+    this.offMap.stop();
     this.stopWatchTimer();
     this.stopFollowingPresented();
     this.watch.stop();

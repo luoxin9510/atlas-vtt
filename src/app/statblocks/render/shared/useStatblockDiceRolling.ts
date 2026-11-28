@@ -99,7 +99,7 @@ export function useStatblockDiceRolling(rolling: StatblockDiceRolling): Statbloc
       () => rollSource(latest.current.options),
       (formula, abilityName) => {
         const { options: { notePath, tokens, viewId, originContext }, offMap: shownOn } = latest.current;
-        rollHitPoints(app, formula, notePath ?? '', tokens, abilityName, viewId, originContext, shownOn);
+        rollHitPoints(app, formula, notePath ?? '', tokens, abilityName, viewId, originContext, shownOn, el.ownerDocument);
       },
       () => latest.current.offMap,
       openMenu,

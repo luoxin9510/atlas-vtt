@@ -86,6 +86,10 @@ describe('map hotkeys', () => {
     const modal = document.createElement('div'); modal.className = 'atlas-asset-manager-modal'; document.body.append(modal);
     expect(canRunMapHotkeys(new KeyboardEvent('keydown'), 'map-one')).toBe(false);
   });
+  it('keeps map shortcuts working while a link preview (hover popover) lingers', () => {
+    document.body.innerHTML = '<div class="workspace-leaf mod-active"><div data-view-id="map-one"></div></div><div class="hover-popover"></div>';
+    expect(canRunMapHotkeys(new KeyboardEvent('keydown', { key: 'Escape' }), 'map-one')).toBe(true);
+  });
   it('runs for an Escape a tooltip took to close itself, and not for one a control used', () => {
     document.body.innerHTML = '<div class="workspace-leaf mod-active"><div data-view-id="map-one"></div></div>';
     const escape = (): KeyboardEvent => new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });

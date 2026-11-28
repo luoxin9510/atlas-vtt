@@ -1,4 +1,5 @@
 import type { App } from 'obsidian';
+import { offMapRollFeedOf } from '../../services/offMapRollFeed';
 import { showNotice } from '../../ui/notice';
 import { randomHex } from '../../utils/randomHex';
 import { ArmedCards } from './armedCards.ts';
@@ -12,6 +13,9 @@ import { CoveredPages } from './coveredPages.ts';
 import type { ForkClients } from './forkClients.ts';
 import { ImageShare } from './image/ImageShare.ts';
 import { PAUSED_TEXT, TableGate, type GateSettings } from './joinGate.ts';
+import { atlasPlayerSettings } from './atlasLighting.ts';
+import { OffMapRollShare } from './OffMapRollShare.ts';
+import { rollFaceOf } from './log/logEntries.ts';
 import { TableLog } from './log/TableLog.ts';
 import { tableNotes } from './notes/tableNotes.ts';
 import type { NotesShare } from './notes/NotesShare.ts';
@@ -47,6 +51,8 @@ export interface TableShares {
   readonly notes: NotesShare;
   readonly books: TableBook;
   readonly covers: CoveredPages;
+  /** The GM's rolls made with no map open, shared as a map's are. */
+  readonly offMap: OffMapRollShare;
 }
 
 /** Builds the table's shares in the order they depend on each other: the cards, the gate, the log, then what writes to the log. */
@@ -117,5 +123,10 @@ export function buildShares(deps: TableSharesDeps): TableShares {
     connected: () => connection().connected,
     uncovered: (player) => bound()?.share.catchUpMarks(player),
   });
-  return { cards, gate, log, image, found, notes, books, covers };
+  const offMap = new OffMapRollShare(() => offMapRollFeedOf(app) ?? null, {
+    send: (body, to) => connection().send(body, to),
+    showGmRolls: () => atlasPlayerSettings(app).showDiceRolls,
+    logged: (roll, source) => log.rolled({ ...roll, ...rollFaceOf(source, {}) }),
+  });
+  return { cards, gate, log, image, found, notes, books, covers, offMap };
 }

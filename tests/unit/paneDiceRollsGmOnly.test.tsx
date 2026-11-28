@@ -3,6 +3,7 @@ import React, { useContext } from 'react';
 import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_DICE_SETS } from '../../src/app/gameSystems/builtInDiceSets';
+import { OffMapRoller } from '../../src/app/services/offMapRoller';
 import { provideGmOnlySwitch } from '../../src/app/services/gmOnlySwitch';
 import type { OffMapRolls } from '../../src/app/services/statblockRolls';
 import { PaneDiceRolls } from '../../src/app/statblocks/editor/statblock-pane/PaneDiceRolls';
@@ -55,5 +56,25 @@ describe('a contest of a statblock beside its note', () => {
     const pane = paneRoller(false);
     expect(pane.rollContest!('3d6 vs 12', 'nonsense vs 14', [source, source])).toBeNull();
     expect(random).not.toHaveBeenCalled();
+  });
+});
+
+describe('a roll the pane shows itself, with no map open', () => {
+  it('is announced to the roller for the log and the online table, as displayed, but not when a map made it', () => {
+    const app = {} as never;
+    const roller = OffMapRoller.forApp(app);
+    const heard: Array<{ formula: string; displayed: boolean | undefined; doc: Document }> = [];
+    roller.onRoll((rolled) => heard.push({ formula: rolled.result.formula, displayed: rolled.displayed, doc: rolled.doc }));
+    let pane: OffMapRolls | null = null;
+    const Probe = (): null => {
+      pane = useContext(OffMapRollsContext);
+      return null;
+    };
+    render(<PaneDiceRolls app={app} collectionId={null}><Probe /></PaneDiceRolls>);
+    const rolled = pane!.roll('1d20', source)!;
+    pane!.show(rolled, false);
+    pane!.show(rolled, true);
+    expect(heard).toEqual([{ formula: '1d20', displayed: true, doc: document }]);
+    expect(roller.history()).toHaveLength(1);
   });
 });

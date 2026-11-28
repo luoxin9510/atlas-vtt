@@ -31,7 +31,8 @@ function storeHoldingTokens(app: App, ids: readonly string[], viewId?: string): 
  * placed tokens, or in a collection that tracks no hit points, this is an
  * ordinary roll, shown on `offMap` where no map on screen shows it. Each
  * token's roll carries its origin from `originContext`, the scene the
- * statblock was opened for; finding the tokens on a map adds none.
+ * statblock was opened for; finding the tokens on a map adds none. `doc` is
+ * the window it was clicked in.
  */
 export function rollHitPoints(
   app: App,
@@ -42,6 +43,7 @@ export function rollHitPoints(
   viewId?: string,
   originContext?: TokenRollContext,
   offMap?: OffMapRolls | null,
+  doc?: Document,
 ): void {
   const placed = tokens.filter((token): token is PlacedToken => Boolean(token.id));
   const store = placed.length ? storeHoldingTokens(app, placed.map((token) => token.id), viewId) : null;
@@ -49,7 +51,7 @@ export function rollHitPoints(
   const key = store && mapResources(rulesLookup(app), store.getState().mapPath)
     .find((definition) => isHitPointsKey(definition.field))?.key;
   if (!store || !key) {
-    rollStatblockDice(app, formula, { statblockPath, abilityName, viewId }, offMap);
+    rollStatblockDice(app, formula, { statblockPath, abilityName, viewId, doc }, offMap);
     return;
   }
 
@@ -57,6 +59,7 @@ export function rollHitPoints(
   for (const token of placed) {
     const roll = rollStatblockDice(app, formula, {
       viewId,
+      doc,
       originContext,
       tokenId: token.id,
       statblockPath,
