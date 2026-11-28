@@ -35,6 +35,10 @@ describe('import record', () => {
     expect(readImportRecord(withImportRecord({}, { importer: 'x', source: '/a', keys: [] }))?.keys).toEqual([]);
   });
 
+  it('reads an empty source: a file whose path the host could not tell is asked for again on re-import', () => {
+    expect(readImportRecord({ atlasImport: { importer: 'x', source: '', keys: ['hp'] } })).toEqual({ importer: 'x', source: '', keys: ['hp'] });
+  });
+
   it.each([
     ['no record', {}],
     ['no frontmatter', null],
@@ -45,7 +49,7 @@ describe('import record', () => {
     ['an empty importer', { atlasImport: { importer: '', source: '/a', keys: [] } }],
     ['a non-string importer', { atlasImport: { importer: 3, source: '/a', keys: [] } }],
     ['no source', { atlasImport: { importer: 'x', keys: [] } }],
-    ['an empty source', { atlasImport: { importer: 'x', source: '', keys: [] } }],
+    ['a non-string source', { atlasImport: { importer: 'x', source: 4, keys: [] } }],
     ['no keys', { atlasImport: { importer: 'x', source: '/a' } }],
     ['keys that are not a list', { atlasImport: { importer: 'x', source: '/a', keys: 'hp' } }],
     ['a key that is not a string', { atlasImport: { importer: 'x', source: '/a', keys: ['hp', 4] } }],

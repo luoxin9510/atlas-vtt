@@ -16,7 +16,7 @@ export const IMPORT_RECORD_KEY = 'atlasImport';
 export interface ImportRecord {
   /** The id of the importer that read the file. */
   importer: string;
-  /** The absolute path of the file the character was read from. */
+  /** The absolute path of the file the character was read from; empty when the host could not tell (a re-import then asks for the file). */
   source: string;
   /** The keys of the values the last import wrote; only these are replaced by a re-import. */
   keys: string[];
@@ -29,7 +29,7 @@ export function readImportRecord(frontmatter: Readonly<Record<string, unknown>> 
   const raw = frontmatter?.[IMPORT_RECORD_KEY];
   if (!isPlainRecord(raw)) return null;
   const { importer, source, keys } = raw;
-  if (!isText(importer) || !isText(source) || !Array.isArray(keys)) return null;
+  if (!isText(importer) || typeof source !== 'string' || !Array.isArray(keys)) return null;
   if (!keys.every((key): key is string => typeof key === 'string')) return null;
   return { importer, source, keys: [...keys] };
 }
