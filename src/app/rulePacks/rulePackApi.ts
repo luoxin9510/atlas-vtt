@@ -65,7 +65,9 @@ export interface RulePackApi {
    * the dot, any case) into a name, a template id, field values and an optional portrait. Under the same rules
    * as `registerCheckRule` (no empty or `builtin:` id; the latest registration of an id wins; returns the
    * function that removes it; Atlas removes what is left when it unloads), and it needs a `label`, a `parse`
-   * and at least one extension. The import flow itself arrives with later versions of Atlas.
+   * and at least one extension. Atlas then offers the "Import character file..." command for those extensions:
+   * it creates a statblock note (with an import record) in the collection's `characters/` folder and a token
+   * from the portrait, and offers re-import.
    */
   registerImporter(importer: CharacterImporter): () => void;
   /** The ids of the registered importers. */

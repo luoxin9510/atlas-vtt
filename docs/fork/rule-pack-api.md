@@ -182,13 +182,36 @@ what is left when it unloads, and a pack registers again on the ready event. A f
 most recently registered importer that names its extension. `importerIds()` lists the registered ids.
 The interface is still `apiVersion` 1; look for `registerImporter` to know it is there.
 
-This is registration only. The import flow (the "Import character file..." command, the note and token
-it creates, re-import) arrives in later versions of Atlas, and a registered importer does nothing
-until then.
+### What Atlas does with an importer
 
-## What is coming
+Registering is all a pack does; Atlas runs the rest:
 
-- P3c, the rest: the import flow, where Atlas creates the note and token from what an importer
-  returns, links them and keeps current damage on re-import.
+1. **Import character file...** (command `import-character-file`) opens the system file picker for
+   every registered extension (several files at once), then asks which collection to import into
+   (not asked when there is only one; the open map's collection is offered first).
+2. Each file is read by `parse` of the importer that names its extension. A throw fails that file
+   only; the others go on.
+3. A PNG, JPG or WebP `portrait` becomes a token of the collection's library (the image is written
+   into Atlas's assets). Another format, or none, imports the character without a token.
+4. The note is created in the collection's `characters/` folder from the template `templateId`,
+   with `values` as its fields, linked to the token. The note's frontmatter also gets the **import
+   record** `atlasImport` (`importer`, `source` file path, `keys` the import wrote); do not write it
+   yourself, it is reserved. If creating the note fails, the token made for it is removed again.
+5. One notice ends the run: how many were imported, updated, skipped and failed, with each failure's
+   reason.
+
+Importing a file whose character was imported before (same importer, same source path, same
+collection) asks "Already imported, re-import?". **Re-import** reads the file again (asking for it if
+the recorded path no longer reads), lists what would change and writes only after a confirmation. It
+replaces or removes only the keys the import wrote; the note's template, body and any other keys
+stay, current damage stays (clamped to the new maxima), conditions are never touched, and a changed
+portrait becomes a new image the linked token takes over (the old file stays). A re-import is also
+offered from the note's more-options menu, the placed token's menu and the command palette
+("Re-import the current character", `reimport-current-character`), for any note with an import
+record whose importer is registered.
+
+So a pack's importer should return the same `values` keys on every read of the same file, and
+`templateId` must name a statblock template that exists in the vault (a pack ships its templates as
+vault files, see above).
 
 Design and decisions: `docs/superpowers/specs/2026-11-27-rule-pack-api-design.md`.

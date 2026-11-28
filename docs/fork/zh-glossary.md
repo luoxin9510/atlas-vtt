@@ -84,6 +84,7 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 | rest | 休息; short rest 短休, long rest 长休 (decided) | csm.widgets.timerDesc | |
 | character | 角色 | am.manage.characterTags | |
 | portrait (character art) | 头像 | importers.line.noPortrait | new with importers; re-import = 重新导入 (importers.reimport) |
+| import record (`atlasImport`) | 导入记录 (decided) | none (docs term only) | the frontmatter that remembers importer, source file and imported keys; never shown in the UI |
 | creature | 生物 | am.link.selectCreature | 7; 怪物 0 |
 | party | 队伍 | tour.loot.historyBody | |
 | folder / tag | 文件夹 / 标签 | am.folder.delete | |

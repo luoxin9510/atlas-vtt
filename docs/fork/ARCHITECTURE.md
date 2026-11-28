@@ -149,6 +149,17 @@ How other plugins (rule packs) plug into Atlas; the user-facing guide is `rule-p
 - Where a modifier goes: `tools/targetModifier.ts` (`withTargetModifier`) puts armed bonuses and the one-off "Roll with a modifier..." into the target of an `under` check and onto the dice otherwise. Rolls read text through one `RollParseOptions` object (`tools/formulaTypes.ts`, built by `rollParseOptionsOf`) instead of a trailing `defaultFaces`.
 - Roll as a check: a statblock block's `rollAs: 'check'` (`statblocks/model/templateTypes.ts`, `rollModeOf`) makes the value's leading number a target (`statblocks/resolve/statblockCheckRoll.ts`).
 
+## Importers
+
+Character file import and re-import (`src/app/importers/`); the pack-facing guide is `rule-pack-api.md`.
+
+- Registry: `importerRegistry.ts` (a stack per id, latest wins; `RulePacks.registerImporter` adds to it and removes on dispose), types in `importerTypes.ts`.
+- Import flow: `importCharacters.ts` (`importCharacterFiles`) picks files, chooses the collection, then per file: parse, find an earlier import (`findImportedNote`, by the record's importer and source in the collection's notes), else write the portrait (`portraitFormat.ts` accepts PNG/JPG/WebP), add the token, create the note in `<collection folder>/characters` with the record. A failed note removes the token again (the image file stays). `importSummary.ts` makes the one closing notice.
+- Import record: `importRecord.ts`, frontmatter key `atlasImport: { importer, source, keys }`, reserved (no template field binds it, no statblock shows it).
+- Re-import: `reimportCharacter.ts` (file read again via `findOrAskSource`, `importDiff.ts` lists the changes, `ReimportChangesModal.ts` confirms), `importNotePatches.ts` (only imported keys replaced), `damageKept.ts` (current damage clamped to the new maxima), `placedTokens.ts` (placed tokens in open and closed maps keep resources and conditions and take the new art). Entry points: `reimportEntry.ts` / `reimportEntryApp.ts` (note menu, token menu through `InteractionController`, command `reimport-current-character`); the import command is `importCharactersCommand.ts`, registered from `importCharactersApp.ts`.
+- The deps seam: `ImportDeps` (`importCharacters.ts`) and the re-import's own deps hold everything that touches the vault, dialogs or disk; `importCharactersApp.ts` and `reimportApp.ts` are the only places that build the real ones, so the flows are unit tested with plain objects (`tests/unit/importers/`).
+- Desktop file access: `characterFiles.ts` reaches Electron (`webUtils.getPathForFile`, for the absolute path) and `fs/promises` (reads) through `activeWindow.require`, fetched on first use and never imported, behind `CharacterFileHost` which tests replace. A host that cannot tell the path leaves the record's `source` empty, so a re-import asks for the file.
+
 ## Verified follow-ups and open points
 
 - Base classes: `AtlasView extends FileView` (`atlas-view.ts:58`), `LocalPlayerView extends ItemView` (`local-player-view.ts:43`), `TemplateEditorView extends FileView` (`statblocks/editor/TemplateEditorView.ts:41`).
