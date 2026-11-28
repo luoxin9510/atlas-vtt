@@ -17,6 +17,8 @@ import { pickCollection } from './CollectionPickerModal';
 import { importCharacterFiles, type ImportDeps } from './importCharacters';
 import { registerImportCharactersCommand } from './importCharactersCommand';
 import { readImportRecord } from './importRecord';
+import { reimportDeps } from './reimportApp';
+import { reimportCharacter } from './reimportCharacter';
 
 /** The collection of the open map, when the active file is one. */
 function openMapCollection(app: App, assets: AssetService): string | null {
@@ -57,8 +59,7 @@ function appDeps(app: App): ImportDeps {
       message: [t('importers.alreadyMessage', { name })],
       choices: [{ label: t('importers.reimport'), value: true, style: 'cta' }],
     })) === true,
-    // Replaced by the real re-import in the next step; until then the file is left as it is.
-    reimport: () => Promise.resolve('cancelled'),
+    reimport: ({ notePath, importer, source, character }) => reimportCharacter(reimportDeps(app), { notePath, importer, source, character }),
     writeImage: (name, bytes) => writeAssetImage(app, name, bytes),
     addTokenAsset: async ({ name, imagePath, collection }) => {
       await assets.addTokenAsset({ name, imagePath, collection, tags: [], showRing: true });
