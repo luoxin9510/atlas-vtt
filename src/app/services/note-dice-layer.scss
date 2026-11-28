@@ -1,0 +1,24 @@
+// ──────────────────────────────────────────────
+// The workspace dice layer (NoteDiceLayers): the rolls made with no map open,
+// thrown at the bottom right of the window they were made in, over the notes.
+// The column is the display maps use; it only lies here instead of hanging
+// from a map's bar. Clicks pass through to the note beneath.
+// ──────────────────────────────────────────────
+@use '../../../styles/tokens' as *;
+
+.atlas-vtt-plugin.atlas-note-dice-layer {
+  position: fixed;
+  inset-block-end: #{$spacing-l};
+  inset-inline-end: #{$spacing-l};
+  z-index: $z-atlas-dice-rolls;
+  width: min(21rem, calc(100vw - 2 * #{$spacing-l}));
+  pointer-events: none;
+
+  > .atlas-vtt-plugin.atlas-dice-rolls {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-width: none;
+  }
+}

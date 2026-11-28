@@ -2,14 +2,10 @@ import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from '
 import type { App } from 'obsidian';
 import { AtlasUIContext, type AtlasUIContextValue } from '../../../react/root/AtlasUIContext';
 import { DiceRollDisplay, type DiceRollSubscription } from '../../../react/components/dice/DiceRollDisplay';
-import { diceSetOfCollection } from '../../../services/diceSets/collectionDiceSets';
 import type { OffMapRolls } from '../../../services/statblockRolls';
-import { rollingRules } from '../../../gameSystems/diceSets';
-import { rollContestFormulas, rollDiceFormula, rollingWith } from '../../../tools/DiceTool';
-import { hideGmOnly } from '../../../dice/rollVisibility';
+import { collectionRolling } from '../../../services/collectionRolling';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { OffMapRollsContext } from '../../render/shared/offMapRolls';
-import { offlineDiceInputs } from '../../../services/offlineDiceInputs';
 
 type RollListener = (result: DiceRollResult, options: { muted: boolean }) => void;
 interface ShownRoll {
@@ -51,25 +47,8 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
   });
 
   const offMap = useMemo((): OffMapRolls => ({
-    roll: (formula, source, options) => {
-      const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
-      const inputs = offlineDiceInputs(app);
-      const result = rollDiceFormula(formula, rules, inputs, shown, options?.advantage, false, options?.targetSteps);
-      return result && { ...hideGmOnly(result, options?.visibility, inputs.gmOnly), source };
-    },
-    rollContest: (first, second, sources, options) => {
-      const { rules, shown } = rollingWith(diceSetOfCollection(app, collection.current), options?.set);
-      const inputs = offlineDiceInputs(app);
-      const sideAdvantage = { first: options?.sideAdvantage?.first ?? options?.advantage, second: options?.sideAdvantage?.second ?? options?.advantage };
-      const pair = rollContestFormulas(first, second, rules, inputs, shown, options?.names, { sideAdvantage, sideSteps: options?.sideSteps });
-      if (!pair) return null;
-      const [one, two] = pair;
-      hideGmOnly(one, options?.visibility, inputs.gmOnly);
-      hideGmOnly(two, options?.visibility, inputs.gmOnly);
-      return [{ ...one, source: sources[0] }, { ...two, source: sources[1] }];
-    },
+    ...collectionRolling(app, () => collection.current),
     covers: (mapEl) => coversMaps && hostRef.current !== null && !mapEl.contains(hostRef.current),
-    rollingDice: (set) => rollingRules(rollingWith(diceSetOfCollection(app, collection.current), set).rules),
     show: (result, muted) => {
       if (listeners.current.size === 0) {
         waiting.current.push({ result, muted });

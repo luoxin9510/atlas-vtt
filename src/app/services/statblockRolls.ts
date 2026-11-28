@@ -1,9 +1,8 @@
 /**
  * Where a statblock's roll is made and shown. A map open in Atlas rolls it
- * with its own dice tool, so the roll lands in that map's dice log and on its
- * tokens, and is thrown on the map. Where that map is not on screen (another
- * tab), or no map is open at all, the surface the statblock is drawn on may
- * show the roll itself (`OffMapRolls`: the statblock beside its note).
+ * with its own dice tool (log, tokens, thrown on the map). Where that map is not on screen,
+ * or no map is open, the surface the statblock is drawn on may show it (`OffMapRolls`: the
+ * statblock beside its note), else the workspace dice layer (`OffMapRoller`).
  */
 
 import type { App } from 'obsidian';
@@ -22,6 +21,7 @@ import { splitCheckText } from '../dice/splitCheck';
 import { completeFormula } from '../tools/completeFormula';
 import { parseFormula } from '../tools/parseFormula';
 import { statblockNameOf } from '../utils/pathUtils';
+import { OffMapRoller } from './offMapRoller';
 
 export interface DiceRollSource {
   /** The view that owns this statblock; used for routing, never saved on the roll. */
@@ -103,6 +103,11 @@ function originOf(map: MapDice, source: DiceRollSource): DiceRollOrigin | undefi
   return sameView ? rollOrigin(context, source.tokenId) : undefined;
 }
 
+/** Where no map rolls: the surface drawn on (`offMap`), else the app's `OffMapRoller` (its dice layer shows it); null in a bare test app. */
+function surfaceOf(app: App, notePath: string | undefined, offMap: OffMapRolls | null | undefined): OffMapRolls | null {
+  return offMap ?? OffMapRoller.existing(app)?.offMapRolls(notePath) ?? null;
+}
+
 /** The dice tool of an open map view (only `viewId`'s where one is named), one on screen first; null while none is open. */
 function mapDice(app: App, viewId: string | undefined): MapDice | null {
   let hidden: MapDice | null = null;
@@ -146,7 +151,7 @@ export function statblockRollingDice(app: App, source: DiceRollSource, offMap?: 
   const set = templateDiceSet(app, source.statblockPath);
   const map = mapDice(app, source.originContext?.viewId ?? source.viewId);
   if (map) return map.tool.rollingDice?.(set) ?? null;
-  return offMap?.rollingDice?.(set) ?? null;
+  return surfaceOf(app, source.statblockPath, offMap)?.rollingDice?.(set) ?? null;
 }
 
 /**
@@ -257,9 +262,10 @@ export function rollStatblockContest(app: App, first: ContestSide, second: Conte
     results = map.tool.rollContest?.(firstRoll, secondRoll, { ...options, sides: { first: sideOf(first), second: sideOf(second) } }) ?? null;
     const covered = map.containerEl !== undefined && first.offMap?.covers?.(map.containerEl) === true;
     if (results && (!map.onScreen || covered)) results.forEach((result) => first.offMap?.show(result, true));
-  } else if (first.offMap?.rollContest) {
-    results = first.offMap.rollContest(firstRoll, secondRoll, [rollSourceOf(first.source), rollSourceOf(second.source)], options);
-    results?.forEach((result) => first.offMap?.show(result, false));
+  } else {
+    const surface = surfaceOf(app, first.source.statblockPath, first.offMap);
+    results = surface?.rollContest?.(firstRoll, secondRoll, [rollSourceOf(first.source), rollSourceOf(second.source)], options) ?? null;
+    results?.forEach((result) => surface?.show(result, false));
   }
   if (results) {
     spendArmed(app, first.source, armed[0]);
@@ -286,8 +292,9 @@ function rollWithSource(
     if (result && (!map.onScreen || covered)) offMap?.show(result, true);
     return result;
   }
-  if (!offMap) return null;
-  const result = options ? offMap.roll(formula, rollSource, options) : offMap.roll(formula, rollSource);
-  if (result) offMap.show(result, false);
+  const surface = surfaceOf(app, source.statblockPath, offMap);
+  if (!surface) return null;
+  const result = options ? surface.roll(formula, rollSource, options) : surface.roll(formula, rollSource);
+  if (result) surface.show(result, false);
   return result;
 }

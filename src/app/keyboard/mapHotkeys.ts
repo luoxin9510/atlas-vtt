@@ -93,10 +93,16 @@ export function formatHotkey(binding: string): string {
 export function namesHotkey(label: string): boolean {
   return label !== '' && label !== UNASSIGNED_HOTKEY;
 }
-export function canRunMapHotkeys(event: KeyboardEvent, viewId?: string): boolean {
-  if (handledByAnotherControl(event) || event.isComposing || !isActiveAtlasLeaf(viewId)) return false;
+/**
+ * Whether a key may act on something drawn over the workspace (an overlay's Escape): not while another
+ * control takes it, someone is typing, or a modal, menu or palette is open in the focused window.
+ */
+export function canActOverWorkspace(event: KeyboardEvent): boolean {
+  if (handledByAnotherControl(event) || event.isComposing) return false;
   if (isTextEntryTarget(event.target)) return false;
   // Modals and overlays open in the focused window, a popout's own when the map is in one
-  if (activeDocument.querySelector('.modal-container, .prompt, .suggestion-container, .menu, .atlas-asset-manager-modal, .atlas-command-palette-overlay, .atlas-onboarding-overlay, .atlas-hotkey-help, .atlas-text-dialog-backdrop, .atlas-dm-screen-wrapper, .atlas-grid-alignment-panel, [aria-modal="true"]')) return false;
-  return true;
+  return !activeDocument.querySelector('.modal-container, .prompt, .suggestion-container, .menu, .atlas-asset-manager-modal, .atlas-command-palette-overlay, .atlas-onboarding-overlay, .atlas-hotkey-help, .atlas-text-dialog-backdrop, .atlas-dm-screen-wrapper, .atlas-grid-alignment-panel, [aria-modal="true"]');
+}
+export function canRunMapHotkeys(event: KeyboardEvent, viewId?: string): boolean {
+  return isActiveAtlasLeaf(viewId) && canActOverWorkspace(event);
 }

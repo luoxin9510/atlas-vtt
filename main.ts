@@ -42,6 +42,7 @@ import type { WidgetSyncService } from './src/app/services/WidgetSyncService';
 import { registerDiceLookSync } from './src/app/plugin/diceLookSync';
 import { registerAccentColorSync } from './src/app/plugin/accentColorSync';
 import { registerDiceStageRelease } from './src/app/plugin/diceStageRelease';
+import { registerNoteDice } from './src/app/plugin/noteDice';
 import { cancelPendingContest } from './src/app/services/pendingContest';
 import { registerAtlasLeafSync } from './src/app/plugin/atlasLeaves';
 import { EXTENSION_ATLASMAP } from './src/app/utils/sceneFiles';
@@ -167,6 +168,7 @@ export default class AtlasVTTPlugin extends Plugin {
     // whose folder renames reach map files only through these vault events.
     registerVaultSync(this);
     registerDiceStageRelease(this);
+    registerNoteDice(this);
     this.register(() => cancelPendingContest());
     registerAccentColorSync(this);
     // Views first, so workspace restore can resolve persisted Atlas tabs
