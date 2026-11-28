@@ -863,6 +863,11 @@
           "description": "Delayed its turn in a fight in turn order: it waits outside the order, and turns pass it by, until it acts again (`actNow`). Older versions read the entry at its place.",
           "type": "boolean"
         },
+        "fixedByHand": {
+          "const": true,
+          "description": "Fixed-value initiative: `initiative` was typed by the GM, so reading the statblocks does not replace it until the GM clears it; `undefined` clears it when patched.",
+          "type": "boolean"
+        },
         "hp": {
           "$ref": "#/definitions/ResourceValue"
         },
@@ -924,6 +929,17 @@
         "tieBreak": {
           "description": "Set by Act Now: the tie-break of the combatant it acted before, with whose number it ties, so that a later sort keeps it right before that one. A roll or an edit of its own number or modifier clears it; older versions ignore it.",
           "type": "number"
+        },
+        "tieBreakRoll": {
+          "description": "Fixed-value initiative: a hidden random number in [0, 1) drawn once when the combatant joined; it settles ties the fields leave.",
+          "type": "number"
+        },
+        "tieBreakValues": {
+          "description": "Fixed-value initiative: the tie-break fields' numbers as last read, in the rules' order; a missing field reads 0.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
         },
         "tokenId": {
           "description": "Reference to the token on the map",

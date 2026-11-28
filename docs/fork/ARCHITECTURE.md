@@ -149,6 +149,17 @@ How other plugins (rule packs) plug into Atlas; the user-facing guide is `rule-p
 - Where a modifier goes: `tools/targetModifier.ts` (`withTargetModifier`) puts armed bonuses and the one-off "Roll with a modifier..." into the target of an `under` check and onto the dice otherwise. Rolls read text through one `RollParseOptions` object (`tools/formulaTypes.ts`, built by `rollParseOptionsOf`) instead of a trailing `defaultFaces`.
 - Roll as a check: a statblock block's `rollAs: 'check'` (`statblocks/model/templateTypes.ts`, `rollModeOf`) makes the value's leading number a target (`statblocks/resolve/statblockCheckRoll.ts`).
 
+## Fixed-value initiative
+
+A preset's `initiative: { mode: 'turn-order', value: { field }, tieBreak: [{ field }] }` makes the tracker read initiative from statblocks instead of rolling it (design: `docs/superpowers/specs/2026-11-28-fixed-initiative-design.md`).
+
+- Rules: `types/initiativeRulesTypes.ts` (`InitiativeFieldRef`, `InitiativeRules.value` / `tieBreak`); `gameSystems/initiativeFixedRules.ts` parses and compares them (`fixedParts`, `sameFixedParts`; turn order only, at most four tie-break fields), wired in by `gameSystems/initiativeRules.ts`.
+- Reading: `initiative/fixedInitiativeReading.ts` (`readFixedNumber`, `plainNumber`: decimals, no dice or prose) finds the field through `findModifierField` (`initiative/modifierFields.ts`), which also resolves slot paths of a scores field: `attributes.DX`, `DX`, `attributes.1`. `fixedInitiativeValues.ts` (`readFixedInitiative`) reads each linked note once for all combatants.
+- Flow: `useFixedInitiative` (hook; reads whoever is waiting, and everyone on the roll-all button) -> `initiativeSlice.applyFixedInitiative` -> `applyFixed.ts` (`applyFixedRead`: sets `initiative`, refreshes `tieBreakValues`, draws `tieBreakRoll` once; a typed value, `fixedByHand`, stays until emptied). `initiativeEdit.ts` and `useNumberEditing` set `fixedByHand` and handle the cleared number.
+- Order: `initiative/tieBreak.ts` sorts by initiative, then the modifier tie-break, then `tieBreakValues` in order (higher first), then `tieBreakRoll`.
+- UI: `InitiativeTracker` / `InitiativeTrackerHeader` (button reads `initiative.readAll`), `InitiativeCard` and the card menu hide the roll button, `InitiativeNumber` and `formatInitiative` show decimals; the players' panel shows the numbers as they are (no protocol change).
+- On disk: entries may carry `fixedByHand`, `tieBreakValues`, `tieBreakRoll`; older versions ignore them.
+
 ## Importers
 
 Character file import and re-import (`src/app/importers/`); the pack-facing guide is `rule-pack-api.md`.
