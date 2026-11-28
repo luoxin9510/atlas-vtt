@@ -101,7 +101,7 @@ export function canActOverWorkspace(event: KeyboardEvent): boolean {
   if (handledByAnotherControl(event) || event.isComposing) return false;
   if (isTextEntryTarget(event.target)) return false;
   // Modals and overlays open in the focused window, a popout's own when the map is in one
-  return !activeDocument.querySelector('.modal-container, .prompt, .suggestion-container, .menu, .atlas-asset-manager-modal, .atlas-command-palette-overlay, .atlas-onboarding-overlay, .atlas-hotkey-help, .atlas-text-dialog-backdrop, .hover-popover, .atlas-dm-screen-wrapper, .atlas-grid-alignment-panel, [aria-modal="true"]');
+  return !activeDocument.querySelector('.modal-container, .prompt, .suggestion-container, .menu, .atlas-asset-manager-modal, .atlas-command-palette-overlay, .atlas-onboarding-overlay, .atlas-hotkey-help, .atlas-text-dialog-backdrop, .atlas-dm-screen-wrapper, .atlas-grid-alignment-panel, [aria-modal="true"]');
 }
 export function canRunMapHotkeys(event: KeyboardEvent, viewId?: string): boolean {
   return isActiveAtlasLeaf(viewId) && canActOverWorkspace(event);

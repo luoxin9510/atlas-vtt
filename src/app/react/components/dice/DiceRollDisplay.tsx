@@ -114,7 +114,12 @@ export function DiceRollDisplay({ container, prepare, muted = false, eventBus: s
   useEffect(() => {
     if (!listens || !showing) return;
     const handler = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape' || !(container ? canActOverWorkspace(e) : canRunMapHotkeys(e, view?.viewId))) return;
+      // The workspace layer also leaves Escape to an open link preview, which closes on it; map
+      // shortcuts don't, since a preview can linger (or be pinned) over a map
+      const allowed = container
+        ? canActOverWorkspace(e) && !activeDocument.querySelector('.hover-popover')
+        : canRunMapHotkeys(e, view?.viewId);
+      if (e.key !== 'Escape' || !allowed) return;
       e.preventDefault();
       e.stopPropagation();
       setRolls(closeAllRolls);
