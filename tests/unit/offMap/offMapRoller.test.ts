@@ -120,3 +120,25 @@ describe('the off-map roller: what it announces', () => {
     expect(heard).toEqual([]);
   });
 });
+
+describe('the off-map roller: rolls a surface shows itself', () => {
+  it('announces a displayed roll to listeners and keeps it, flagged as displayed', () => {
+    const roller = rollerFor();
+    const heard: Array<{ formula: string; displayed: boolean | undefined; doc: Document }> = [];
+    roller.onRoll((rolled) => heard.push({ formula: rolled.result.formula, displayed: rolled.displayed, doc: rolled.doc }));
+    const result = roller.roll('1d20', { doc })!;
+    roller.announce({ ...result, formula: '1d8' }, { doc: otherDoc, displayed: true });
+    expect(heard).toEqual([{ formula: '1d20', displayed: undefined, doc }, { formula: '1d8', displayed: true, doc: otherDoc }]);
+    expect(roller.history().map((rolled) => rolled.result.formula)).toEqual(['1d20', '1d8']);
+  });
+
+  it('gives each side of a contest the origin it was rolled for', () => {
+    const roller = rollerFor();
+    const origins: unknown[] = [];
+    roller.onRoll((rolled) => origins.push(rolled.origin));
+    const first = { tokenId: 'a' } as never;
+    const second = { tokenId: 'b' } as never;
+    roller.rollContest('3d6 vs 12', '3d6 vs 14', { doc, origins: [first, second] });
+    expect(origins).toEqual([first, second]);
+  });
+});

@@ -37,6 +37,17 @@ describe('Escape on a display drawn into a host (the workspace dice layer)', () 
     expect(exiting(host)).toBe(true);
   });
 
+  it('leaves Escape to a hover popover of Obsidian that is open', () => {
+    const host = shownCard(true);
+    vi.stubGlobal('activeDocument', document);
+    document.body.createDiv({ cls: 'hover-popover' });
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => { window.dispatchEvent(event); });
+    expect(exiting(host)).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
   it('leaves Escape alone otherwise (a pane\'s display)', () => {
     const host = shownCard(false);
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });

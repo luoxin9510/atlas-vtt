@@ -100,3 +100,17 @@ describe('rule pack rolls with no map open go through the off-map roller', () =>
     expect(announced).toEqual([]);
   });
 });
+
+describe('rule pack rolls after Atlas unloaded (no roller)', () => {
+  it('roll quietly, and make no roller', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { offMapRollFeedOf } = await import('../../../src/app/services/offMapRollFeed');
+    const app = { workspace: { getLeavesOfType: () => [], trigger: vi.fn() } } as never;
+    provideGmOnlySwitch(app, () => false);
+    const api = new RulePacks(app);
+    expect(api.rollDice('1d20+1')).toMatchObject({ total: 12 });
+    expect(api.rollContest('1d20 vs 15', '1d20 vs 9')).toHaveLength(2);
+    expect(OffMapRoller.existing(app)).toBeUndefined();
+    expect(offMapRollFeedOf(app)).toBeUndefined();
+  });
+});

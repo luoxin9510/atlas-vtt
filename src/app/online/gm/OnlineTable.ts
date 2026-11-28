@@ -23,9 +23,11 @@ import type { CoveredPages } from './coveredPages.ts';
 import { TableConnection, type TableStatus } from './TableConnection.ts';
 import { TableRoster } from './tableRoster.ts';
 import { closingText, tableEndOf, tableEndText, type TableEnd } from './tableEnd.ts';
+import type { OffMapRollShare } from './OffMapRollShare.ts';
 import type { OnlineTableEvents } from './tableEvents.ts';
-import { buildShares, type TableShares } from './tableShares.ts';
+import { buildShares } from './tableShares.ts';
 import { connectionHandlers, logRests, sceneWatch } from './tableWiring.ts';
+import type { FoundShare } from './pins/FoundShare.ts';
 import type { NotesShare } from './notes/NotesShare.ts';
 import type { OnlineTableOptions } from './onlineTableOptions.ts';
 
@@ -67,17 +69,18 @@ export class OnlineTable {
   /** The players' books: each one's own pages besides the table, kept on this device's shelf. */
   private readonly books: TableBook;
   /** The readable pins players find, and the notes they found. */
-  private readonly found: TableShares['found'];
+  private readonly found: FoundShare;
   /** The notes marked `atlas-share`, shared with players of fork level 3. */
   readonly notes: NotesShare;
   /** The pages whose book covers their map, which the table's activity leaves out. */
   private readonly covers: CoveredPages;
-  readonly link: string; // The join link players open
+  /** The join link players open. */
+  readonly link: string;
   private readonly stopOwnership: () => void;
   /** The fork level each player's app declared. */
   private readonly forkClients: ForkClients;
   private readonly pauseShare: PauseShare;
-  private readonly offMap: TableShares['offMap'];
+  private readonly offMap: OffMapRollShare;
   /** Why the relay's image cache cannot be used now (images go over the socket); null while it can. */
   get imageCache(): ImageCacheReason | null {
     return this.tickets.status;

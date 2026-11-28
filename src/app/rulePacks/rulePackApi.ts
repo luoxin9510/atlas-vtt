@@ -15,6 +15,7 @@ import type { CheckDirection, CheckRule } from '../dice/checkTypes';
 import { diceSetOfCollection } from '../services/diceSets/collectionDiceSets';
 import { parseContest } from '../dice/parseContest';
 import { rollParseOptionsOf } from '../gameSystems/diceSets';
+import { collectionRolling } from '../services/collectionRolling';
 import { OffMapRoller } from '../services/offMapRoller';
 import { openMapDiceTool } from '../services/statblockRolls';
 import { checkText } from '../tools/buildRoll';
@@ -205,10 +206,15 @@ export class RulePacks implements RulePackApi {
     const tool = openMapDiceTool(this.app);
     const names = options?.names;
     if (tool?.rollContest) return tool.rollContest(first, second, { ...mapOptions(options), ...(names && { names }) });
-    return OffMapRoller.forApp(this.app).rollContest(first, second, {
-      ...(names && { names }), ...(options?.visibility && { visibility: options.visibility }), collectionId: options?.collectionId ?? null,
-      sources: [PACK_SOURCE, PACK_SOURCE],
-    });
+    const rolled = { ...(names && { names }), ...(options?.visibility && { visibility: options.visibility }) };
+    const roller = OffMapRoller.existing(this.app);
+    if (roller) return roller.rollContest(first, second, { ...rolled, collectionId: options?.collectionId ?? null, sources: [PACK_SOURCE, PACK_SOURCE] });
+    return this.quietly(options).rollContest(first, second, [PACK_SOURCE, PACK_SOURCE], rolled);
+  }
+
+  /** The rolling of a collection's dice set with no roller to announce it: Atlas has unloaded, so nothing shows or shares the roll. */
+  private quietly(options: RulePackRollOptions | undefined): ReturnType<typeof collectionRolling> {
+    return collectionRolling(this.app, () => options?.collectionId ?? null);
   }
 
   /** Rolls with a collection's dice set through the off-map roller, which shows the roll in the focused window and shares it online. */
@@ -216,8 +222,9 @@ export class RulePacks implements RulePackApi {
     const { rules } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
     const contest = parseContest(text, rollParseOptionsOf(rules));
     if (contest) return this.rollContest(contest.first, contest.second, options)?.[1] ?? null;
-    return OffMapRoller.forApp(this.app).roll(text, {
-      source: PACK_SOURCE, collectionId: options?.collectionId ?? null, ...(options?.visibility && { visibility: options.visibility }),
-    });
+    const rolled = options?.visibility && { visibility: options.visibility };
+    const roller = OffMapRoller.existing(this.app);
+    if (roller) return roller.roll(text, { source: PACK_SOURCE, collectionId: options?.collectionId ?? null, ...rolled });
+    return this.quietly(options).roll(text, PACK_SOURCE, rolled || undefined);
   }
 }

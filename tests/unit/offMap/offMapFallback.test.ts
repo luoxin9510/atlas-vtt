@@ -15,7 +15,10 @@ import { rollStatblockContest, rollStatblockDice, type OffMapRolls } from '../..
 /** An app with the plugin's roller (or not) and, where asked, one open map whose dice tool records its rolls. */
 function setup(options: { roller: boolean; map?: boolean }): { app: never; heard: OffMapRolled[]; mapRolls: string[] } {
   const mapRolls: string[] = [];
-  const tool = { rollDice: (formula: string): never => { mapRolls.push(formula); return { formula } as never; } };
+  const tool = {
+    rollDice: (formula: string): never => { mapRolls.push(formula); return { formula } as never; },
+    rollContest: (first: string): never => { mapRolls.push(`contest ${first}`); return [{ formula: first }, { formula: first }] as never; },
+  };
   const view = { containerEl: { isShown: () => true }, serviceManager: { getToolController: () => ({ getDiceTool: () => tool }) } };
   const app = { workspace: { getLeavesOfType: () => (options.map ? [{ view }] : []) }, vault: { getFileByPath: () => null } } as never;
   const heard: OffMapRolled[] = [];
@@ -66,6 +69,32 @@ describe('a statblock roll with no map open and no surface of its own', () => {
   });
 });
 
+describe('the window a roll is made in', () => {
+  it('is the window of the clicked element, not the focused one', () => {
+    const { app, heard } = setup({ roller: true });
+    vi.stubGlobal('activeDocument', document);
+    const popout = document.implementation.createHTMLDocument('popout');
+    const el = popout.body.createDiv();
+    el.innerHTML = '<div class="statblock-item-container">Bite 1d6+2</div>';
+    linkDiceIn(el);
+    const dispose = attachDiceRolling(el, app, () => ({ statblockPath: 'Notes/Goblin.md' }));
+    el.querySelector<HTMLElement>('.atlas-dice-link')!.click();
+    expect(heard).toHaveLength(1);
+    expect(heard[0]?.doc).toBe(popout);
+    dispose();
+    vi.unstubAllGlobals();
+  });
+
+  it('is the clicked window for the sides of a contest too', () => {
+    const { app, heard } = setup({ roller: true });
+    vi.stubGlobal('activeDocument', document);
+    const popout = document.implementation.createHTMLDocument('popout');
+    rollStatblockContest(app, { formula: '3d6 vs 12', source: { doc: popout } }, { formula: '3d6 vs 14', source: {} });
+    expect(heard.map((rolled) => rolled.doc)).toEqual([popout, popout]);
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('with a map open', () => {
   it('goes to the map first, and the roller announces nothing', () => {
     const { app, heard, mapRolls } = setup({ roller: true, map: true });
@@ -83,6 +112,14 @@ describe('with a map open', () => {
     };
     rollStatblockDice(app, '1d8', {}, own);
     expect(own.rolled).toEqual(['1d8']);
+    expect(heard).toEqual([]);
+  });
+
+  it('rolls nowhere, not even on the layer, where the statblock names a map that is closed while another is open', () => {
+    const { app, heard, mapRolls } = setup({ roller: true, map: true });
+    expect(rollStatblockDice(app, '1d20', { viewId: 'closed-view' }, null)).toBeNull();
+    expect(rollStatblockContest(app, { formula: '1d20 vs 12', source: { viewId: 'closed-view' } }, { formula: '1d20 vs 14', source: { viewId: 'closed-view' } })).toBeNull();
+    expect(mapRolls).toEqual([]);
     expect(heard).toEqual([]);
   });
 

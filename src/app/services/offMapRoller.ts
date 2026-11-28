@@ -1,7 +1,7 @@
 import type { App } from 'obsidian';
 import { collectionIdOfPath } from './assetPaths';
 import { collectionRolling } from './collectionRolling';
-import { forgetOffMapRollFeed, provideOffMapRollFeed } from './offMapRollFeed';
+import { forgetOffMapRollFeed, offMapRollFeedOf, provideOffMapRollFeed } from './offMapRollFeed';
 import type { OffMapRolls } from './statblockRolls';
 import type { ContestOptions, RollOptions } from '../tools/DiceTool';
 import type { DiceRollOrigin } from '../types/diceRollOrigin';
@@ -17,6 +17,8 @@ export interface OffMapRolled {
   /** Whether another display already plays its sounds. */
   muted: boolean;
   origin?: DiceRollOrigin | undefined;
+  /** Whether the surface it was made on shows it already (the statblock pane): the window's layer leaves it out. */
+  displayed?: boolean | undefined;
 }
 
 /** How a roll made with no map open is made: the options of any roll, and where it was made. */
@@ -34,7 +36,17 @@ export interface OffMapRollOptions extends RollOptions {
 
 export type OffMapContestOptions = Omit<ContestOptions, 'sides'> & Pick<OffMapRollOptions, 'notePath' | 'collectionId' | 'doc'> & {
   sources?: [RollSource, RollSource] | undefined;
+  /** Who each side was rolled for, announced with it. */
+  origins?: [DiceRollOrigin | undefined, DiceRollOrigin | undefined] | undefined;
 };
+
+/** Where a roll a surface made and shows itself is announced from. */
+export interface OffMapAnnounceOptions {
+  doc: Document;
+  /** The surface shows the roll: it is shared and kept, but no layer shows it. */
+  displayed?: boolean | undefined;
+  origin?: DiceRollOrigin | undefined;
+}
 
 type RollListener = (rolled: OffMapRolled) => void;
 
@@ -48,27 +60,23 @@ const STATBLOCK_SOURCE: RollSource = { type: 'statblock' };
  * where the window's dice layer shows it, and the last 20 are kept in memory.
  */
 export class OffMapRoller {
-  private static readonly byApp = new WeakMap<object, OffMapRoller>();
-
-  /** The one roller of `app`, made when first asked for. */
+  /** The one roller of `app`, made when first asked for; the plugin's wiring asks, the rest use `existing`. */
   static forApp(app: App): OffMapRoller {
-    let roller = OffMapRoller.byApp.get(app);
-    if (!roller) {
-      roller = new OffMapRoller(app);
-      provideOffMapRollFeed(app, roller);
-      OffMapRoller.byApp.set(app, roller);
-    }
+    const existing = OffMapRoller.existing(app);
+    if (existing) return existing;
+    const roller = new OffMapRoller(app);
+    provideOffMapRollFeed(app, roller);
     return roller;
   }
 
-  /** The roller of `app` if the plugin made one (not in a test that made none). */
+  /** The roller of `app` if the plugin made one (not in a test that made none, nor after it unloaded). */
   static existing(app: App): OffMapRoller | undefined {
-    return OffMapRoller.byApp.get(app);
+    const feed = offMapRollFeedOf(app);
+    return feed instanceof OffMapRoller ? feed : undefined;
   }
 
   static release(app: App): void {
-    OffMapRoller.byApp.get(app)?.dispose();
-    OffMapRoller.byApp.delete(app);
+    OffMapRoller.existing(app)?.dispose();
     forgetOffMapRollFeed(app);
   }
 
@@ -89,19 +97,24 @@ export class OffMapRoller {
     const sources = options.sources ?? [STATBLOCK_SOURCE, STATBLOCK_SOURCE];
     const pair = this.rolling(options.notePath, options.collectionId).rollContest(first, second, sources, options);
     const doc = options.doc ?? activeDocument;
-    pair?.forEach((result) => this.emit({ result, doc, muted: false }));
+    pair?.forEach((result, side) => this.emit({ result, doc, muted: false, origin: options.origins?.[side] }));
     return pair;
   }
 
   /**
    * The surface the statblock links of a note use while no map is open: it rolls here and shows
-   * through `show`, which announces the result in the window that is focused when it is made.
+   * through `show`, which announces the result in `doc` (the window clicked in), else the focused one.
    */
-  offMapRolls(notePath: string | null | undefined): OffMapRolls {
+  offMapRolls(notePath: string | null | undefined, doc?: Document): OffMapRolls {
     return {
       ...this.rolling(notePath),
-      show: (result, muted) => this.emit({ result, doc: activeDocument, muted }),
+      show: (result, muted) => this.emit({ result, doc: doc ?? activeDocument, muted }),
     };
+  }
+
+  /** A roll a surface made and shows itself (`displayed`): shared online and kept like any, and no layer shows it again. */
+  announce(result: DiceRollResult, { doc, displayed, origin }: OffMapAnnounceOptions): void {
+    this.emit({ result, doc, muted: false, origin, displayed });
   }
 
   /** Hears every roll with the window it was made in; returns what stops it. */

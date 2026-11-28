@@ -37,3 +37,17 @@ promised by target-number checks decision 17, and it also finishes that spec's d
 7. The dice set with no map open (finishing decision 11) is the set of the collection the note
    belongs to, else the library's default. Atlas has no library-level default set, so the fallback is
    the built-in default (d20); a template's own set still wins over both.
+   The set is that of the collection of the statblock note whose dice were clicked, not of the note
+   the click happened in (a statblock fence embedded in another note rolls with the statblock's set).
+8. A roll counts as made with no map open only where no map is open at all. A statblock that names
+   a map that has closed, while another map is open, rolls nowhere (as before): not on the other map,
+   whose log and tokens are not its own, and not on the layer. A map open but not on screen keeps
+   decision 6.
+9. A roll is shown in the window of the clicked element (its `ownerDocument`), not the focused one.
+   If that window has closed, the main window's layer shows it.
+10. The statblock pane and the encounter builder show their own rolls (decision 1), and those rolls
+    are still shared online (decision 4) and kept in the 20-roll history (decision 5): the surface
+    tells the roller (`announce`, `displayed`), and the layer leaves them out.
+11. "Note dice links" means the dice links inside a statblock rendered in a note (fences in reading
+    view, the pane). Atlas has no markdown post-processor for dice text in ordinary notes: only
+    `statblock` fences get dice links, so plain `1d20+5` in a note is not clickable.

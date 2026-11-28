@@ -21,14 +21,19 @@ vi.mock('../../../src/app/services/diceSets/collectionDiceSets', async () => {
 import { NoteDiceLayers } from '../../../src/app/services/NoteDiceLayers';
 import { OffMapRoller } from '../../../src/app/services/offMapRoller';
 
-const popout = (): Document => document.implementation.createHTMLDocument('popout');
+/** A window's document: it has a window (`defaultView`) until it closes. */
+const popout = (open = true): Document => {
+  const doc = document.implementation.createHTMLDocument('popout');
+  if (open) Object.defineProperty(doc, 'defaultView', { value: window });
+  return doc;
+};
 const layerOf = (doc: Document): HTMLElement | null => doc.body.querySelector('.atlas-note-dice-layer');
 
 let roller: OffMapRoller;
 let layers: NoteDiceLayers;
 
 beforeEach(() => {
-  const app = {} as never;
+  const app = { workspace: { containerEl: document.body } } as never;
   roller = OffMapRoller.forApp(app);
   layers = new NoteDiceLayers(app, roller);
   layers.start();
@@ -67,6 +72,26 @@ describe('the workspace dice layer', () => {
     expect(theirs).not.toBeNull();
     expect(theirs).not.toBe(mine);
     expect(displays.shown).toEqual([{ container: mine, formula: '1d20' }, { container: theirs, formula: '1d4' }]);
+  });
+
+  it('shows a roll of a window that has closed in the main window instead', async () => {
+    const closed = popout(false);
+    await act(async () => { roller.roll('1d20', { doc: closed }); });
+    expect(layerOf(closed)).toBeNull();
+    expect(displays.shown).toEqual([{ container: layerOf(document), formula: '1d20' }]);
+  });
+
+  it('does not show a roll its surface shows already', async () => {
+    const result = roller.roll('1d20', { doc: document })!;
+    await act(async () => { roller.announce({ ...result, formula: '1d6' }, { doc: document, displayed: true }); });
+    expect(displays.shown.map((shown) => shown.formula)).toEqual(['1d20']);
+  });
+
+  it('keeps at most 20 rolls for a display that has not listened yet', async () => {
+    const other = popout();
+    for (let i = 1; i <= 25; i++) roller.roll(`1d20+${i}`, { doc: other });
+    await act(async () => { await Promise.resolve(); });
+    expect(displays.shown.map((shown) => shown.formula)).toEqual(Array.from({ length: 20 }, (_, i) => `1d20+${i + 6}`));
   });
 
   it('removes the host of a window that closes, and makes a fresh one if it rolls again', async () => {

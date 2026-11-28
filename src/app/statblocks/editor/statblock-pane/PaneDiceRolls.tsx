@@ -3,6 +3,7 @@ import type { App } from 'obsidian';
 import { AtlasUIContext, type AtlasUIContextValue } from '../../../react/root/AtlasUIContext';
 import { DiceRollDisplay, type DiceRollSubscription } from '../../../react/components/dice/DiceRollDisplay';
 import type { OffMapRolls } from '../../../services/statblockRolls';
+import { OffMapRoller } from '../../../services/offMapRoller';
 import { collectionRolling } from '../../../services/collectionRolling';
 import type { DiceRollResult } from '../../../types/diceTypes';
 import { OffMapRollsContext } from '../../render/shared/offMapRolls';
@@ -50,6 +51,8 @@ export function PaneDiceRolls({ app, collectionId, coversMaps = false, children 
     ...collectionRolling(app, () => collection.current),
     covers: (mapEl) => coversMaps && hostRef.current !== null && !mapEl.contains(hostRef.current),
     show: (result, muted) => {
+      // No map made it (a map's own roll is shared by its bus): share it online and keep it, as any roll without a map
+      if (!muted) OffMapRoller.existing(app)?.announce(result, { doc: hostRef.current?.ownerDocument ?? activeDocument, displayed: true });
       if (listeners.current.size === 0) {
         waiting.current.push({ result, muted });
         setRolled(true);

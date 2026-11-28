@@ -15,8 +15,9 @@ export interface OffMapRollFeed {
 }
 
 /**
- * Where `app`'s off-map rolls are heard. `OffMapRoller` provides itself for its app, so the table
- * shares them with players without importing the roller (and the dice sets, assets and settings it rolls with).
+ * The one registry of `app`'s off-map roller, as the feed it is. `OffMapRoller` provides itself for its
+ * app (and finds itself again here, `OffMapRoller.existing`), so the table shares its rolls with players
+ * without importing the roller (and the dice sets, assets and settings it rolls with).
  */
 const feeds = new WeakMap<App, OffMapRollFeed>();
 

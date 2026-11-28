@@ -7,6 +7,9 @@ import type { OffMapRolled, OffMapRoller } from './offMapRoller';
 
 type Shown = (rolled: OffMapRolled) => void;
 
+/** The rolls a layer holds for a display that has not listened yet, as many as the roller keeps. */
+const WAITING_LENGTH = 20;
+
 /** The dice layer of one window: its host, the display mounted in it, and the rolls the display has not listened for yet. */
 class WindowLayer {
   private readonly root: Root;
@@ -21,8 +24,12 @@ class WindowLayer {
   }
 
   show(rolled: OffMapRolled): void {
-    if (this.listeners.size === 0) this.waiting.push(rolled);
-    else for (const listener of this.listeners) listener(rolled);
+    if (this.listeners.size > 0) {
+      for (const listener of this.listeners) listener(rolled);
+      return;
+    }
+    this.waiting.push(rolled);
+    if (this.waiting.length > WAITING_LENGTH) this.waiting.shift();
   }
 
   destroy(): void {
@@ -53,7 +60,9 @@ export class NoteDiceLayers {
 
   /** Starts showing the roller's rolls. */
   start(): void {
-    this.stopListening ??= this.roller.onRoll((rolled) => this.layerOf(rolled.doc).show(rolled));
+    this.stopListening ??= this.roller.onRoll((rolled) => {
+      if (!rolled.displayed) this.layerOf(rolled.doc).show(rolled);
+    });
   }
 
   /** Removes the host of a window that closed; its next roll, if it opens again, makes a new one. */
@@ -69,7 +78,9 @@ export class NoteDiceLayers {
     this.layers.clear();
   }
 
-  private layerOf(doc: Document): WindowLayer {
+  /** The layer of `doc`'s window, else of the main one where that window has closed. */
+  private layerOf(rollDoc: Document): WindowLayer {
+    const doc = rollDoc.defaultView ? rollDoc : this.app.workspace?.containerEl?.ownerDocument ?? activeDocument;
     let layer = this.layers.get(doc);
     if (!layer) {
       layer = new WindowLayer(doc.body.createDiv({ cls: 'atlas-vtt-plugin atlas-note-dice-layer' }), this.app);
