@@ -34,6 +34,27 @@ describe('the .atlasmap JSON Schema', () => {
     expect(errorsOf(JSON.parse(EXAMPLE))).toBe('');
   });
 
+  it('accepts the dice log entries and the fixed-value initiative fields a scene can now hold', () => {
+    const scene = JSON.parse(EXAMPLE);
+    const check = { target: 12, direction: 'under', margin: 3, success: true, crit: null, rule: 'builtin:margin', baseTarget: 11, targetSteps: [{ label: 'Aim', value: 1 }, { value: 0 }] };
+    const roll = { id: 'r1', timestamp: 1, formula: '1d20+1[Aim] vs 12', rolls: [{ die: 'd20', value: 10, max: 20 }], modifiers: 1, namedModifiers: [{ label: 'Aim', value: 1 }], total: 11, check };
+    scene.state.diceLog = [
+      roll,
+      { ...roll, id: 'r2', hidden: true },
+      { ...roll, id: 'r3', contest: { id: 'c1', side: 'second', names: { first: 'Ana', second: 'Bo' }, verdict: { winner: 'first', rule: 'builtin:contest-margin' } } },
+    ];
+    scene.state.initiative.entries = [{
+      id: 'i1', tokenId: 'tok_1', name: 'Goblin', initiative: 14, initiativeModifier: 0, imagePath: '', isActive: false, isNPC: true, order: 0, isDefeated: false,
+      fixedByHand: true, orderByHand: true, tieBreakValues: [3, 1], tieBreakRoll: 0.25,
+    }];
+    expect(errorsOf(scene)).toBe('');
+
+    const wrong = JSON.parse(JSON.stringify(scene));
+    wrong.state.diceLog[0].hidden = false;
+    wrong.state.initiative.entries[0].tieBreakRoll = 'high';
+    expect(validate(wrong)).toBe(false);
+  });
+
   it('rejects an envelope of another version and a token of the in-memory shape', () => {
     const newer = { ...JSON.parse(EXAMPLE), version: 5 };
     expect(validate(newer)).toBe(false);

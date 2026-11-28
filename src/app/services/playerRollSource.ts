@@ -1,5 +1,6 @@
 import type { DiceRollOrigin } from '../types/diceRollOrigin';
 import type { DiceRollResult } from '../types/diceTypes';
+import { withoutConstantLabels } from '../tools/namedModifiers';
 import type { PreparedDiceRoll, RollSourcePresentation } from '../react/components/dice/diceSourcePresentation';
 
 /** A token the players' picture shows, as a roll may name it: plain data read from the map. */
@@ -49,13 +50,22 @@ export function rollForPlayers(
 ): PreparedDiceRoll {
   const result = withoutSideNames(full);
   const source = result.source;
-  if (!source) return { result, sourcePresentation: null };
+  // A roll with no source names no token, so no token is shown: its labels may still come from a statblock's armed values.
+  if (!source) return { result: withoutLabels(result), sourcePresentation: null };
   const shown = origin && source.tokenId && origin.tokenId === source.tokenId ? scene?.shownToken(origin) ?? null : null;
-  if (!shown) return { result: { ...withoutStepLabels(result), source: { type: source.type } }, sourcePresentation: null };
+  if (!shown) return { result: { ...withoutLabels(result), source: { type: source.type } }, sourcePresentation: null };
   return {
     result: { ...result, source: source.abilityName ? { type: source.type, abilityName: source.abilityName } : { type: source.type } },
     sourcePresentation: presentationOf(shown, view),
   };
+}
+
+/** Labels name abilities and armed values of the token: without that token the labels go (modifiers, formula, steps), the values stay. */
+function withoutLabels(result: DiceRollResult): DiceRollResult {
+  // Formulas that multiply (or entries older than named modifiers) carry no namedModifiers but can
+  // still label constants, so the formula is always cleaned (dice labels stay)
+  const { namedModifiers: _named, ...rest } = withoutStepLabels(result);
+  return { ...rest, formula: withoutConstantLabels(rest.formula) };
 }
 
 /** The labels of a moved target's steps name abilities and armed values of the token: without that token they go, the values stay. */
