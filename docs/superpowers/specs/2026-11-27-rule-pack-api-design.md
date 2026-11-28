@@ -91,3 +91,31 @@ re-import) get a short grill of their own before they start.
 24. Each time Atlas is ready (also after it is reloaded) it triggers the workspace event
     `atlas-vtt:rule-packs-ready`; packs re-register on it (a pack's old interface object is stale
     after a reload).
+
+## P3c decisions (grill 2026-11-28, all recommendations accepted)
+
+25. The source is recorded as an absolute path (Electron `webUtils.getPathForFile`, read with node
+    `fs`; Atlas is desktop-only). When re-import cannot find the file, a file picker asks for it again
+    and the new path is recorded.
+26. An importer hands Atlas the portrait's bytes. PNG, JPG and WebP are kept as they are (no resizing
+    or cropping) in Atlas' asset folder; any other format imports the character without a portrait
+    and the summary says so.
+27. Importing a file whose note already exists: when a note in the collection records the same source
+    path and importer, Atlas asks and then re-imports it; a different character with the same name gets
+    a new note (`Name 2`, as today).
+28. Re-import first shows what will change (e.g. "Skills: Broadsword 15 → 16; added Shield") and writes
+    only after confirmation; Cancel changes nothing; no change at all says "Already up to date".
+29. Imported list fields (entries, lists) are replaced whole; items gone from the file are removed and
+    the confirmation marks them as removed.
+30. Re-import keeps the note's current template, even when the importer names another; values without
+    a place in it are still stored as properties.
+31. A changed portrait is written as a new image, and the linked token asset (and placed tokens using
+    it) switch to it; the old image file is never deleted.
+32. Several files import one by one; one failing file stops none of the others; one summary at the end
+    ("3 imported, 1 updated, 1 failed (name: reason)").
+33. "Re-import" appears in the note's more-options menu, the placed token's context menu, and the
+    command palette ("Re-import the current character"), only for notes with an import record.
+34. `registerImporter({ id, label, extensions, parse })`: `parse(bytes, fileName)` may be async and
+    returns `{ name, templateId, values, portrait? }`; a throw fails that file with its message in the
+    summary. Same rules as the other registrations (no `builtin:` ids, returns unregister, re-register
+    on the ready event).
