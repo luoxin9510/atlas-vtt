@@ -31,7 +31,7 @@ class CollectionPickerModal extends FuzzySuggestModal<CollectionOption> {
   onClose(): void {
     super.onClose();
     // Obsidian closes the modal before it hands over the choice; the choice is read a tick later.
-    window.setTimeout(() => this.done(this.chosen), 0);
+    this.containerEl.win.setTimeout(() => this.done(this.chosen), 0);
   }
 }
 

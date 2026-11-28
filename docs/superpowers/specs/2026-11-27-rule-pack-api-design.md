@@ -63,9 +63,12 @@ commercial game names in code, tests or docs.
     the files. The note records the source path and importer id; "Re-import" on the note or token
     reads it again.
 14. Atlas asks for the collection (default: the open map's); notes go to its `characters/` folder,
-    portraits beside them, tokens into its token library (not placed on a map). Notes inside the
+    portraits in Atlas' asset folder (decision 26; changed 2026-11-28 from "beside the notes", which
+    contradicted 26), tokens into its token library (not placed on a map). With no collection at all,
+    Atlas says "Create a collection first". Notes inside the
     collection folder pick up the collection's system (bare dice and so on).
-15. Re-import keeps current damage (resources' current values, clamped to the new maximum), the
+15. Re-import keeps current damage (the current values of fields the template treats as resources,
+    clamped to the new maximum; any other value is the file's as it is), the
     tokens' conditions, and the note body below the statblock; only imported fields are replaced.
 
 P3b (how a contest's dice are thrown in 3D, online display) and P3c (portrait formats, conflicts on
