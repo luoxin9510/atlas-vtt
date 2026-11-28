@@ -22,3 +22,12 @@ export function portraitFormat(bytes: ArrayBuffer): PortraitFormat | null {
   if (startsWith(data, RIFF) && startsWith(data, WEBP, 8)) return 'webp';
   return null;
 }
+
+/** The largest portrait Atlas keeps; a bigger file would stall the vault and every view that draws it. */
+export const MAX_PORTRAIT_BYTES = 20 * 1024 * 1024;
+
+/** Why a portrait is not kept (decision 26): a format Atlas does not keep, or a file over `MAX_PORTRAIT_BYTES`; null when it is kept. */
+export function portraitProblem(bytes: ArrayBuffer): 'unsupported' | 'tooBig' | null {
+  if (!portraitFormat(bytes)) return 'unsupported';
+  return bytes.byteLength > MAX_PORTRAIT_BYTES ? 'tooBig' : null;
+}

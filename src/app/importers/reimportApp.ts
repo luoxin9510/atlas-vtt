@@ -6,6 +6,7 @@
  */
 
 import { TFile, type App } from 'obsidian';
+import { collectionResources } from '../resources/collectionResources';
 import { AssetService } from '../services/AssetService';
 import { collectionIdOfPath } from '../services/assetPaths';
 import { writeAssetImage } from '../services/assetImageFiles';
@@ -13,16 +14,24 @@ import { TokenStatblockLinkService } from '../services/TokenStatblockLinkService
 import { showNotice } from '../ui/notice';
 import type { FieldValue } from '../statblocks/model/templateTypes';
 import { NoteFieldWriter } from '../statblocks/notes/NoteFieldWriter';
+import { NO_MEANINGS } from '../statblocks/resolve/fieldMeanings';
+import { readStatblock } from '../statblocks/resolve/readStatblock';
 import { frontmatterOfText } from '../statblocks/notes/statblockSource';
 import { findOrAskSource } from './characterFiles';
 import { importPatches } from './importNotePatches';
 import { updatePlacedTokens } from './placedTokensApp';
 import { confirmChanges } from './ReimportChangesModal';
-import type { NoteEdit, ReimportDeps } from './reimportCharacter';
+import { addImportedTokenAsset } from './importedTokenAsset';
+import { isResourceFieldOf } from './resourceFieldKeys';
+import type { NotePlan, ReimportDeps } from './reimportCharacter';
 
-async function writeNote(app: App, notePath: string, edit: NoteEdit): Promise<void> {
-  const outcome = await NoteFieldWriter.forApp(app).patchNow(notePath, (frontmatter) => (
-    frontmatter ? importPatches(frontmatter, edit.set, edit.remove, edit.record) : []));
+/** The note is written from the plan worked out against its properties at this moment, inside the patch. */
+async function writeNote(app: App, notePath: string, plan: NotePlan): Promise<void> {
+  const outcome = await NoteFieldWriter.forApp(app).patchNow(notePath, (frontmatter) => {
+    if (!frontmatter) return [];
+    const edit = plan(frontmatter);
+    return importPatches(frontmatter, edit.set, edit.remove, edit.record);
+  });
   if (outcome.problem) throw new Error(outcome.problem);
   if (outcome.conflicts.length > 0) throw new Error(`The note changed while it was written: ${notePath}`);
 }
@@ -45,8 +54,15 @@ async function swapPortrait(app: App, swap: { notePath: string; oldImage: string
   app.workspace.trigger('atlas-vtt:refresh-assets');
 }
 
+/** Which fields of the note are resources: its template's tracked numbers and hit points, and the collection's counting resources. */
+async function resourceFields(app: App, notePath: string): Promise<(key: string) => boolean> {
+  const statblock = await readStatblock(app, notePath);
+  const collection = collectionIdOfPath(notePath);
+  const resources = collection === null ? [] : collectionResources(AssetService.getInstance(app).getCollectionSettings(collection));
+  return isResourceFieldOf(statblock?.source.kind === 'atlas' ? statblock.template : null, resources, statblock?.meanings ?? NO_MEANINGS);
+}
+
 export function reimportDeps(app: App): ReimportDeps {
-  const assets = AssetService.getInstance(app);
   return {
     readFrontmatter: async (notePath) => {
       const file = app.vault.getAbstractFileByPath(notePath);
@@ -54,7 +70,8 @@ export function reimportDeps(app: App): ReimportDeps {
     },
     askSource: (record, extensions) => findOrAskSource(record, activeDocument, extensions),
     confirmChanges: (preview) => confirmChanges(app, preview),
-    writeNote: (notePath, edit) => writeNote(app, notePath, edit),
+    resourceFields: (notePath) => resourceFields(app, notePath),
+    writeNote: (notePath, plan) => writeNote(app, notePath, plan),
     linkedImage: async (notePath) => (await TokenStatblockLinkService.getInstance(app).getTokensLinkedToStatblock(notePath))[0] ?? null,
     readImage: async (path) => {
       try {
@@ -66,7 +83,7 @@ export function reimportDeps(app: App): ReimportDeps {
     writeImage: (name, bytes) => writeAssetImage(app, name, bytes),
     swapPortrait: (swap) => swapPortrait(app, swap),
     addLinkedToken: async ({ name, imagePath, collection, notePath }) => {
-      await assets.addTokenAsset({ name, imagePath, collection, tags: [], showRing: true });
+      await addImportedTokenAsset(app, { name, imagePath, collection });
       await TokenStatblockLinkService.getInstance(app).linkTokenToStatblock(imagePath, notePath, { notice: false });
     },
     collectionOf: (notePath) => collectionIdOfPath(notePath),

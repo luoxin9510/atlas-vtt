@@ -2,8 +2,10 @@
  * Re-importing a character into its note (P3c decisions 15, 25, 28-31): the file is read again
  * (asking for it when it is gone), what would change is listed and written only after
  * confirmation. Only imported keys are replaced or removed; the note's template, body and other
- * keys stay, current damage is kept clamped to the new maxima, conditions are never touched, and a
- * changed portrait becomes a new image the linked token takes over (the old file stays).
+ * keys stay, the current value of a resource is kept clamped to the new maxima (against the note as
+ * it is when it is written, so an edit made while the changes were shown is not lost), conditions
+ * are never touched, and a changed portrait becomes a new image the linked token takes over (the
+ * old file stays). The note is written first: when that fails nothing else has changed.
  * Everything that touches the vault is a dependency, so the flow is tested without one.
  */
 
@@ -16,7 +18,8 @@ import { importableValues, isImportableKey } from './importNotePatches';
 import type { ReimportOutcome } from './importCharacters';
 import { readImportRecord, IMPORT_RECORD_KEY, type ImportRecord } from './importRecord';
 import type { CharacterImporter, ImportedCharacter } from './importerTypes';
-import { portraitFormat } from './portraitFormat';
+import { portraitProblem } from './portraitFormat';
+import { validatedCharacter } from './validateImported';
 
 export interface ReimportOptions {
   notePath: string;
@@ -33,6 +36,9 @@ export interface NoteEdit {
   remove: string[];
   record: ImportRecord;
 }
+
+/** The edit for the note as it is at the moment of the write; null where the note is gone. */
+export type NotePlan = (frontmatter: Readonly<Record<string, FieldValue>> | null) => NoteEdit;
 
 export interface ReimportPreview {
   name: string;
@@ -58,7 +64,10 @@ export interface ReimportDeps {
   askSource(record: ImportRecord, extensions: readonly string[]): Promise<PickedFile | null>;
   /** The list of changes; false when the person cancels. */
   confirmChanges(preview: ReimportPreview): Promise<boolean>;
-  writeNote(notePath: string, edit: NoteEdit): Promise<void>;
+  /** Which of the note's fields are resources (their current value is kept). */
+  resourceFields(notePath: string): Promise<(key: string) => boolean>;
+  /** Writes what `plan` says for the note's properties as they are at the write (it may be called more than once). */
+  writeNote(notePath: string, plan: NotePlan): Promise<void>;
   /** The image of the token asset linked to the note; null when none. */
   linkedImage(notePath: string): Promise<string | null>;
   readImage(path: string): Promise<ArrayBuffer | null>;
@@ -82,7 +91,13 @@ const sameBytes = (a: ArrayBuffer, b: ArrayBuffer): boolean => {
 /** The portrait the file gives when it is one Atlas keeps and differs from the linked token's image. */
 async function newPortrait(character: ImportedCharacter, linked: string | null, deps: ReimportDeps): Promise<ArrayBuffer | null> {
   const bytes = character.portrait?.bytes;
-  if (!bytes || !portraitFormat(bytes)) return null;
+  if (!bytes) return null;
+  const problem = portraitProblem(bytes);
+  if (problem !== null) {
+    // Said, not silent (decision 26): the rest of the re-import goes on without the portrait.
+    deps.notify(t(problem === 'tooBig' ? 'importers.portraitTooBig' : 'importers.portraitNotKept', { name: character.name }));
+    return null;
+  }
   const old = linked === null ? null : await deps.readImage(linked);
   return old !== null && sameBytes(old, bytes) ? null : bytes;
 }
@@ -96,7 +111,8 @@ function afterValues(frontmatter: Readonly<Record<string, FieldValue>>, set: Rea
 }
 
 async function parsedCharacter(options: ReimportOptions, source: PickedFile): Promise<ImportedCharacter> {
-  return options.character ?? options.importer.parse(source.bytes, source.fileName);
+  // The template is the note's own (decision 30), so unlike a first import its id need not name one that exists.
+  return options.character ?? validatedCharacter(await options.importer.parse(source.bytes, source.fileName));
 }
 
 /**
@@ -113,19 +129,31 @@ export async function reimportCharacter(deps: ReimportDeps, options: ReimportOpt
   if (!source) return 'cancelled';
   const character = await parsedCharacter(options, source);
 
-  const imported = importableValues(keepNoteCurrent(frontmatter, character.values));
+  const isResource = await deps.resourceFields(notePath);
+  const imported = importableValues(keepNoteCurrent(frontmatter, character.values, isResource));
   const changes = diffImport(frontmatter, imported, recorded.keys.filter(isImportableKey));
-  const removed = changes.filter((change) => change.kind === 'removed').map((change) => change.key);
-  const record: ImportRecord = { importer: importer.id, source: source.path ?? recorded.source, keys: Object.keys(character.values) };
+  const record: ImportRecord = { importer: importer.id, source: source.path ?? '', keys: Object.keys(character.values) };
   const linked = await deps.linkedImage(notePath);
   const portrait = await newPortrait(character, linked, deps);
 
   if (changes.length === 0 && portrait === null) {
-    if (record.source !== recorded.source) await deps.writeNote(notePath, { set: {}, remove: [], record: { ...recorded, source: record.source } });
+    if (record.source !== recorded.source) await deps.writeNote(notePath, () => ({ set: {}, remove: [], record: { ...recorded, source: record.source } }));
     deps.notify(t('importers.upToDate'));
     return 'unchanged';
   }
   if (!(await deps.confirmChanges({ name: character.name, changes, portrait: portrait !== null }))) return 'cancelled';
+
+  // Worked out again from the note as the write finds it: it may have been edited since the changes were listed.
+  const applied: Array<{ edit: NoteEdit; after: Record<string, FieldValue> }> = [];
+  await deps.writeNote(notePath, (latest) => {
+    const current = latest ?? frontmatter;
+    const set = importableValues(keepNoteCurrent(current, character.values, isResource));
+    const remove = diffImport(current, set, recorded.keys.filter(isImportableKey)).filter((change) => change.kind === 'removed').map((change) => change.key);
+    const edit: NoteEdit = { set, remove, record };
+    applied.push({ edit, after: afterValues(current, set, remove, record) });
+    return edit;
+  });
+  const written = applied[applied.length - 1];
 
   let newImage: string | null = null;
   if (portrait !== null) {
@@ -134,7 +162,6 @@ export async function reimportCharacter(deps: ReimportDeps, options: ReimportOpt
     if (linked !== null) await deps.swapPortrait({ notePath, oldImage: linked, newImage });
     else if (collection !== null) await deps.addLinkedToken({ name: character.name, imagePath: newImage, collection, notePath });
   }
-  await deps.writeNote(notePath, { set: imported, remove: removed, record });
-  await deps.updatePlacedTokens({ notePath, after: afterValues(frontmatter, imported, removed, record), removed, oldImage: linked, newImage });
+  await deps.updatePlacedTokens({ notePath, after: written?.after ?? frontmatter, removed: written?.edit.remove ?? [], oldImage: linked, newImage });
   return 'updated';
 }

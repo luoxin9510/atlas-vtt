@@ -11,6 +11,7 @@ import { mapResources } from '../resources/collectionResources';
 import { AssetService } from '../services/AssetService';
 import { rulesLookup } from '../services/mapRules';
 import { TokenStatblockLinkService } from '../services/TokenStatblockLinkService';
+import { allSceneFiles } from '../utils/sceneFiles';
 import { runUntracked } from '../stores/history';
 import { sceneTokens } from '../tokens/offMap';
 import { placedTokenChanges, reimportedMapJson, type PlacedTokenPlan } from './placedTokens';
@@ -44,7 +45,7 @@ export async function updatePlacedTokens(app: App, update: PlacedTokensUpdate): 
   const record: Record<string, unknown> = { ...resolved?.fields, ...update.after };
   for (const key of update.removed) delete record[key];
   const views = openViews(app);
-  for (const file of app.vault.getFiles().filter((candidate) => candidate.extension === 'atlasmap')) {
+  for (const file of allSceneFiles(app)) {
     const plan: PlacedTokenPlan = {
       notePath: update.notePath,
       record,

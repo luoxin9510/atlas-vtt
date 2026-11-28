@@ -10,8 +10,11 @@ import type { NotePatch } from '../statblocks/notes/patchTypes';
 import { TEMPLATE_KEY } from '../statblocks/notes/statblockSource';
 import { IMPORT_RECORD_KEY, type ImportRecord } from './importRecord';
 
-/** Keys an import never writes into a note: the markers, the template (kept, decision 30), the name and the picture. */
-const NOT_IMPORTED: ReadonlySet<string> = new Set(['statblock', TEMPLATE_KEY, 'name', 'image', IMPORT_RECORD_KEY]);
+/**
+ * Keys an import never writes into a note: the markers, the template (kept, decision 30), the name
+ * and the picture, and the properties Obsidian itself owns.
+ */
+const NOT_IMPORTED: ReadonlySet<string> = new Set(['statblock', TEMPLATE_KEY, 'name', 'image', IMPORT_RECORD_KEY, 'tags', 'aliases', 'cssclasses', 'position']);
 
 export const isImportableKey = (key: string): boolean => !NOT_IMPORTED.has(key);
 

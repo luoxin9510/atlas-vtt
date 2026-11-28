@@ -29,6 +29,9 @@ interface Harness {
   newTokens: Array<{ name: string; imagePath: string; collection: string; notePath: string }>;
   placed: Array<{ notePath: string; after: Record<string, FieldValue>; removed: string[]; oldImage: string | null; newImage: string | null }>;
   asked: ImportRecord[];
+  /** The note's properties as they are right now; a test changes them to play an edit in the editor. */
+  current: Record<string, FieldValue> | null;
+  order: string[];
 }
 
 interface Setup {
@@ -37,6 +40,7 @@ interface Setup {
   oldBytes?: ArrayBuffer | null;
   confirm?: boolean;
   picked?: PickedFile | null;
+  writeFails?: boolean;
 }
 
 const RECORD: FieldValue = { importer: 'pack:gcs', source: '/chars/Robin.gcs', keys: ['hp', 'skills', 'luck'] };
@@ -45,20 +49,26 @@ const NOTE_FRONTMATTER: Record<string, FieldValue> = {
 };
 
 function harness(setup: Setup = {}): Harness {
-  const h: Harness = { deps: undefined as never, notices: [], confirms: [], edits: [], images: [], swaps: [], newTokens: [], placed: [], asked: [] };
-  const frontmatter = setup.frontmatter === undefined ? NOTE_FRONTMATTER : setup.frontmatter;
+  const h: Harness = { deps: undefined as never, notices: [], confirms: [], edits: [], images: [], swaps: [], newTokens: [], placed: [], asked: [], current: null, order: [] };
+  h.current = setup.frontmatter === undefined ? NOTE_FRONTMATTER : setup.frontmatter;
   h.deps = {
-    readFrontmatter: () => Promise.resolve(frontmatter),
+    readFrontmatter: () => Promise.resolve(h.current === null ? null : { ...h.current }),
     askSource: (record) => { h.asked.push(record); return Promise.resolve(setup.picked === undefined ? null : setup.picked); },
     confirmChanges: (preview) => { h.confirms.push(preview); return Promise.resolve(setup.confirm ?? true); },
-    writeNote: (_path, edit) => { h.edits.push(edit); return Promise.resolve(); },
+    resourceFields: () => Promise.resolve((key) => key === 'hp'),
+    writeNote: (_path, plan) => {
+      h.order.push('note');
+      if (setup.writeFails) return Promise.reject(new Error('note write failed'));
+      h.edits.push(plan(h.current));
+      return Promise.resolve();
+    },
     linkedImage: () => Promise.resolve(setup.linkedImage ?? null),
     readImage: () => Promise.resolve(setup.oldBytes ?? null),
-    writeImage: (name, bytes) => { h.images.push({ name, bytes }); return Promise.resolve('atlas-vtt/assets/new.png'); },
-    swapPortrait: (swap) => { h.swaps.push(swap); return Promise.resolve(); },
-    addLinkedToken: (token) => { h.newTokens.push(token); return Promise.resolve(); },
+    writeImage: (name, bytes) => { h.order.push('image'); h.images.push({ name, bytes }); return Promise.resolve('atlas-vtt/assets/new.png'); },
+    swapPortrait: (swap) => { h.order.push('swap'); h.swaps.push(swap); return Promise.resolve(); },
+    addLinkedToken: (token) => { h.order.push('token'); h.newTokens.push(token); return Promise.resolve(); },
     collectionOf: () => 'crew',
-    updatePlacedTokens: (plan) => { h.placed.push(plan); return Promise.resolve(); },
+    updatePlacedTokens: (plan) => { h.order.push('placed'); h.placed.push(plan); return Promise.resolve(); },
     notify: (message) => { h.notices.push(message); },
   };
   return h;
@@ -190,6 +200,95 @@ describe('re-importing a character', () => {
       expect(await reimportCharacter(h.deps, request(SAME_VALUES, {}, PNG_B))).toBe('cancelled');
       expect(h.images).toEqual([]);
       expect(h.swaps).toEqual([]);
+    });
+  });
+
+  it('keeps only resource fields: a rating of 1/2 takes the file\'s 2', async () => {
+    const h = harness({ frontmatter: { ...NOTE_FRONTMATTER, cr: '1/2' } });
+    expect(await reimportCharacter(h.deps, request({ ...SAME_VALUES, cr: 2 }))).toBe('updated');
+    expect(h.confirms[0]?.changes.map((change) => change.key)).toEqual(['cr']);
+    expect(h.edits[0]?.set.cr).toBe(2);
+  });
+
+  describe('an edit while the changes are shown', () => {
+    it('keeps the newer current value, clamped, in the note and for the placed tokens', async () => {
+      const h = harness({ frontmatter: { ...NOTE_FRONTMATTER, hp: '20/27' } });
+      const confirm = h.deps.confirmChanges;
+      h.deps.confirmChanges = (preview) => { h.current = { ...NOTE_FRONTMATTER, hp: '8/27', mine: 'typed meanwhile' }; return confirm(preview); };
+      await reimportCharacter(h.deps, request({ hp: 15, skills: ['Axe', 'Bow'], luck: 3 }));
+      expect(h.confirms[0]?.changes.find((change) => change.key === 'hp')).toBeDefined();
+      expect(h.edits[0]?.set.hp).toBe('8/15');
+      expect(h.placed[0]?.after.hp).toBe('8/15');
+      expect(h.placed[0]?.after.mine).toBe('typed meanwhile');
+    });
+  });
+
+  describe('a failing write', () => {
+    it('leaves the portrait, the token and the placed tokens as they were when the note cannot be written', async () => {
+      const h = harness({ linkedImage: 'atlas-vtt/assets/old.png', oldBytes: PNG_A, writeFails: true });
+      await expect(reimportCharacter(h.deps, request(SAME_VALUES, {}, PNG_B))).rejects.toThrow('note write failed');
+      expect(h.images).toEqual([]);
+      expect(h.swaps).toEqual([]);
+      expect(h.newTokens).toEqual([]);
+      expect(h.placed).toEqual([]);
+    });
+
+    it('writes the note first, then the image, then the swap and the placed tokens', async () => {
+      const h = harness({ linkedImage: 'atlas-vtt/assets/old.png', oldBytes: PNG_A });
+      await reimportCharacter(h.deps, request(SAME_VALUES, {}, PNG_B));
+      expect(h.order).toEqual(['note', 'image', 'swap', 'placed']);
+    });
+  });
+
+  describe('what the importer hands over', () => {
+    it('is checked: a character with no name fails the re-import before anything is shown or written', async () => {
+      const h = harness();
+      const bad: ReimportOptions = { notePath: NOTE, importer: importerOf(() => ({ ...character({ hp: 12 }), name: ' ' })), source: file() };
+      await expect(reimportCharacter(h.deps, bad)).rejects.toThrow('no name');
+      expect(h.confirms).toEqual([]);
+      expect(h.edits).toEqual([]);
+    });
+
+    it('is cleaned: keys Obsidian owns are never written to the note', async () => {
+      const h = harness();
+      await reimportCharacter(h.deps, request({ ...SAME_VALUES, hp: 12, tags: ['x'], cssclasses: ['c'] }));
+      expect(h.edits[0]?.set).toEqual({ hp: 12, skills: ['Axe', 'Bow'], luck: 3 });
+      expect(h.edits[0]?.set).not.toHaveProperty('tags');
+      expect(h.edits[0]?.record.keys).toEqual(['hp', 'skills', 'luck']);
+    });
+  });
+
+  describe('a portrait that is not kept', () => {
+    it('is said in a notice for an unsupported format, and the other changes go on', async () => {
+      const h = harness({ linkedImage: 'atlas-vtt/assets/old.png', oldBytes: PNG_A });
+      expect(await reimportCharacter(h.deps, request({ ...SAME_VALUES, hp: 12 }, {}, GIF))).toBe('updated');
+      expect(h.notices).toEqual(['Robin: the portrait is not PNG, JPG or WebP, so it was not updated.']);
+      expect(h.images).toEqual([]);
+    });
+
+    it('is said for one over 20 MB, in Chinese too', async () => {
+      setLocale('zh', TRANSLATIONS);
+      const big = new Uint8Array(20 * 1024 * 1024 + 1);
+      big.set(new Uint8Array(PNG_A));
+      const h = harness();
+      await reimportCharacter(h.deps, request(SAME_VALUES, {}, big.buffer));
+      expect(h.notices.some((notice) => notice.includes('Robin') && notice.includes('20 MB'))).toBe(true);
+      expect(h.images).toEqual([]);
+    });
+  });
+
+  describe('a source the host could not name', () => {
+    it('is recorded as empty, never as the old path that no longer reads', async () => {
+      const h = harness({ picked: file(null) });
+      const { source: _source, ...rest } = request({ hp: 12, skills: ['Axe', 'Bow'], luck: 3 });
+      await reimportCharacter(h.deps, rest);
+      expect(h.edits[0]?.record.source).toBe('');
+    });
+
+    it('is recorded as empty even when nothing else changed', async () => {
+      const h = harness();
+      expect(await reimportCharacter(h.deps, request(SAME_VALUES, { source: file(null) }))).toBe('unchanged');
+      expect(h.edits[0]?.record.source).toBe('');
     });
   });
 });
