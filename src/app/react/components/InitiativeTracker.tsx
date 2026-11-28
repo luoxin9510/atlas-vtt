@@ -58,6 +58,7 @@ export const InitiativeTracker: React.FC = () => {
   const isMapLoading = useAtlasStore((s) => s.isMapLoading);
   const rules = useMapInitiativeRules();
   const { roll, rolling } = useInitiativeRolls(app, rules);
+  const fixedValues = rules.mode === 'turn-order' && rules.value !== undefined;
   const bySides = listedBySides(initiative, rules);
   const byCards = listedByCards(initiative, rules);
   const sides = useMemo(() => listedSides(initiative, rules), [initiative, rules]);
@@ -83,7 +84,7 @@ export const InitiativeTracker: React.FC = () => {
   // Local state
   const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const { open: openEditPopup, popup: editPopup } = useEditInitiativePopup(updateInitiativeEntry, inward);
+  const { open: openEditPopup, popup: editPopup } = useEditInitiativePopup(updateInitiativeEntry, inward, fixedValues);
 
   // Use shared statblock hover preview hook
   const [previewState, previewActions] = useStatblockHoverPreview<PreviewedEntry>({ app });
@@ -113,7 +114,7 @@ export const InitiativeTracker: React.FC = () => {
   useTurnInView(contentRef, { fightRuns: initiative.isActive, turnOf, round: initiative.round, fromTurn: layout.fromTurn || layout.collapsed });
 
   // Numbers typed on the cards; Tab goes on down the list as it shows
-  const numberEditing = useNumberEditing(shownOrder, updateInitiativeEntry);
+  const numberEditing = useNumberEditing(shownOrder, updateInitiativeEntry, fixedValues);
 
   // Drag and drop handlers
   const handleDragStart = useCallback((index: number): void => {

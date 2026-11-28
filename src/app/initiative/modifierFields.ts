@@ -41,8 +41,14 @@ export function labelsOf(fields: readonly TemplateField[]): FieldLabels {
   for (const field of fields) add(field.label, field.key, false);
   for (const field of fields) {
     if (field.type !== 'scores') continue;
-    (field.slots ?? []).forEach((slot, index) => add(slot, `${field.key}.${index}`, true));
-    (field.slotKeys ?? []).forEach((slot, index) => add(slot, `${field.key}.${index}`, true));
+    // A slot by its name alone (`DX`) or after its field (`attributes.DX`, `Attributes.DX`)
+    const add2 = (slot: string, index: number): void => {
+      add(slot, `${field.key}.${index}`, true);
+      add(`${field.key}.${slot}`, `${field.key}.${index}`, true);
+      if (field.label) add(`${field.label}.${slot}`, `${field.key}.${index}`, true);
+    };
+    (field.slots ?? []).forEach(add2);
+    (field.slotKeys ?? []).forEach(add2);
   }
   return labels;
 }
@@ -68,6 +74,12 @@ export function findModifierField(statblock: ModifierStatblock, field: string): 
   const parts = field.split('.').map((part) => part.trim()).filter(Boolean);
   const [head, ...rest] = parts;
   if (head === undefined) return undefined;
+  // `attributes.DX`: a scores field and the name of one of its slots
+  const slotted = rest.length === 1 ? statblock.labels?.[normalizedKey(`${head}.${rest[0]!}`)] : undefined;
+  if (slotted) {
+    const value = resolveField(statblock.fields, slotted.path, statblock.meanings);
+    if (value !== undefined) return { value, score: true };
+  }
   const labelled = statblock.labels?.[normalizedKey(head)];
   if (labelled) {
     const value = resolveField(statblock.fields, [labelled.path, ...rest].join('.'), statblock.meanings);

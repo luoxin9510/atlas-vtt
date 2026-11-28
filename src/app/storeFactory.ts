@@ -20,7 +20,7 @@ import { createAtlasStorage, ATLAS_SCHEMA, ATLAS_VERSION } from './services/MapP
 import type { CameraState, GridState } from './types/gridTypes';
 import type { AtlasPersistStorage } from './services/MapPersistence';
 import { normalizeImagePath } from './utils/pathUtils';
-import { createInitiativeActions } from './stores/initiativeSlice';
+import { createInitiativeActions, type InitiativeSlice } from './stores/initiativeSlice';
 import type { InitiativeTurnActions } from './stores/initiativeTurnActions';
 import { createInitialUIState, createUIActions, type UISlice } from './stores/uiSlice';
 import { createPinnedNotePreviewActions, type PinnedNotePreviewSlice } from './stores/pinnedNotePreviewSlice';
@@ -219,6 +219,7 @@ export interface ViewAtlasState extends ViewState {
   updateInitiativeEntry: (id: string, updates: Partial<InitiativeEntry>) => void;
   rollAllInitiative: (roll?: string, fromStatblocks?: ReadonlyMap<string, number>) => void;
   rollEntryInitiative: (id: string, roll?: string, fromStatblock?: number | null) => void;
+  applyFixedInitiative: InitiativeSlice['applyFixedInitiative'];
   nextTurn: InitiativeTurnActions['nextTurn'];
   previousTurn: InitiativeTurnActions['previousTurn'];
   reorderInitiative: (fromIndex: number, toIndex: number) => void;

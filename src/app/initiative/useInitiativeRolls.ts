@@ -8,6 +8,7 @@ import type { InitiativeRules } from '../types/initiativeRulesTypes';
 import { showNotice } from '../ui/notice';
 import { ownModifier } from './initiativeModifier';
 import { readStatblockModifiers } from './statblockModifiers';
+import { useFixedInitiative } from './useFixedInitiative';
 import { usePlayedSystemCampaign } from '../campaigns/usePlayedSystemCampaign';
 
 /**
@@ -47,7 +48,11 @@ export function useInitiativeRolls(app: App, rules: InitiativeRules): Initiative
     return () => { mounted.current = false; };
   }, []);
 
+  const readFixed = useFixedInitiative(app, rules);
+
   const rollNow = useCallback(async (entryId: string | undefined): Promise<void> => {
+    // Fixed values: nothing is rolled; "roll" reads the statblocks' numbers
+    if (rules.mode === 'turn-order' && rules.value) return readFixed(entryId);
     const before = store.getState();
     if (before.isMapLoading) return;
     const entries = before.initiative.entries.filter((entry) => entryId === undefined || entry.id === entryId);
@@ -73,7 +78,7 @@ export function useInitiativeRolls(app: App, rules: InitiativeRules): Initiative
     }
     const missed = missedOf(without);
     if (missed > 0) noticeMissedModifiers(rules, missed, campaign);
-  }, [app, store, rules, campaign]);
+  }, [app, store, rules, campaign, readFixed]);
 
   const roll = useCallback((entryId?: string): void => {
     if (pending.current) return;

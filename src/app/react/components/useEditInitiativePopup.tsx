@@ -13,7 +13,7 @@ interface OpenPopup {
 }
 
 /** The card menu's Edit Initiative popup: `open` shows it beside a card on `side`, `popup` is what the tracker renders. */
-export function useEditInitiativePopup(update: (id: string, changes: Partial<InitiativeEntry>) => void, side: 'left' | 'right' = 'left'): {
+export function useEditInitiativePopup(update: (id: string, changes: Partial<InitiativeEntry>) => void, side: 'left' | 'right' = 'left', fixed = false): {
   open: (entry: InitiativeEntry, cardElement: HTMLElement) => void;
   popup: React.ReactNode;
 } {
@@ -38,7 +38,7 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       modifier={shown.modifier}
       onModifierChange={(modifier) => setShown({ ...shown, modifier })}
       onConfirm={() => {
-        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier));
+        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier, fixed));
         setShown(null);
       }}
       onCancel={() => setShown(null)}

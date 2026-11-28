@@ -15,7 +15,23 @@ export function tieBreakModifier(entry: InitiativeEntry): number {
   return entry.tieBreak ?? ownModifier(entry) ?? entry.rolledModifier ?? 0;
 }
 
+/**
+ * Fixed-value initiative: of equal totals, the tie-break fields in the rules' order, the higher
+ * first, then the hidden roll drawn when the combatant joined. Nothing where either lacks them
+ * (a roll's ties keep their order), or where Act Now placed one of them (its place stands).
+ */
+function byFixedTieBreak(a: InitiativeEntry, b: InitiativeEntry): number {
+  if (a.tieBreak !== undefined || b.tieBreak !== undefined) return 0;
+  const left = a.tieBreakValues ?? [];
+  const right = b.tieBreakValues ?? [];
+  for (let index = 0; index < Math.max(left.length, right.length); index++) {
+    const difference = (right[index] ?? 0) - (left[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return (b.tieBreakRoll ?? 0) - (a.tieBreakRoll ?? 0);
+}
+
 /** Compares two combatants by total, then tie-break; 0 keeps their order (the sort is stable). */
 export function byInitiative(a: InitiativeEntry, b: InitiativeEntry): number {
-  return b.initiative - a.initiative || tieBreakModifier(b) - tieBreakModifier(a);
+  return b.initiative - a.initiative || tieBreakModifier(b) - tieBreakModifier(a) || byFixedTieBreak(a, b);
 }
