@@ -85,6 +85,43 @@ describe('readCharacterSource', () => {
   });
 });
 
+describe('readCharacterSource refuses sources that are no local absolute path', () => {
+  const reads: string[] = [];
+  const spying = host({ read: (path) => { reads.push(path); return Promise.resolve(bytesOf('disk')); } });
+
+  it.each([
+    ['a Windows UNC path', '\\\\server\\share\\Robin.gcs'],
+    ['a UNC path with forward slashes', '//server/share/Robin.gcs'],
+    ['a Windows extended path', '\\\\?\\C:\\Robin.gcs'],
+    ['a relative path', 'chars/Robin.gcs'],
+    ['a dot path', './Robin.gcs'],
+    ['a parent path', '../Robin.gcs'],
+    ['a drive-relative path', 'C:Robin.gcs'],
+    ['an empty path', ''],
+    ['a url', 'https://example.com/Robin.gcs'],
+  ])('%s', async (_label, path) => {
+    reads.length = 0;
+    expect(await readCharacterSource(path, spying)).toBeNull();
+    expect(reads).toEqual([]);
+  });
+
+  it.each([['a POSIX path', '/Users/me/Robin.gcs'], ['a Windows drive path', 'C:\\Users\\me\\Robin.gcs'], ['a Windows drive path with slashes', 'd:/chars/Robin.gcs']])('reads %s', async (_label, path) => {
+    reads.length = 0;
+    expect(text((await readCharacterSource(path, spying))!)).toBe('disk');
+    expect(reads).toEqual([path]);
+  });
+
+  it('asks with the picker when the recorded source is refused', async () => {
+    reads.length = 0;
+    const { doc, input } = fakeDocument();
+    const asked = findOrAskSource({ source: '//evil/share/Robin.gcs' }, doc, ['gcs'], spying);
+    await tick();
+    input.fire('cancel');
+    expect(await asked).toBeNull();
+    expect(reads).toEqual([]);
+  });
+});
+
 describe('findOrAskSource', () => {
   const record = { importer: 'pack:gcs', source: '/chars/Robin.gcs', keys: [] };
 

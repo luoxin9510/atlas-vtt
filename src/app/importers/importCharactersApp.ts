@@ -7,6 +7,8 @@ import type { App, Plugin } from 'obsidian';
 import { AssetService } from '../services/AssetService';
 import { collectionFolderPath } from '../services/assetPaths';
 import { writeAssetImage } from '../services/assetImageFiles';
+import { TemplateLibrary } from '../statblocks/library/TemplateLibrary';
+import { libraryLoaded } from '../statblocks/resolve/readStatblock';
 import { createStatblockNote } from '../statblocks/notes/createStatblockNote';
 import { chooseAction } from '../ui/confirmDialog';
 import { showNotice } from '../ui/notice';
@@ -14,6 +16,8 @@ import { runInBackground } from '../utils/backgroundTask';
 import { t } from '../i18n';
 import { pickCharacterFiles } from './characterFiles';
 import { pickCollection } from './CollectionPickerModal';
+import { chooseImportCollection } from './collectionChoice';
+import { addImportedTokenAsset } from './importedTokenAsset';
 import { importCharacterFiles, type ImportDeps } from './importCharacters';
 import { registerImportCharactersCommand } from './importCharactersCommand';
 import { readImportRecord } from './importRecord';
@@ -27,15 +31,14 @@ function openMapCollection(app: App, assets: AssetService): string | null {
   return file && file.extension === 'atlasmap' ? assets.getCollectionForMap(file.path) : null;
 }
 
-/** The collection to import into: the only one, else asked with the open map's offered first; null when dismissed. */
+/** The collection to import into; says so when there is none. */
 async function chooseCollection(app: App, assets: AssetService): Promise<string | null> {
-  const collections = await assets.getCollections();
-  const first = collections.length === 1 ? collections[0] : undefined;
-  if (first) return first.id;
-  const preferred = openMapCollection(app, assets);
-  const options = collections.map(({ id, name }) => ({ id, name: name || id }));
-  options.sort((a, b) => Number(b.id === preferred) - Number(a.id === preferred));
-  return options.length === 0 ? null : pickCollection(app, options);
+  return chooseImportCollection({
+    collections: await assets.getCollections(),
+    preferred: openMapCollection(app, assets),
+    pick: (options) => pickCollection(app, options),
+    notify: (message) => showNotice(message),
+  });
 }
 
 /** The path of a note of the collection whose import record names this importer and source. */
@@ -54,6 +57,11 @@ function appDeps(app: App): ImportDeps {
   return {
     pickFiles: (extensions) => pickCharacterFiles(activeDocument, extensions),
     chooseCollection: () => chooseCollection(app, assets),
+    templateExists: async (templateId) => {
+      const library = TemplateLibrary.forApp(app);
+      await libraryLoaded(library);
+      return library.get(templateId) !== null;
+    },
     findImportedNote: (collection, importerId, source) => findImportedNote(app, collection, importerId, source),
     confirmReimport: async (name) => (await chooseAction({
       title: t('importers.alreadyTitle'),
@@ -62,7 +70,7 @@ function appDeps(app: App): ImportDeps {
     })) === true,
     reimport: ({ notePath, importer, source, character }) => reimportCharacter(reimportDeps(app), { notePath, importer, source, character }),
     writeImage: (name, bytes) => writeAssetImage(app, name, bytes),
-    addTokenAsset: async ({ name, imagePath, collection }) => (await assets.addTokenAsset({ name, imagePath, collection, tags: [], showRing: true })).id,
+    addTokenAsset: (token) => addImportedTokenAsset(app, token),
     removeTokenAsset: (id) => assets.deleteTokenAsset(id),
     createNote: async (note) => (await createStatblockNote(app, note)).file.path,
     notify: (message) => {

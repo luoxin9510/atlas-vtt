@@ -4,6 +4,8 @@
  * collection's `characters/` folder with the import record, and the whole run ends in one summary.
  * Everything that touches the vault is a dependency, so the flow is tested without one.
  *
+ * What the importer hands over is checked first (`validatedCharacter`, and the template must exist).
+ *
  * Choices: a file whose path the host could not tell still imports, its record's source empty, so
  * it never counts as "the same source" and a re-import asks for the file. A character without a
  * (supported) portrait gets a note and no token: Atlas has no default token art. The image is
@@ -19,7 +21,8 @@ import { emptySummary, summaryText, type ImportSummary } from './importSummary';
 import { importerById, importerFor, importerIds } from './importerRegistry';
 import type { CharacterImporter, ImportedCharacter } from './importerTypes';
 import { IMPORT_RECORD_KEY, type ImportRecord } from './importRecord';
-import { portraitFormat } from './portraitFormat';
+import { portraitProblem } from './portraitFormat';
+import { validatedCharacter } from './validateImported';
 
 export type ReimportOutcome = 'updated' | 'unchanged' | 'cancelled';
 
@@ -46,8 +49,10 @@ export interface NewCharacterNote {
 export interface ImportDeps {
   /** Asks for files of these extensions; none when cancelled. */
   pickFiles(extensions: readonly string[]): Promise<PickedFile[]>;
-  /** The collection to import into; null when cancelled. */
+  /** The collection to import into; null when cancelled (or when there is none, which the app says). */
   chooseCollection(): Promise<string | null>;
+  /** Whether a statblock template of this id exists (the library is waited for). */
+  templateExists(templateId: string): Promise<boolean>;
   /** The path of a note of the collection that records this importer and source; null for none. */
   findImportedNote(collection: string, importerId: string, source: string): string | null;
   /** "Already imported, re-import?"; false for No or a dismissed dialog. */
@@ -76,8 +81,9 @@ function registeredExtensions(): string[] {
 async function keepPortrait(character: ImportedCharacter, collection: string, deps: ImportDeps, summary: ImportSummary): Promise<{ imagePath: string; tokenId: string } | null> {
   const bytes = character.portrait?.bytes;
   if (!bytes) return null;
-  if (!portraitFormat(bytes)) {
-    summary.unsupportedPortrait.push(character.name);
+  const problem = portraitProblem(bytes);
+  if (problem !== null) {
+    (problem === 'tooBig' ? summary.oversizedPortrait : summary.unsupportedPortrait).push(character.name);
     return null;
   }
   const imagePath = await deps.writeImage(character.name, bytes);
@@ -122,7 +128,8 @@ async function importFile(file: PickedFile, collection: string, deps: ImportDeps
   }
   let character: ImportedCharacter;
   try {
-    character = await importer.parse(file.bytes, file.fileName);
+    character = validatedCharacter(await importer.parse(file.bytes, file.fileName));
+    if (!(await deps.templateExists(character.templateId))) throw new Error(t('importers.invalid.templateMissing', { id: character.templateId }));
   } catch (error) {
     summary.failed.push({ name: file.fileName, reason: messageOf(error) });
     return;

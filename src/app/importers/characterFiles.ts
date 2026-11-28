@@ -92,8 +92,19 @@ export function pickCharacterFiles(doc: Document, extensions: readonly string[],
   return pick(doc, extensions, host, true);
 }
 
-/** The bytes of a file at a path; null when it is missing or cannot be read, never throws. */
+/**
+ * Whether a recorded source is a local absolute path: `/Users/me/a.gcs` or `C:\\Users\\me\\a.gcs`. A
+ * note is data from anywhere (a shared vault), so a path that names another machine (`\\\\host\\share`,
+ * `//host/share`), a url or a relative path is never read: reading it would reach out to the network.
+ */
+export function isLocalAbsolutePath(path: string): boolean {
+  if (/^[a-zA-Z]:[\\/]/.test(path)) return true;
+  return path.startsWith('/') && !path.startsWith('//');
+}
+
+/** The bytes of a file at a path; null when it is no local absolute path, is missing or cannot be read, never throws. */
 export async function readCharacterSource(path: string, host: CharacterFileHost = desktopHost()): Promise<ArrayBuffer | null> {
+  if (!isLocalAbsolutePath(path)) return null;
   try {
     return await host.read(path);
   } catch {

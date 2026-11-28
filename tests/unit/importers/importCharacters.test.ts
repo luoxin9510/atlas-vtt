@@ -35,6 +35,7 @@ function harness(picked: PickedFile[], overrides: Partial<ImportDeps> = {}): Har
   h.deps = {
     pickFiles: () => Promise.resolve(picked),
     chooseCollection: () => Promise.resolve('crew'),
+    templateExists: (id) => Promise.resolve(id === 'tpl'),
     findImportedNote: () => null,
     confirmReimport: (name) => { h.confirmed.push(name); return Promise.resolve(true); },
     reimport: (request) => { h.reimports.push(request); return Promise.resolve('updated'); },
@@ -193,6 +194,46 @@ describe('portraits', () => {
     await importCharacterFiles(h.deps);
     expect(h.tokens).toEqual([]);
     expect(h.notices[0]).toBe('1 imported');
+  });
+});
+
+describe('what an importer hands over is checked', () => {
+  it('fails a file whose template does not exist, with the reason, and creates nothing', async () => {
+    register(() => ({ ...character('Robin'), templateId: 'gone' }));
+    const h = harness([file('Robin.gcs')]);
+    await importCharacterFiles(h.deps);
+    expect(h.notes).toEqual([]);
+    expect(h.images).toEqual([]);
+    expect(h.notices[0]).toBe('1 failed\nRobin.gcs: The template "gone" does not exist.');
+  });
+
+  it('fails a file whose character has no name or values that are no data', async () => {
+    register((_bytes, name) => (name === 'a.gcs' ? ({ ...character(''), name: '  ' }) : ({ ...character('B'), values: { f: () => 1 } as never })));
+    const h = harness([file('a.gcs'), file('b.gcs')]);
+    await importCharacterFiles(h.deps);
+    expect(h.notes).toEqual([]);
+    expect(h.notices[0]).toContain('2 failed');
+  });
+
+  it('imports the cleaned values: no markers and no keys Obsidian owns, in the record too', async () => {
+    register(() => ({ ...character('Robin'), values: { hp: 10, tags: ['x'], name: 'Z', statblock: false } }));
+    const h = harness([file('Robin.gcs')]);
+    await importCharacterFiles(h.deps);
+    expect(h.notes[0]?.values).toMatchObject({ hp: 10 });
+    expect(h.notes[0]?.values).not.toHaveProperty('tags');
+    expect(readImportRecord(h.notes[0]?.values)?.keys).toEqual(['hp']);
+  });
+
+  it('imports a character with a portrait over 20 MB without a token, and says so', async () => {
+    const big = new Uint8Array(20 * 1024 * 1024 + 1);
+    big.set(PNG);
+    register(() => ({ ...character('Robin'), portrait: { bytes: big.buffer } }));
+    const h = harness([file('Robin.gcs')]);
+    await importCharacterFiles(h.deps);
+    expect(h.images).toEqual([]);
+    expect(h.tokens).toEqual([]);
+    expect(h.notes).toHaveLength(1);
+    expect(h.notices[0]).toBe('1 imported\nRobin: the portrait is larger than 20 MB, so it was imported without a token.');
   });
 });
 

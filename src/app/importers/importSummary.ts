@@ -14,10 +14,12 @@ export interface ImportSummary {
   failed: Array<{ name: string; reason: string }>;
   /** Names of the characters imported without a token because their portrait was neither PNG, JPG nor WebP. */
   unsupportedPortrait: string[];
+  /** Names of the characters imported without a token because their portrait was over the size Atlas keeps. */
+  oversizedPortrait: string[];
 }
 
 export function emptySummary(): ImportSummary {
-  return { imported: 0, updated: 0, skipped: 0, failed: [], unsupportedPortrait: [] };
+  return { imported: 0, updated: 0, skipped: 0, failed: [], unsupportedPortrait: [], oversizedPortrait: [] };
 }
 
 /** "3 imported, 1 updated and 1 failed", then one line per failure and per portrait that was not kept. */
@@ -33,5 +35,6 @@ export function summaryText(summary: ImportSummary): string {
     formatList(parts),
     ...summary.failed.map(({ name, reason }) => t('importers.line.failed', { name, reason })),
     ...summary.unsupportedPortrait.map((name) => t('importers.line.noPortrait', { name })),
+    ...summary.oversizedPortrait.map((name) => t('importers.line.bigPortrait', { name })),
   ].join('\n');
 }
