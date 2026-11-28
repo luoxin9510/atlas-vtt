@@ -8,6 +8,8 @@ export const importers = {
   'importers.alreadyMessage': '“{name}” was imported from this file before. Re-import it?',
   'importers.reimport': 'Re-import',
   'importers.failed': 'Importing character files failed.',
+  'importers.reimportCommand': 'Re-import the current character',
+  'importers.reimportFailed': 'Re-import failed: {reason}',
   'importers.noImporter': 'No importer reads this kind of file.',
   'importers.count.imported': '{count} imported',
   'importers.count.updated': '{count} updated',

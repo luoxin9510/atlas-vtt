@@ -44,6 +44,8 @@ import { SelectionResourceEditing } from '../selectionResourceEditor';
 import { placedPlayerCharacterEntry } from '../../react/components/context-menu/playerCharacterMenu';
 import { holdTokens } from '../../lighting/sightOnDrop';
 import { t } from '../../i18n';
+import { reimportTokenEntry } from '../../importers/reimportEntry';
+import { reimportEntryDeps } from '../../importers/reimportEntryApp';
 import { mapTokens } from '../../tokens/offMap';
 
 interface DragState {
@@ -644,6 +646,8 @@ export class InteractionController implements ITokenInteractionController {
           }
         },
       });
+      const reimport = reimportTokenEntry(statblockPath, reimportEntryDeps(this.obsApp));
+      if (reimport) entries.push(reimport);
       entries.push({
         type: 'item',
         label: t('am.menu.unlinkStatblock'),

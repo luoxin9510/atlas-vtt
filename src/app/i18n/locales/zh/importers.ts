@@ -8,6 +8,8 @@ export const importers: Translation = {
   'importers.alreadyMessage': '“{name}”之前已从此文件导入。要重新导入吗？',
   'importers.reimport': '重新导入',
   'importers.failed': '导入角色文件失败。',
+  'importers.reimportCommand': '重新导入当前角色',
+  'importers.reimportFailed': '重新导入失败：{reason}',
   'importers.noImporter': '没有可读取此类文件的导入器。',
   'importers.count.imported': '已导入 {count} 个',
   'importers.count.updated': '已更新 {count} 个',

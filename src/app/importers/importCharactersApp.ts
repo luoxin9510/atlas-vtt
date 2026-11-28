@@ -19,6 +19,7 @@ import { registerImportCharactersCommand } from './importCharactersCommand';
 import { readImportRecord } from './importRecord';
 import { reimportDeps } from './reimportApp';
 import { reimportCharacter } from './reimportCharacter';
+import { registerReimportEntries } from './reimportEntryApp';
 
 /** The collection of the open map, when the active file is one. */
 function openMapCollection(app: App, assets: AssetService): string | null {
@@ -75,5 +76,6 @@ function appDeps(app: App): ImportDeps {
 export function registerCharacterImport(plugin: Plugin): void {
   const { app } = plugin;
   registerImportCharactersCommand(plugin, () => runInBackground(importCharacterFiles(appDeps(app)), 'Importing character files', t('importers.failed')));
+  registerReimportEntries(plugin);
 }
 
