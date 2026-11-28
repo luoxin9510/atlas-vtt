@@ -38,7 +38,7 @@ export function useNumberEditing(
         break;
       }
     }
-    const changes = totalEdit(text, fixed);
+    const changes = totalEdit(text, fixed, entry);
     if (changes.initiative !== undefined) update(entry.id, changes);
     if (next === undefined) runOrder.current = null;
     setEditingId(next ?? null);

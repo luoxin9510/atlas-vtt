@@ -16,7 +16,7 @@ export function plainNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value !== 'string') return null;
   const text = value.trim();
-  return PLAIN_NUMBER.test(text) ? Number(text.replace('−', '-')) : null;
+  return PLAIN_NUMBER.test(text) ? Number(text.replace(/−/, '-')) : null;
 }
 
 /** The number `statblock` holds in `field`; null where the field is missing or holds no plain number. */

@@ -158,6 +158,12 @@ export interface InitiativeState {
   cards?: CardsFight;
 
   /**
+   * The rules run fixed-value initiative: only then do the tie-break fields and the hidden roll
+   * order equal totals. Kept up to date by the tracker; a roll clears it.
+   */
+  fixedValues?: true;
+
+  /**
    * The combatants each round's start cleared `sitsOut` of, by that round, so that stepping back
    * over the start puts their marks back. Only rounds that cleared something are kept.
    */

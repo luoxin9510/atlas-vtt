@@ -2,6 +2,8 @@
 
 import type { InitiativeEntry } from '../types/initiativeTypes';
 import { plainNumber } from './fixedInitiativeReading';
+import { formatInitiative } from './formatInitiative';
+import { hasInitiative } from './awaitingInitiative';
 import { ownModifier, parseInitiativeModifier } from './initiativeModifier';
 
 type EditedParts = Partial<Pick<InitiativeEntry, 'initiative' | 'awaitingInitiative' | 'fixedByHand' | 'initiativeModifier' | 'modifierByHand'>>;
@@ -18,8 +20,8 @@ export function modifierText(entry: Pick<InitiativeEntry, 'initiativeModifier' |
  * no number changes nothing. With fixed-value initiative (`fixed`) the total may have decimals and
  * counts as typed by hand, an emptied total clears it, and the modifier plays no part.
  */
-export function initiativeEdit(totalText: string, modifierInput: string, fixed = false): EditedParts {
-  if (fixed) return totalEdit(totalText, true);
+export function initiativeEdit(totalText: string, modifierInput: string, fixed = false, entry?: InitiativeEntry): EditedParts {
+  if (fixed) return totalEdit(totalText, true, entry);
   const modifier = modifierInput.trim() === '' ? null : parseInitiativeModifier(modifierInput);
   return {
     ...totalEdit(totalText),
@@ -33,14 +35,17 @@ export function initiativeEdit(totalText: string, modifierInput: string, fixed =
  * The change of a number typed on the card itself: the total where it reads as a whole number, else
  * nothing. With fixed-value initiative (`fixed`) decimals read too, the number is marked as typed
  * (`fixedByHand`, which the statblocks' values do not replace), and an emptied number clears it: the
- * combatant waits again and the next read of the statblocks fills it.
+ * combatant waits again and the next read of the statblocks fills it. A comma reads as the decimal
+ * separator, text that is no number changes nothing, and so does text equal to the number as `entry`
+ * shows it (committing a field nobody changed).
  */
-export function totalEdit(totalText: string, fixed = false): Pick<EditedParts, 'initiative' | 'awaitingInitiative' | 'fixedByHand'> {
+export function totalEdit(totalText: string, fixed = false, entry?: InitiativeEntry): Pick<EditedParts, 'initiative' | 'awaitingInitiative' | 'fixedByHand'> {
   if (!fixed) {
     const total = parseInitiativeModifier(totalText);
     return total === null ? {} : { initiative: total };
   }
+  if (entry && totalText.trim() === (hasInitiative(entry) ? formatInitiative(entry.initiative) : '')) return {};
   if (totalText.trim() === '') return { initiative: 0, awaitingInitiative: true, fixedByHand: undefined };
-  const total = plainNumber(totalText);
+  const total = plainNumber(totalText.trim().replace(',', '.'));
   return total === null ? {} : { initiative: total, fixedByHand: true };
 }

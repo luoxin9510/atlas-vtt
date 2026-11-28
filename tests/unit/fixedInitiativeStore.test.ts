@@ -20,6 +20,8 @@ function setup(entries: InitiativeEntry[], randoms: number[] = [0.5]) {
   return { actions, get: () => state, entry, order: (): string[] => state.initiative.entries.map((e) => e.id) };
 }
 
+const fixedOrder = (x: InitiativeEntry, y: InitiativeEntry): number => byInitiative(x, y, true);
+
 const read = (value: number | null, ...tieBreaks: number[]) => ({ value, tieBreaks });
 
 describe('fixed initiative applied to combatants', () => {
@@ -100,13 +102,13 @@ describe('ties between equal fixed values', () => {
 
   it('go by the tie-break fields in order, the higher first', () => {
     const entries = [tied('a', [10, 15], 0.1), tied('b', [12, 9], 0.1), tied('c', [12, 14], 0.1)];
-    expect([...entries].sort(byInitiative).map((e) => e.id)).toEqual(['c', 'b', 'a']);
+    expect([...entries].sort(fixedOrder).map((e) => e.id)).toEqual(['c', 'b', 'a']);
   });
 
   it('still tied go by the hidden roll, kept the same however often they are sorted', () => {
     const entries = [tied('a', [10], 0.2), tied('b', [10], 0.9), tied('c', [10], 0.5)];
-    expect([...entries].sort(byInitiative).map((e) => e.id)).toEqual(['b', 'c', 'a']);
-    expect([...entries].reverse().sort(byInitiative).map((e) => e.id)).toEqual(['b', 'c', 'a']);
+    expect([...entries].sort(fixedOrder).map((e) => e.id)).toEqual(['b', 'c', 'a']);
+    expect([...entries].reverse().sort(fixedOrder).map((e) => e.id)).toEqual(['b', 'c', 'a']);
   });
 
   it('are sorted by the store, and dragging still reorders them', () => {
@@ -119,6 +121,6 @@ describe('ties between equal fixed values', () => {
 
   it('leave combatants without tie-break fields in their order', () => {
     const plain = (id: string): InitiativeEntry => ({ ...waiting(id), awaitingInitiative: undefined, initiative: 5 });
-    expect([plain('x'), plain('y'), plain('z')].sort(byInitiative).map((e) => e.id)).toEqual(['x', 'y', 'z']);
+    expect([plain('x'), plain('y'), plain('z')].sort(fixedOrder).map((e) => e.id)).toEqual(['x', 'y', 'z']);
   });
 });

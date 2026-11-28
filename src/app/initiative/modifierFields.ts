@@ -42,13 +42,13 @@ export function labelsOf(fields: readonly TemplateField[]): FieldLabels {
   for (const field of fields) {
     if (field.type !== 'scores') continue;
     // A slot by its name alone (`DX`) or after its field (`attributes.DX`, `Attributes.DX`)
-    const add2 = (slot: string, index: number): void => {
+    const addSlotLabels = (slot: string, index: number): void => {
       add(slot, `${field.key}.${index}`, true);
       add(`${field.key}.${slot}`, `${field.key}.${index}`, true);
       if (field.label) add(`${field.label}.${slot}`, `${field.key}.${index}`, true);
     };
-    (field.slots ?? []).forEach(add2);
-    (field.slotKeys ?? []).forEach(add2);
+    (field.slots ?? []).forEach(addSlotLabels);
+    (field.slotKeys ?? []).forEach(addSlotLabels);
   }
   return labels;
 }

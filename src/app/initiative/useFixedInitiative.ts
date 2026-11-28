@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useAtlasStore, useViewStoreHook } from '../react/ViewStoreContext';
 import { readStatblockRecord } from '../statblocks/resolve/statblockRecord';
 import type { InitiativeRules } from '../types/initiativeRulesTypes';
+import { isFixedInitiative } from '../gameSystems/initiativeFixedRules';
 import { readFixedInitiative } from './fixedInitiativeValues';
 
 /**
@@ -18,7 +19,12 @@ import { readFixedInitiative } from './fixedInitiativeValues';
 export function useFixedInitiative(app: App, rules: InitiativeRules): (entryId?: string) => Promise<void> {
   const store = useViewStoreHook();
   const mounted = useRef(true);
-  const fixed = rules.mode === 'turn-order' && rules.value !== undefined;
+  const fixed = isFixedInitiative(rules);
+  // The sort counts the fixed-value fields only while the rules are fixed
+  useEffect(() => {
+    const { initiative, setFixedInitiative } = store.getState();
+    if ((initiative.fixedValues === true) !== fixed) setFixedInitiative(fixed);
+  }, [store, fixed]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
@@ -40,10 +46,13 @@ export function useFixedInitiative(app: App, rules: InitiativeRules): (entryId?:
 
   // Entries waiting for a number the GM has not typed: a string, so a read that finds none changes nothing
   const waiting = useAtlasStore((state) => state.initiative.entries.filter((entry) => entry.awaitingInitiative && !entry.fixedByHand).map((entry) => entry.id).join('\n'));
+  // Part of the key: a combatant that joined while the map loaded is read once the loading ends
+  const loading = useAtlasStore((state) => state.isMapLoading);
+  const mapPath = useAtlasStore((state) => state.mapPath);
   useEffect(() => {
-    if (waiting === '') return;
+    if (waiting === '' || loading) return;
     readNow(waiting.split('\n')).catch((error: unknown) => console.error('[Atlas VTT] Could not read the initiative of the combatants:', error));
-  }, [waiting, readNow]);
+  }, [waiting, loading, mapPath, readNow]);
 
   return useCallback((entryId?: string) => readNow(entryId === undefined ? undefined : [entryId]), [readNow]);
 }

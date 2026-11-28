@@ -6,6 +6,7 @@ import { isBestiaryResolved } from '../services/FantasyStatblocksService';
 import { readStatblockRecord } from '../statblocks/resolve/statblockRecord';
 import type { InitiativeRules } from '../types/initiativeRulesTypes';
 import { showNotice } from '../ui/notice';
+import { isFixedInitiative } from '../gameSystems/initiativeFixedRules';
 import { ownModifier } from './initiativeModifier';
 import { readStatblockModifiers } from './statblockModifiers';
 import { useFixedInitiative } from './useFixedInitiative';
@@ -52,7 +53,7 @@ export function useInitiativeRolls(app: App, rules: InitiativeRules): Initiative
 
   const rollNow = useCallback(async (entryId: string | undefined): Promise<void> => {
     // Fixed values: nothing is rolled; "roll" reads the statblocks' numbers
-    if (rules.mode === 'turn-order' && rules.value) return readFixed(entryId);
+    if (isFixedInitiative(rules)) return readFixed(entryId);
     const before = store.getState();
     if (before.isMapLoading) return;
     const entries = before.initiative.entries.filter((entry) => entryId === undefined || entry.id === entryId);

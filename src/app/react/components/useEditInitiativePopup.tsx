@@ -39,7 +39,7 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       modifier={shown.modifier}
       onModifierChange={(modifier) => setShown({ ...shown, modifier })}
       onConfirm={() => {
-        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier, fixed));
+        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier, fixed, shown.entry));
         setShown(null);
       }}
       onCancel={() => setShown(null)}

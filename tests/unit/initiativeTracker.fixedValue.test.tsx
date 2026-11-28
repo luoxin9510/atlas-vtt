@@ -86,6 +86,19 @@ describe('the tracker with fixed-value initiative', () => {
     await waitFor(() => expect(entryOf(store, slow).initiative).toBe(5.5));
   });
 
+  it('reads combatants that joined while the map was loading once the loading ends', async () => {
+    rules.current = FIXED;
+    const { app, store } = setup();
+    store.setState({ isMapLoading: true });
+    show(app, store);
+    let fast = '';
+    act(() => { fast = join(store, 'Fast', 'statblocks/Fast.md'); });
+    await act(async () => { await Promise.resolve(); });
+    expect(entryOf(store, fast).awaitingInitiative).toBe(true);
+    act(() => { store.setState({ isMapLoading: false }); });
+    await waitFor(() => expect(entryOf(store, fast).initiative).toBe(6.25));
+  });
+
   it('rolls dice as before where the rules hold no value', async () => {
     rules.current = { mode: 'turn-order', roll: '1d20', firstSide: 'players' };
     const { app, store } = setup();

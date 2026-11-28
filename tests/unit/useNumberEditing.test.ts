@@ -78,6 +78,16 @@ describe('typing a number on a card with fixed-value initiative', () => {
     expect(typed(true, '5.5')).toEqual([{ id: 'A', changes: { initiative: 5.5, fixedByHand: true } }]);
   });
 
+  it('changes nothing when the text is the number as shown, and reads a comma decimal', () => {
+    const calls: unknown[] = [];
+    const entry = entryOf('A', 5.25);
+    const hook = renderHook(() => useNumberEditing([entry], (id, changes) => { calls.push({ id, changes }); }, true));
+    act(() => hook.result.current.commit(entry, '5.25', 0));
+    expect(calls).toEqual([]);
+    act(() => hook.result.current.commit(entry, '5,5', 0));
+    expect(calls).toEqual([{ id: 'A', changes: { initiative: 5.5, fixedByHand: true } }]);
+  });
+
   it('clears an emptied number so the combatant waits for its statblock again', () => {
     expect(typed(true, '  ')).toEqual([{ id: 'A', changes: { initiative: 0, awaitingInitiative: true, fixedByHand: undefined } }]);
   });

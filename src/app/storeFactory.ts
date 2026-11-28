@@ -220,6 +220,7 @@ export interface ViewAtlasState extends ViewState {
   rollAllInitiative: (roll?: string, fromStatblocks?: ReadonlyMap<string, number>) => void;
   rollEntryInitiative: (id: string, roll?: string, fromStatblock?: number | null) => void;
   applyFixedInitiative: InitiativeSlice['applyFixedInitiative'];
+  setFixedInitiative: InitiativeSlice['setFixedInitiative'];
   nextTurn: InitiativeTurnActions['nextTurn'];
   previousTurn: InitiativeTurnActions['previousTurn'];
   reorderInitiative: (fromIndex: number, toIndex: number) => void;

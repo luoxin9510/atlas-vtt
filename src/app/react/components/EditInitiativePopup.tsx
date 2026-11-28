@@ -97,8 +97,8 @@ export function EditInitiativePopup({
             <span className="atlas-initiative-edit-popup__caption">{t('initiative.total')}</span>
             <input
               ref={inputRef}
-              type="number"
-              step={fixed ? 'any' : undefined}
+              type={fixed ? 'text' : 'number'}
+              inputMode={fixed ? 'decimal' : undefined}
               className="atlas-initiative-edit-popup__input"
               value={value}
               onChange={(e) => onChange(e.target.value)}

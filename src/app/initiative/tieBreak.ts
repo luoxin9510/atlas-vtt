@@ -31,7 +31,7 @@ function byFixedTieBreak(a: InitiativeEntry, b: InitiativeEntry): number {
   return (b.tieBreakRoll ?? 0) - (a.tieBreakRoll ?? 0);
 }
 
-/** Compares two combatants by total, then tie-break; 0 keeps their order (the sort is stable). */
-export function byInitiative(a: InitiativeEntry, b: InitiativeEntry): number {
-  return b.initiative - a.initiative || tieBreakModifier(b) - tieBreakModifier(a) || byFixedTieBreak(a, b);
+/** Compares two combatants by total, then tie-break (and, with `fixed`, the fixed-value fields); 0 keeps their order (the sort is stable). */
+export function byInitiative(a: InitiativeEntry, b: InitiativeEntry, fixed = false): number {
+  return b.initiative - a.initiative || tieBreakModifier(b) - tieBreakModifier(a) || (fixed ? byFixedTieBreak(a, b) : 0);
 }

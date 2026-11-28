@@ -29,6 +29,7 @@ import { InitiativeStatblockPreview, type PreviewedEntry } from './InitiativeSta
 import { captureRollContext } from '../../tools/diceRollOrigins';
 import type { InitiativeEntry } from '../../types/initiativeTypes';
 import { t } from '../../i18n';
+import { isFixedInitiative } from '../../gameSystems/initiativeFixedRules';
 import './initiative-tracker.scss';
 
 /**
@@ -58,7 +59,7 @@ export const InitiativeTracker: React.FC = () => {
   const isMapLoading = useAtlasStore((s) => s.isMapLoading);
   const rules = useMapInitiativeRules();
   const { roll, rolling } = useInitiativeRolls(app, rules);
-  const fixedValues = rules.mode === 'turn-order' && rules.value !== undefined;
+  const fixedValues = isFixedInitiative(rules);
   const bySides = listedBySides(initiative, rules);
   const byCards = listedByCards(initiative, rules);
   const sides = useMemo(() => listedSides(initiative, rules), [initiative, rules]);

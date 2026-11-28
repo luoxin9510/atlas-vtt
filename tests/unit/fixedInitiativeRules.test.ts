@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isFixedInitiative } from '../../src/app/gameSystems/initiativeFixedRules';
 import { isValidInitiativeRules, parseInitiativeRules, sameInitiativeRules, savedInitiativeRules } from '../../src/app/gameSystems/initiativeRules';
 
 const fixed = { mode: 'turn-order', firstSide: 'players', value: { field: 'basic_speed' }, tieBreak: [{ field: 'attributes.DX' }, { field: 'IQ' }] };
@@ -51,5 +52,13 @@ describe('fixed-value initiative rules', () => {
     expect(sameInitiativeRules(a, { ...a })).toBe(true);
     expect(sameInitiativeRules(a, { ...a, value: { field: 'other' } })).toBe(false);
     expect(sameInitiativeRules(a, { ...a, tieBreak: [{ field: 'IQ' }] })).toBe(false);
+  });
+});
+
+describe('isFixedInitiative', () => {
+  it('is true for turn order with a value field only', () => {
+    expect(isFixedInitiative(parseInitiativeRules(fixed)!)).toBe(true);
+    expect(isFixedInitiative({ mode: 'turn-order', roll: '1d20', firstSide: 'players' })).toBe(false);
+    expect(isFixedInitiative({ mode: 'sides', roll: '1d20', firstSide: 'players', value: { field: 'x' } })).toBe(false);
   });
 });

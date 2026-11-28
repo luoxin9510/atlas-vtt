@@ -12,6 +12,11 @@ export function parseFieldRef(raw: unknown): InitiativeFieldRef | undefined {
   return typeof field === 'string' && field.trim() !== '' ? { field: field.trim() } : undefined;
 }
 
+/** Whether `rules` run fixed-value initiative: turn order whose combatants take a statblock field as their number. */
+export function isFixedInitiative(rules: InitiativeRules): boolean {
+  return rules.mode === 'turn-order' && rules.value !== undefined;
+}
+
 export type FixedParts = Pick<InitiativeRules, 'value' | 'tieBreak'>;
 
 /**
