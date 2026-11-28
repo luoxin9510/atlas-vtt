@@ -44,8 +44,9 @@ export function totalEdit(totalText: string, fixed = false, entry?: InitiativeEn
     const total = parseInitiativeModifier(totalText);
     return total === null ? {} : { initiative: total };
   }
-  if (entry && totalText.trim() === (hasInitiative(entry) ? formatInitiative(entry.initiative) : '')) return {};
-  if (totalText.trim() === '') return { initiative: 0, awaitingInitiative: true, fixedByHand: undefined };
-  const total = plainNumber(totalText.trim().replace(',', '.'));
+  const text = totalText.trim().replace(',', '.');
+  if (entry && text === (hasInitiative(entry) ? formatInitiative(entry.initiative) : '')) return {};
+  if (text === '') return { initiative: 0, awaitingInitiative: true, fixedByHand: undefined };
+  const total = plainNumber(text);
   return total === null ? {} : { initiative: total, fixedByHand: true };
 }

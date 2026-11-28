@@ -930,6 +930,11 @@
           "description": "Set by Act Now: the tie-break of the combatant it acted before, with whose number it ties, so that a later sort keeps it right before that one. A roll or an edit of its own number or modifier clears it; older versions ignore it.",
           "type": "number"
         },
+        "orderByHand": {
+          "const": true,
+          "description": "Fixed-value initiative: the GM dragged this combatant among equal totals, so reading the statblocks keeps its tie-break numbers and roll. Dropped when a read gives it another value, or on a roll.",
+          "type": "boolean"
+        },
         "tieBreakRoll": {
           "description": "Fixed-value initiative: a hidden random number in [0, 1) drawn once when the combatant joined; it settles ties the fields leave.",
           "type": "number"

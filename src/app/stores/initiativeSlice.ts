@@ -105,6 +105,7 @@ function applyRoll(entry: InitiativeEntry, { total, modifier }: RolledTotal): vo
   delete entry.tieBreakRoll;
   delete entry.tieBreakValues;
   delete entry.fixedByHand;
+  delete entry.orderByHand;
 }
 
 /** What a combatant rolls where the caller names no dice. */

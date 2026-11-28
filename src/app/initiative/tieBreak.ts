@@ -9,9 +9,11 @@ import { ownModifier } from './initiativeModifier';
 /**
  * What breaks a tie: where Act Now placed the combatant, the tie-break of the one it acted before
  * (`tieBreak`, so the stable sort keeps it right before that one); else the GM's own modifier,
- * else what the last roll added, else nothing.
+ * else what the last roll added, else nothing. With fixed-value initiative (`fixed`) only the Act Now
+ * place counts: old modifiers are left over from a roll and must not outrank the fixed fields.
  */
-export function tieBreakModifier(entry: InitiativeEntry): number {
+export function tieBreakModifier(entry: InitiativeEntry, fixed = false): number {
+  if (fixed) return entry.tieBreak ?? 0;
   return entry.tieBreak ?? ownModifier(entry) ?? entry.rolledModifier ?? 0;
 }
 
@@ -33,5 +35,5 @@ function byFixedTieBreak(a: InitiativeEntry, b: InitiativeEntry): number {
 
 /** Compares two combatants by total, then tie-break (and, with `fixed`, the fixed-value fields); 0 keeps their order (the sort is stable). */
 export function byInitiative(a: InitiativeEntry, b: InitiativeEntry, fixed = false): number {
-  return b.initiative - a.initiative || tieBreakModifier(b) - tieBreakModifier(a) || (fixed ? byFixedTieBreak(a, b) : 0);
+  return b.initiative - a.initiative || tieBreakModifier(b, fixed) - tieBreakModifier(a, fixed) || (fixed ? byFixedTieBreak(a, b) : 0);
 }

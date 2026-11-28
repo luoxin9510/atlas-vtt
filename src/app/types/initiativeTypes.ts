@@ -87,6 +87,12 @@ export interface InitiativeEntry {
    */
   fixedByHand?: true | undefined;
 
+  /**
+   * Fixed-value initiative: the GM dragged this combatant among equal totals, so reading the
+   * statblocks keeps its tie-break numbers and roll. Dropped when a read gives it another value, or on a roll.
+   */
+  orderByHand?: true;
+
   /** Fixed-value initiative: the tie-break fields' numbers as last read, in the rules' order; a missing field reads 0. */
   tieBreakValues?: number[];
 

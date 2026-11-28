@@ -206,7 +206,7 @@ Required inside a grid object: `enabled`, `size`, `offsetX`, `offsetY`, `opacity
 
 `{entries: InitiativeEntry[], currentIndex (-1 none), round, isActive, config:{autoSort}}` plus optional `sides`, `cards`, `satOut`. `entries` is an ARRAY; order matters together with `currentIndex`.
 
-`InitiativeEntry`: `id` (`init_<ms>_<rand>`), `tokenId` (-> key in `objects.tokens`), `name`, `initiative`, `initiativeModifier`, `imagePath`, `isActive`, `isNPC`, `order`; optional `statblockPath`, `awaitingInitiative`, `modifierByHand`, `sitsOut`, `delayed`, `rolledModifier`, `tieBreak`, `card`, `fixedByHand`, `tieBreakValues`, `tieBreakRoll` (the last three: fixed-value initiative, see `ARCHITECTURE.md`).
+`InitiativeEntry`: `id` (`init_<ms>_<rand>`), `tokenId` (-> key in `objects.tokens`), `name`, `initiative`, `initiativeModifier`, `imagePath`, `isActive`, `isNPC`, `order`; optional `statblockPath`, `awaitingInitiative`, `modifierByHand`, `sitsOut`, `delayed`, `rolledModifier`, `tieBreak`, `card`, `fixedByHand`, `tieBreakValues`, `tieBreakRoll`, `orderByHand` (the last four: fixed-value initiative, see `ARCHITECTURE.md`).
 
 On-disk copies: each entry also carries `hp`, `stress`, `isDefeated` copied from its token's resources (`sceneToFile`, RFF:151-163). They are STRIPPED on load (RFF:146; the tracker reads vitals from the token) and regenerated on save, so an external writer may omit them.
 
