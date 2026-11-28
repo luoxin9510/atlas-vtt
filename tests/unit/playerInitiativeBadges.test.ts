@@ -30,11 +30,11 @@ function badgesOnTheMap(numbers: Record<string, number>): PlayerBadgeNumbers & {
   };
 }
 
-function setup(badgeNumbers: PlayerBadgeNumbers): { service: PlayerWindowService; doc: Document } {
+function setup(badgeNumbers: PlayerBadgeNumbers, numbers: readonly [number, number] = [10, 9]): { service: PlayerWindowService; doc: Document } {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
   const { app } = createInMemoryApp();
   const store = createStore(() => ({
-    initiative: { ...createDefaultInitiativeState(), entries: [entryOf('g1', 0), entryOf('g2', 1), entryOf('g3', 2, { initiative: 0, awaitingInitiative: true })] },
+    initiative: { ...createDefaultInitiativeState(), entries: [entryOf('g1', 0, { initiative: numbers[0] }), entryOf('g2', 1, { initiative: numbers[1] }), entryOf('g3', 2, { initiative: 0, awaitingInitiative: true })] },
     objects: { tokens: { g1: goblin('g1'), g2: goblin('g2'), g3: goblin('g3') } },
     initiativeTrackerOpen: true,
   })) as StoreApi<ViewAtlasState>;
@@ -76,5 +76,10 @@ describe('look-alikes in the players\' initiative list', () => {
   it('show a dash for a combatant without a number yet', () => {
     const { doc } = setup(badgesOnTheMap({}));
     expect([...doc.querySelectorAll('.atlas-player-initiative__value')].map((value) => value.textContent)).toEqual(['10', '9', '–']);
+  });
+
+  it('show decimals as written, without float noise', () => {
+    const { doc } = setup(badgesOnTheMap({}), [6.25, 0.1 + 0.2]);
+    expect([...doc.querySelectorAll('.atlas-player-initiative__value')].map((value) => value.textContent)).toEqual(['6.25', '0.3', '–']);
   });
 });

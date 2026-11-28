@@ -133,7 +133,7 @@ export const InitiativeTracker: React.FC = () => {
     setDragOverIndex(null);
   }, [dragFromIndex, dragOverIndex, reorderInitiative]);
 
-  const handleContextMenu = useInitiativeCardMenu({ tokens, bySides, sides, cards: initiative.cards !== undefined, fightRuns: initiative.isActive, roll, defeated, edit: openEditPopup });
+  const handleContextMenu = useInitiativeCardMenu({ tokens, bySides, sides, cards: initiative.cards !== undefined, fixed: fixedValues, fightRuns: initiative.isActive, roll, defeated, edit: openEditPopup });
 
   const openOptions = (event: React.MouseEvent<HTMLButtonElement>): void => {
     const button = event.currentTarget;
@@ -181,6 +181,7 @@ export const InitiativeTracker: React.FC = () => {
       index={placeOf.get(entry.id) ?? 0}
       bySides={bySides}
       byCards={byCards}
+      fixed={fixedValues}
       showName={showNames}
       tooltipSide={inward}
       isEditingNumber={numberEditing.editingId === entry.id}
@@ -209,6 +210,7 @@ export const InitiativeTracker: React.FC = () => {
       {/* Nothing is rolled where the sides take turns or cards are dealt */}
       <InitiativeTrackerHeader
         rolls={!bySides && !byCards}
+        fixed={fixedValues}
         fightRuns={initiative.isActive}
         empty={sortedEntries.length === 0}
         rolling={rolling}

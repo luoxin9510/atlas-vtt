@@ -31,6 +31,15 @@ describe('InitiativePanel', () => {
     expect(items[2]!.className).toContain('atlas-play-defeated');
   });
 
+  it('shows decimal numbers as written, without float noise', () => {
+    render(<InitiativePanel assets={assets} initiative={list([
+      combatant({ name: 'Ash', initiative: 6.25 }),
+      combatant({ name: 'Brakka', initiative: 0.1 + 0.2 }),
+      combatant({ name: 'Cole', initiative: 5 }),
+    ])} />);
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Ash6.25', 'Brakka0.3', 'Cole5']);
+  });
+
   it('heads each side when the fight is by sides', () => {
     render(<InitiativePanel assets={assets} initiative={list([
       combatant({ name: 'Ash' }), combatant({ name: 'Orc', side: 'opponents' }),

@@ -2,6 +2,7 @@ import { Fragment, type ReactElement } from 'react';
 import { t } from '../../../../src/app/i18n/index.ts';
 import type { SharedCombatant, SharedInitiative } from '../../../../src/app/online/protocol/initiative.ts';
 import { useAssetUrl, type Loader } from '../assets/useAssetUrl.ts';
+import { formatInitiative } from '../../../../src/app/initiative/formatInitiative.ts';
 import { TokenPortrait } from '../../../../src/app/packages/components/shared/TokenPortrait.tsx';
 
 /** Longest side of the art asked for (the same as the map's tokens). */
@@ -16,7 +17,7 @@ function Combatant({ combatant, assets }: { combatant: SharedCombatant; assets: 
       <TokenPortrait src={src ?? ''} pending={src === null} alt="" showRing={combatant.ring !== null} ringColor={combatant.ring?.colour ?? undefined} className="atlas-play-portrait" />
       <span className="atlas-play-name">{name}</span>
       {combatant.hp !== null ? <small>{combatant.hp.current}/{combatant.hp.max}</small> : null}
-      <span className="atlas-play-number">{combatant.unnumbered ? '–' : combatant.initiative}</span>
+      <span className="atlas-play-number">{combatant.unnumbered ? '–' : formatInitiative(combatant.initiative)}</span>
     </li>
   );
 }

@@ -31,6 +31,8 @@ interface InitiativeCardProps {
   bySides?: boolean;
   /** The fight runs by cards: the card dealt stands where the number does. */
   byCards?: boolean;
+  /** Fixed-value initiative: numbers may have decimals. */
+  fixed?: boolean;
   /** The GM chose to see names on the cards. */
   showName?: boolean;
   /** The side tooltips open on: away from the edge the tracker stands at. */
@@ -59,6 +61,7 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
   isHoveredForPreview,
   bySides = false,
   byCards = false,
+  fixed = false,
   showName = false,
   tooltipSide = 'left',
   isEditingNumber = false,
@@ -242,6 +245,7 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
           value={entry.initiative}
           empty={!hasInitiative(entry)}
           editing={isEditingNumber}
+          fixed={fixed}
           onStartEdit={() => onStartNumberEdit(entry)}
           onCommit={(text, step) => onCommitNumber(entry, text, step)}
           onCancel={onCancelNumberEdit}

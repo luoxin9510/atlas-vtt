@@ -87,6 +87,7 @@ export const initiative = {
   'initiative.token': 'Token',
   'initiative.typeNumber': 'No initiative yet, click to type',
   'initiative.rollAll': 'Roll initiative',
+  'initiative.readAll': 'Read from statblocks',
   'initiative.startCombat': 'Start combat',
   'initiative.endCombat': 'End combat',
   'initiative.empty': 'Right-click a token to add it',

@@ -2,6 +2,7 @@ import { setIcon } from 'obsidian';
 import { createTokenPortrait } from '../packages/components/shared/tokenPortraitElement';
 import { createConditionBadge } from '../packages/components/shared/conditionBadgeElement';
 import { hasInitiative } from '../initiative/awaitingInitiative';
+import { formatInitiative } from '../initiative/formatInitiative';
 import type { ActiveCondition } from '../utils/activeConditions';
 import type { Combatant, PlayerInitiativeLook } from './playerInitiativeList';
 import { t } from '../i18n';
@@ -34,7 +35,7 @@ export function renderPlayerCard(parent: HTMLElement, { entry, token }: Combatan
   if (badge !== null) (portrait ?? card).createSpan({ cls: 'atlas-player-initiative__badge', text: String(badge) });
   if (token.defeated) renderDefeated(card, src !== null);
   // A combatant without a number yet shows a dash, not a 0 nobody rolled
-  if (value === 'number') card.createSpan({ cls: 'atlas-player-initiative__value', text: hasInitiative(entry) ? String(entry.initiative) : '–' });
+  if (value === 'number') card.createSpan({ cls: 'atlas-player-initiative__value', text: hasInitiative(entry) ? formatInitiative(entry.initiative) : '–' });
   if (value === 'card') card.createSpan({ cls: 'atlas-player-initiative__value atlas-player-initiative__card-dealt', text: entry.card === undefined ? '–' : String(entry.card) });
   if (look.showNames) {
     card.createSpan({ cls: 'atlas-player-initiative__name', text: entry.name });

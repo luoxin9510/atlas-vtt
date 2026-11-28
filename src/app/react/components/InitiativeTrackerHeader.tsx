@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsDownUp, ChevronsUpDown, Dices, Ellipsis, Swords } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Dices, Ellipsis, FileDown, Swords } from 'lucide-react';
 import { LabelTooltip } from '../../packages/components/primitives/tooltip';
 import { EndCombatIcon } from './EndCombatIcon';
 import { t } from '../../i18n';
@@ -7,6 +7,8 @@ import { t } from '../../i18n';
 interface InitiativeTrackerHeaderProps {
   /** The combatants roll for their numbers (turn order); by sides or by cards nothing is rolled. */
   rolls: boolean;
+  /** Fixed-value initiative: the same button reads the numbers from the statblocks instead of rolling. */
+  fixed?: boolean;
   fightRuns: boolean;
   empty: boolean;
   rolling: boolean;
@@ -28,7 +30,7 @@ interface InitiativeTrackerHeaderProps {
  * tracker, so the toggle has a row of its own.
  */
 export function InitiativeTrackerHeader(props: InitiativeTrackerHeaderProps): React.ReactElement {
-  const { rolls, fightRuns, empty, rolling, collapsed, leftOut, tooltipSide } = props;
+  const { rolls, fixed = false, fightRuns, empty, rolling, collapsed, leftOut, tooltipSide } = props;
   const toggleLabel = collapsed ? t('initiative.expand') : t('initiative.collapse');
   return (
     <>
@@ -45,9 +47,9 @@ export function InitiativeTrackerHeader(props: InitiativeTrackerHeaderProps): Re
 
       <div className="atlas-initiative-tracker__controls">
         {rolls && (
-          <LabelTooltip label={t('initiative.rollAll')}>
+          <LabelTooltip label={fixed ? t('initiative.readAll') : t('initiative.rollAll')}>
             <button className="clickable-icon atlas-initiative-tracker__btn" onClick={props.onRoll} disabled={empty || rolling}>
-              <Dices />
+              {fixed ? <FileDown /> : <Dices />}
             </button>
           </LabelTooltip>
         )}

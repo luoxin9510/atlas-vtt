@@ -76,7 +76,7 @@ describe('the tracker with fixed-value initiative', () => {
     expect(drawn).toBeLessThan(1);
 
     act(() => { store.getState().updateInitiativeEntry(slow, { initiative: 7, fixedByHand: true }); });
-    fireEvent.click(screen.getByRole('button', { name: 'Roll initiative' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Read from statblocks' }));
     await waitFor(() => expect(entryOf(store, fast).tieBreakValues).toEqual([14]));
     expect(entryOf(store, slow).initiative).toBe(7);
     expect(entryOf(store, fast).tieBreakRoll).toBe(drawn);

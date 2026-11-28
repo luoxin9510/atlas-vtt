@@ -17,6 +17,8 @@ interface EditInitiativePopupProps {
   onModifierChange: (modifier: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Fixed-value initiative: decimals are allowed and no modifier applies. */
+  fixed?: boolean;
   /** The side of the card it opens on: away from the edge the tracker stands at. */
   side?: 'left' | 'right';
 }
@@ -31,6 +33,7 @@ export function EditInitiativePopup({
   onConfirm,
   onCancel,
   side = 'left',
+  fixed = false,
 }: EditInitiativePopupProps): React.ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -95,13 +98,14 @@ export function EditInitiativePopup({
             <input
               ref={inputRef}
               type="number"
+              step={fixed ? 'any' : undefined}
               className="atlas-initiative-edit-popup__input"
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder="0"
             />
           </label>
-          <label className="atlas-initiative-edit-popup__field">
+          {!fixed && <label className="atlas-initiative-edit-popup__field">
             <span className="atlas-initiative-edit-popup__caption">{t('initiative.modifier')}</span>
             <input
               type="number"
@@ -110,7 +114,7 @@ export function EditInitiativePopup({
               onChange={(e) => onModifierChange(e.target.value)}
               placeholder={t('initiative.modifierFromStatblock')}
             />
-          </label>
+          </label>}
         </div>
         <span className="atlas-initiative-edit-popup__hint">{t('initiative.editHint')}</span>
       </div>

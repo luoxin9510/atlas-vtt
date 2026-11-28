@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { InitiativeEntry } from '../../types/initiativeTypes';
 import { initiativeEdit, modifierText } from '../../initiative/initiativeEdit';
+import { formatInitiative } from '../../initiative/formatInitiative';
 import { hasInitiative } from '../../initiative/awaitingInitiative';
 import { EditInitiativePopup } from './EditInitiativePopup';
 
@@ -24,7 +25,7 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       entry,
       anchorRect: cardElement.getBoundingClientRect(),
       // A combatant waiting for its number shows an empty field, not a 0 nobody rolled
-      value: hasInitiative(entry) ? String(entry.initiative) : '',
+      value: hasInitiative(entry) ? formatInitiative(entry.initiative) : '',
       modifier: modifierText(entry),
     });
   }, []);
@@ -43,6 +44,7 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       }}
       onCancel={() => setShown(null)}
       side={side}
+      fixed={fixed}
     />,
     document.body,
   );
