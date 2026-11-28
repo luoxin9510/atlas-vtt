@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_DICE_SETS } from '../../../src/app/gameSystems/builtInDiceSets';
 import { checkRuleIds, MARGIN_RULE_ID } from '../../../src/app/dice/checkRules';
 import { evaluateCheck } from '../../../src/app/dice/evaluateCheck';
@@ -41,7 +41,13 @@ const appWith = (...views: unknown[]): never => ({
 }) as never;
 
 const cleanup: Array<() => void> = [];
+beforeEach(() => {
+  // The off-map roller names the focused window; Obsidian provides it
+  vi.stubGlobal('activeDocument', {});
+});
+
 afterEach(() => {
+  vi.unstubAllGlobals();
   triggered.length = 0;
   cleanup.splice(0).forEach((undo) => undo());
   vi.restoreAllMocks();

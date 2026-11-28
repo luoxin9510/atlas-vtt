@@ -15,12 +15,11 @@ import type { CheckDirection, CheckRule } from '../dice/checkTypes';
 import { diceSetOfCollection } from '../services/diceSets/collectionDiceSets';
 import { parseContest } from '../dice/parseContest';
 import { rollParseOptionsOf } from '../gameSystems/diceSets';
-import { hideGmOnly } from '../dice/rollVisibility';
-import { offlineDiceInputs } from '../services/offlineDiceInputs';
+import { OffMapRoller } from '../services/offMapRoller';
 import { openMapDiceTool } from '../services/statblockRolls';
 import { checkText } from '../tools/buildRoll';
 import type { ContestNames } from '../tools/contestRoll';
-import { rollContestFormulas, rollDiceFormula, rollingWith, type CheckOptions, type RollOptions } from '../tools/DiceTool';
+import { rollingWith, type CheckOptions, type RollOptions } from '../tools/DiceTool';
 import type { DiceRollResult } from '../types/diceTypes';
 
 /** How a pack's roll is made. */
@@ -29,7 +28,7 @@ export interface RulePackRollOptions {
   visibility?: 'all' | 'gm' | undefined;
   /** For `rollCheck`: succeed on a total at most (`under`) or at least (`over`) the target; unset follows the dice set. */
   direction?: CheckDirection | undefined;
-  /** Off the map only: the collection whose dice set rolls; unset rolls the default d20 set. */
+  /** Off the map only: the collection whose dice set rolls; unset rolls the library's default (the d20 set). */
   collectionId?: string | undefined;
 }
 
@@ -74,8 +73,8 @@ export interface RulePackApi {
   importerIds(): string[];
   /**
    * Rolls dice text (`2d6+3`, or a check as `3d6 vs 10`). On the open map it rolls on that map's dice tool, so
-   * the roll lands in its log and is thrown on the map. With no map open it rolls quietly with `collectionId`'s
-   * dice set (else the default d20): nothing is shown, the result is yours to display. Null for text it refuses.
+   * the roll lands in its log and is thrown on the map. With no map open it rolls with `collectionId`'s
+   * dice set (else the default d20) and Atlas shows the roll on the workspace dice layer, and shares it with online players. Null for text it refuses.
    */
   rollDice(text: string, options?: RulePackRollOptions): DiceRollResult | null;
   /** Rolls `formula` against a whole-number `target`, as `rollDice` does; null for a formula or target it refuses. */
@@ -89,6 +88,8 @@ export interface RulePackApi {
 }
 
 const BUILTIN_PREFIX = 'builtin:';
+/** What the log names as the source of a roll a pack made: no statblock, as a roll of the dice toolbar. */
+const PACK_SOURCE = { type: 'toolbar' } as const;
 
 /** The options of the map's dice tool: only what was given, since an unset one is not the same as none. */
 function mapOptions(options: RulePackRollOptions | undefined): RollOptions | undefined {
@@ -204,20 +205,19 @@ export class RulePacks implements RulePackApi {
     const tool = openMapDiceTool(this.app);
     const names = options?.names;
     if (tool?.rollContest) return tool.rollContest(first, second, { ...mapOptions(options), ...(names && { names }) });
-    const { rules, shown } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
-    const inputs = offlineDiceInputs(this.app);
-    const rolled = rollContestFormulas(first, second, rules, inputs, shown, names);
-    if (rolled) for (const result of rolled) hideGmOnly(result, options?.visibility, inputs.gmOnly);
-    return rolled;
+    return OffMapRoller.forApp(this.app).rollContest(first, second, {
+      ...(names && { names }), ...(options?.visibility && { visibility: options.visibility }), collectionId: options?.collectionId ?? null,
+      sources: [PACK_SOURCE, PACK_SOURCE],
+    });
   }
 
-  /** Rolls with a collection's dice set, telling no map and showing nothing: no surface of Atlas's is reachable from here. */
+  /** Rolls with a collection's dice set through the off-map roller, which shows the roll in the focused window and shares it online. */
   private rollOffMap(text: string, options: RulePackRollOptions | undefined): DiceRollResult | null {
-    const { rules, shown } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
+    const { rules } = rollingWith(diceSetOfCollection(this.app, options?.collectionId ?? null), undefined);
     const contest = parseContest(text, rollParseOptionsOf(rules));
     if (contest) return this.rollContest(contest.first, contest.second, options)?.[1] ?? null;
-    const inputs = offlineDiceInputs(this.app);
-    const result = rollDiceFormula(text, rules, inputs, shown);
-    return result && hideGmOnly(result, options?.visibility, inputs.gmOnly);
+    return OffMapRoller.forApp(this.app).roll(text, {
+      source: PACK_SOURCE, collectionId: options?.collectionId ?? null, ...(options?.visibility && { visibility: options.visibility }),
+    });
   }
 }

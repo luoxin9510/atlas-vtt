@@ -1,6 +1,7 @@
 import type { App } from 'obsidian';
 import { collectionIdOfPath } from './assetPaths';
 import { collectionRolling } from './collectionRolling';
+import { forgetOffMapRollFeed, provideOffMapRollFeed } from './offMapRollFeed';
 import type { OffMapRolls } from './statblockRolls';
 import type { ContestOptions, RollOptions } from '../tools/DiceTool';
 import type { DiceRollOrigin } from '../types/diceRollOrigin';
@@ -25,11 +26,13 @@ export interface OffMapRollOptions extends RollOptions {
   origin?: DiceRollOrigin | undefined;
   /** The note it was rolled for: the collection whose folder holds it picks the dice set (else the library's default). */
   notePath?: string | null | undefined;
+  /** The collection whose dice set rolls, where the caller knows it without a note (a rule pack's); it wins over `notePath`. */
+  collectionId?: string | null | undefined;
   /** The window it was made in; the focused one (`activeDocument`) when unset. */
   doc?: Document | undefined;
 }
 
-export type OffMapContestOptions = Omit<ContestOptions, 'sides'> & Pick<OffMapRollOptions, 'notePath' | 'doc'> & {
+export type OffMapContestOptions = Omit<ContestOptions, 'sides'> & Pick<OffMapRollOptions, 'notePath' | 'collectionId' | 'doc'> & {
   sources?: [RollSource, RollSource] | undefined;
 };
 
@@ -52,6 +55,7 @@ export class OffMapRoller {
     let roller = OffMapRoller.byApp.get(app);
     if (!roller) {
       roller = new OffMapRoller(app);
+      provideOffMapRollFeed(app, roller);
       OffMapRoller.byApp.set(app, roller);
     }
     return roller;
@@ -65,6 +69,7 @@ export class OffMapRoller {
   static release(app: App): void {
     OffMapRoller.byApp.get(app)?.dispose();
     OffMapRoller.byApp.delete(app);
+    forgetOffMapRollFeed(app);
   }
 
   private readonly listeners = new Set<RollListener>();
@@ -74,7 +79,7 @@ export class OffMapRoller {
 
   /** Rolls and announces; null (nothing announced) for a formula it refuses. */
   roll(formula: string, options: OffMapRollOptions = {}): DiceRollResult | null {
-    const result = this.rolling(options.notePath).roll(formula, options.source ?? STATBLOCK_SOURCE, options);
+    const result = this.rolling(options.notePath, options.collectionId).roll(formula, options.source ?? STATBLOCK_SOURCE, options);
     if (result) this.emit({ result, doc: options.doc ?? activeDocument, muted: false, origin: options.origin });
     return result;
   }
@@ -82,7 +87,7 @@ export class OffMapRoller {
   /** Rolls two checks against each other and announces both sides; null (nothing rolled) where either is refused. */
   rollContest(first: string, second: string, options: OffMapContestOptions = {}): [DiceRollResult, DiceRollResult] | null {
     const sources = options.sources ?? [STATBLOCK_SOURCE, STATBLOCK_SOURCE];
-    const pair = this.rolling(options.notePath).rollContest(first, second, sources, options);
+    const pair = this.rolling(options.notePath, options.collectionId).rollContest(first, second, sources, options);
     const doc = options.doc ?? activeDocument;
     pair?.forEach((result) => this.emit({ result, doc, muted: false }));
     return pair;
@@ -115,8 +120,8 @@ export class OffMapRoller {
     this.kept.length = 0;
   }
 
-  private rolling(notePath: string | null | undefined): ReturnType<typeof collectionRolling> {
-    return collectionRolling(this.app, () => collectionIdOfPath(notePath));
+  private rolling(notePath: string | null | undefined, collectionId?: string | null): ReturnType<typeof collectionRolling> {
+    return collectionRolling(this.app, () => collectionId ?? collectionIdOfPath(notePath));
   }
 
   private emit(rolled: OffMapRolled): void {

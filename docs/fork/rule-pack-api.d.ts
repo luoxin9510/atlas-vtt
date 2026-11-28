@@ -231,8 +231,8 @@ export interface RulePackApi {
   importerIds(): string[];
   /**
    * Rolls dice text (`2d6+3`, or a check as `3d6 vs 10`). On the open map it rolls on that map's dice tool, so
-   * the roll lands in its log and is thrown on the map. With no map open it rolls quietly with `collectionId`'s
-   * dice set (else the default d20): nothing is shown, the result is yours to display. Null for text it refuses.
+   * the roll lands in its log and is thrown on the map. With no map open it rolls with `collectionId`'s
+   * dice set (else the default d20) and Atlas shows the roll on the workspace dice layer, and shares it with online players. Null for text it refuses.
    */
   rollDice(text: string, options?: RulePackRollOptions): DiceRollResult | null;
   /** Rolls `formula` against a whole-number `target`, as `rollDice` does; null for a formula or target it refuses. */

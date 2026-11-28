@@ -24,9 +24,8 @@ import { TableConnection, type TableStatus } from './TableConnection.ts';
 import { TableRoster } from './tableRoster.ts';
 import { closingText, tableEndOf, tableEndText, type TableEnd } from './tableEnd.ts';
 import type { OnlineTableEvents } from './tableEvents.ts';
-import { buildShares } from './tableShares.ts';
+import { buildShares, type TableShares } from './tableShares.ts';
 import { connectionHandlers, logRests, sceneWatch } from './tableWiring.ts';
-import type { FoundShare } from './pins/FoundShare.ts';
 import type { NotesShare } from './notes/NotesShare.ts';
 import type { OnlineTableOptions } from './onlineTableOptions.ts';
 
@@ -68,17 +67,17 @@ export class OnlineTable {
   /** The players' books: each one's own pages besides the table, kept on this device's shelf. */
   private readonly books: TableBook;
   /** The readable pins players find, and the notes they found. */
-  private readonly found: FoundShare;
+  private readonly found: TableShares['found'];
   /** The notes marked `atlas-share`, shared with players of fork level 3. */
   readonly notes: NotesShare;
   /** The pages whose book covers their map, which the table's activity leaves out. */
   private readonly covers: CoveredPages;
-  /** The join link players open. */
-  readonly link: string;
+  readonly link: string; // The join link players open
   private readonly stopOwnership: () => void;
   /** The fork level each player's app declared. */
   private readonly forkClients: ForkClients;
   private readonly pauseShare: PauseShare;
+  private readonly offMap: TableShares['offMap'];
   /** Why the relay's image cache cannot be used now (images go over the socket); null while it can. */
   get imageCache(): ImageCacheReason | null {
     return this.tickets.status;
@@ -114,6 +113,7 @@ export class OnlineTable {
     this.notes = shares.notes;
     this.books = shares.books;
     this.covers = shares.covers;
+    this.offMap = shares.offMap;
     this.watch = sceneWatch({
       app, ownership, forkClients: this.forkClients, tickets: this.tickets, pauseShare, shares, events, mapPath,
       send: (body, to, tag) => this.connection.send(body, to, tag),
@@ -196,6 +196,7 @@ export class OnlineTable {
     this.books.start();
     this.found.start();
     this.notes.start();
+    this.offMap.start();
     // Every rest that reaches a character of this table the GM's Atlas takes while it runs is logged: approved requests and the GM's own.
     this.stopLoggingRests = logRests(this.log, this.ownership, this.books.share);
     this.watch.check();
@@ -261,6 +262,7 @@ export class OnlineTable {
     this.stopLoggingRests();
     this.found.stop();
     this.notes.stop();
+    this.offMap.stop();
     this.stopWatchTimer();
     this.stopFollowingPresented();
     this.watch.stop();

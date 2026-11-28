@@ -84,6 +84,11 @@ export class RollShare {
     }
   }
 
+  /** Shares a roll as the tab's bus announces it; `OffMapRollShare` announces a roll made with no map open the same way. */
+  announce(result: DiceRollResult, origin?: DiceRollOrigin): void {
+    this.rolled(result, origin);
+  }
+
   private readonly rolled = (result: DiceRollResult, origin?: DiceRollOrigin): void => {
     const who = this.roller ?? 'gm';
     const notes = this.notes;

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_DICE_SETS } from '../../../src/app/gameSystems/builtInDiceSets';
 import { RulePacks } from '../../../src/app/rulePacks/rulePackApi';
 import { provideGmOnlySwitch, gmOnlySwitchOf } from '../../../src/app/services/gmOnlySwitch';
@@ -36,7 +36,13 @@ function withMap(): never {
   return app as never;
 }
 
+beforeEach(() => {
+  // The off-map roller names the focused window; Obsidian provides it
+  vi.stubGlobal('activeDocument', {});
+});
+
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
