@@ -17,6 +17,7 @@ promised by target-number checks decision 17, and it also finishes that spec's d
 - The display, `DiceRollDisplay` (3D stack plus cards), needs no map. The pane already mounts it
   without one, as a portal into its own host, with `subscribe` replacing the map bus. The stage pool
   keeps one stage per document.
+- Statblock notes outside collection folders have no collection, so they fall back to the built-in default unless their template names a set.
 - `diceDisplay` is `card`, `fast` or `full`. The dice log is per map (`viewState.diceLog`).
 
 ## Decisions
@@ -34,4 +35,5 @@ promised by target-number checks decision 17, and it also finishes that spec's d
    only kept in memory for a later global log.
 6. When a map is open but not the active tab, the roll goes to that map as today.
 7. The dice set with no map open (finishing decision 11) is the set of the collection the note
-   belongs to, else the library's default.
+   belongs to, else the library's default. Atlas has no library-level default set, so the fallback is
+   the built-in default (d20); a template's own set still wins over both.

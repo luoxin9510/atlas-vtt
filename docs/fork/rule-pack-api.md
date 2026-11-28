@@ -110,9 +110,10 @@ rulePacks.rollContest('3d6 vs 12', '14', { names: { first: 'Ann', second: 'Bo' }
 - On the open map, the roll goes through that map's dice tool: it lands in the map's roll log, is
   thrown on the map (3D dice, online table) and follows `visibility` (`'gm'` keeps it from the
   player window and online players; `'all'` shows it to everyone; left out, the GM's GM-only switch decides: while it is on, the roll is GM-only).
-- With **no map open** the roll is quiet: nothing is shown and nothing is logged, the result is
-  yours to display. It uses the dice set of `collectionId`, else the default d20 set (`direction`
-  still applies to checks).
+- With **no map open** the roll is shown on the workspace dice layer of the window in focus (the
+  display setting applies) and, for the GM, shared with online players like a map roll (a GM-only
+  roll leaves players a secret entry). It is not logged. It uses the dice set of `collectionId`,
+  else the default d20 set (`direction` still applies to checks); a pack need not display the result.
 - Both return `null` for text they refuse (and `rollCheck` for a target that is not a whole
   number). `rollDice` also accepts a check written as text (`3d6 vs 10`).
 - The result's `check` carries the verdict: `target`, `direction`, `margin` (signed, positive =
@@ -125,7 +126,7 @@ rulePacks.rollContest('3d6 vs 12', '14', { names: { first: 'Ann', second: 'Bo' }
   `{ id, side: 'first', names? }`; the second's also carries `verdict: { winner, rule }`
   (`winner` is `'first'`, `'second'` or `null` for a tie). `options` is the same as for a roll plus
   `names`. It is routed like `rollCheck`: on the open map through the map's dice tool (both rolls in
-  the log and thrown on the map, shown as one contest), without a map quietly with `collectionId`'s
+  the log and thrown on the map, shown as one contest), without a map shown on the dice layer and shared, with `collectionId`'s
   set, and `visibility: 'gm'` makes both rolls GM-only (left out, the GM-only switch decides, as for any roll; `'all'` forces public).
 
 ## Presets, dice sets and statblock templates are vault files
