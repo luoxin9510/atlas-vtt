@@ -243,6 +243,68 @@
       ],
       "type": "string"
     },
+    "CheckDirection": {
+      "description": "`under`: succeed on a total at most the target; `over`: at least the target.",
+      "enum": [
+        "under",
+        "over"
+      ],
+      "type": "string"
+    },
+    "CheckResult": {
+      "additionalProperties": false,
+      "properties": {
+        "baseTarget": {
+          "description": "Where the target stood before `targetSteps` moved it; set only with them.",
+          "type": "number"
+        },
+        "crit": {
+          "enum": [
+            "success",
+            "failure",
+            null
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "$ref": "#/definitions/CheckDirection"
+        },
+        "margin": {
+          "description": "Signed: >= 0 succeeded by that much, < 0 failed by that much. under: target - total; over: total - target.",
+          "type": "number"
+        },
+        "rule": {
+          "description": "The rule that decided it (a built-in id or a registered one).",
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "target": {
+          "description": "The target the check was judged against: where the steps, if any, left it.",
+          "type": "number"
+        },
+        "targetSteps": {
+          "description": "What moved the target (modifiers on a check that goes under), in the order applied; set only where something did.",
+          "items": {
+            "$ref": "#/definitions/TargetStep"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "target",
+        "direction",
+        "margin",
+        "success",
+        "crit",
+        "rule"
+      ],
+      "type": "object"
+    },
     "ClockWidget": {
       "additionalProperties": false,
       "description": "A progress clock (Blades in the Dark): a circle of `segments` wedges the GM fills one by one.",
@@ -298,6 +360,39 @@
         "value",
         "visible",
         "visibleToPlayers"
+      ],
+      "type": "object"
+    },
+    "ContestSide": {
+      "description": "Which of the two checks: the one written first, or second.",
+      "enum": [
+        "first",
+        "second"
+      ],
+      "type": "string"
+    },
+    "ContestVerdict": {
+      "additionalProperties": false,
+      "description": "Who won a contest (null: a tie) and the rule that decided it.",
+      "properties": {
+        "rule": {
+          "description": "The rule that decided it (a built-in id or a registered one).",
+          "type": "string"
+        },
+        "winner": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ContestSide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "winner",
+        "rule"
       ],
       "type": "object"
     },
@@ -383,6 +478,14 @@
           "$ref": "#/definitions/AdvantageSide",
           "description": "The side of advantage the roll was made with, where the set's rule changed it; the dice it dropped are marked `dropped`."
         },
+        "check": {
+          "$ref": "#/definitions/CheckResult",
+          "description": "The verdict where the roll was a check against a target (`3d6 vs 10`); its formula is then the check text."
+        },
+        "contest": {
+          "$ref": "#/definitions/RollContest",
+          "description": "Set where the roll is one side of a contest (two checks against each other); both results share its `id`, the verdict is on the second."
+        },
         "crit": {
           "$ref": "#/definitions/DiceCrit",
           "description": "Decided by the collection's critical rule when rolled; missing on rolls logged before rules existed."
@@ -393,6 +496,11 @@
         },
         "formula": {
           "type": "string"
+        },
+        "hidden": {
+          "const": true,
+          "description": "A GM-only roll (`RollOptions.visibility: 'gm'`): the GM's log, toast and dice show it, the player window and the online table never do. Kept in the scene's saved roll log, so a reload does not reveal it; older rolls have none.",
+          "type": "boolean"
         },
         "id": {
           "type": "string"
@@ -865,7 +973,7 @@
         },
         "fixedByHand": {
           "const": true,
-          "description": "Fixed-value initiative: `initiative` was typed by the GM, so reading the statblocks does not replace it until the GM clears it; `undefined` clears it when patched.",
+          "description": "Fixed-value initiative: `initiative` was typed by the GM, so reading the statblocks does not replace it until the GM clears it (an emptied number); `undefined` clears it when patched.",
           "type": "boolean"
         },
         "hp": {
@@ -911,6 +1019,11 @@
           "description": "Order in the initiative list (for manual reordering)",
           "type": "number"
         },
+        "orderByHand": {
+          "const": true,
+          "description": "Fixed-value initiative: the GM dragged this combatant among equal totals, so reading the statblocks keeps its tie-break numbers and roll. Dropped when a read gives it another value, or on a roll.",
+          "type": "boolean"
+        },
         "rolledModifier": {
           "description": "The modifier the last roll added (the GM's own, else the statblock's). It only breaks ties between equal totals and is never added to a roll; older versions ignore it.",
           "type": "number"
@@ -929,11 +1042,6 @@
         "tieBreak": {
           "description": "Set by Act Now: the tie-break of the combatant it acted before, with whose number it ties, so that a later sort keeps it right before that one. A roll or an edit of its own number or modifier clears it; older versions ignore it.",
           "type": "number"
-        },
-        "orderByHand": {
-          "const": true,
-          "description": "Fixed-value initiative: the GM dragged this combatant among equal totals, so reading the statblocks keeps its tie-break numbers and roll. Dropped when a read gives it another value, or on a roll.",
-          "type": "boolean"
         },
         "tieBreakRoll": {
           "description": "Fixed-value initiative: a hidden random number in [0, 1) drawn once when the combatant joined; it settles ties the fields leave.",
@@ -985,6 +1093,11 @@
             "$ref": "#/definitions/InitiativeEntryOnDisk"
           },
           "type": "array"
+        },
+        "fixedValues": {
+          "const": true,
+          "description": "The rules run fixed-value initiative: only then do the tie-break fields and the hidden roll order equal totals. Kept up to date by the tracker; a roll clears it.",
+          "type": "boolean"
         },
         "isActive": {
           "description": "Whether combat is currently active",
@@ -1640,6 +1753,39 @@
       ],
       "type": "object"
     },
+    "RollContest": {
+      "additionalProperties": false,
+      "description": "What marks a roll as one side of a contest; the verdict is on the second result only.",
+      "properties": {
+        "id": {
+          "description": "Shared by both rolls of the contest.",
+          "type": "string"
+        },
+        "names": {
+          "additionalProperties": false,
+          "properties": {
+            "first": {
+              "type": "string"
+            },
+            "second": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "side": {
+          "$ref": "#/definitions/ContestSide"
+        },
+        "verdict": {
+          "$ref": "#/definitions/ContestVerdict"
+        }
+      },
+      "required": [
+        "id",
+        "side"
+      ],
+      "type": "object"
+    },
     "RolledDie": {
       "additionalProperties": false,
       "properties": {
@@ -1959,6 +2105,22 @@
         "formula",
         "total",
         "at"
+      ],
+      "type": "object"
+    },
+    "TargetStep": {
+      "additionalProperties": false,
+      "description": "One thing that moved a check's target: a named armed bonus (`Agility`), a one-off modifier, or an unnamed number.",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
       ],
       "type": "object"
     },
