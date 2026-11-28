@@ -27,10 +27,26 @@ export interface InitiativeModifierSource {
   abilityScore?: true;
 }
 
+/** A statblock field read as a number: a dotted path as a resource names its field, or a scores slot (`attributes.DX`). */
+export interface InitiativeFieldRef {
+  field: string;
+}
+
 export interface InitiativeRules {
   mode: InitiativeMode;
-  /** Turn order: the dice a combatant rolls, one group `NdS` such as `1d20`. */
+  /**
+   * Turn order: the dice a combatant rolls, one group `NdS` such as `1d20`. Where `value` is set
+   * nothing is rolled and this stays the default, unused.
+   */
   roll: string;
+  /**
+   * Turn order only: a fixed value. A combatant's initiative is the number this statblock field holds
+   * (decimals allowed), not a roll, and the modifier is never added. A combatant whose statblock has
+   * none waits for the GM to type one. Ignored in any other mode.
+   */
+  value?: InitiativeFieldRef;
+  /** Fixed value: where values are equal, these fields are compared in order, the higher first; at most four. */
+  tieBreak?: InitiativeFieldRef[];
   /**
    * Turn order: where a combatant's statblock holds the number added to its roll. Unset, or where
    * the statblock lacks that field, the field its template means as initiative counts.

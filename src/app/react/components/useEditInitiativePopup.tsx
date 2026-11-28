@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { InitiativeEntry } from '../../types/initiativeTypes';
 import { initiativeEdit, modifierText } from '../../initiative/initiativeEdit';
+import { formatInitiative } from '../../initiative/formatInitiative';
 import { hasInitiative } from '../../initiative/awaitingInitiative';
 import { EditInitiativePopup } from './EditInitiativePopup';
 
@@ -13,7 +14,7 @@ interface OpenPopup {
 }
 
 /** The card menu's Edit Initiative popup: `open` shows it beside a card on `side`, `popup` is what the tracker renders. */
-export function useEditInitiativePopup(update: (id: string, changes: Partial<InitiativeEntry>) => void, side: 'left' | 'right' = 'left'): {
+export function useEditInitiativePopup(update: (id: string, changes: Partial<InitiativeEntry>) => void, side: 'left' | 'right' = 'left', fixed = false): {
   open: (entry: InitiativeEntry, cardElement: HTMLElement) => void;
   popup: React.ReactNode;
 } {
@@ -24,7 +25,7 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       entry,
       anchorRect: cardElement.getBoundingClientRect(),
       // A combatant waiting for its number shows an empty field, not a 0 nobody rolled
-      value: hasInitiative(entry) ? String(entry.initiative) : '',
+      value: hasInitiative(entry) ? formatInitiative(entry.initiative) : '',
       modifier: modifierText(entry),
     });
   }, []);
@@ -38,11 +39,12 @@ export function useEditInitiativePopup(update: (id: string, changes: Partial<Ini
       modifier={shown.modifier}
       onModifierChange={(modifier) => setShown({ ...shown, modifier })}
       onConfirm={() => {
-        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier));
+        update(shown.entry.id, initiativeEdit(shown.value, shown.modifier, fixed, shown.entry));
         setShown(null);
       }}
       onCancel={() => setShown(null)}
       side={side}
+      fixed={fixed}
     />,
     document.body,
   );

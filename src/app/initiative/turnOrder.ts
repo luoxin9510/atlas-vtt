@@ -122,7 +122,7 @@ export function actNow(initiative: InitiativeState, id: string): void {
     entries.splice(from, 1);
     entries.splice(entries.indexOf(current), 0, entry);
     setInitiative(entry, current.initiative);
-    entry.tieBreak = tieBreakModifier(current);
+    entry.tieBreak = tieBreakModifier(current, initiative.fixedValues === true);
     renumber(entries);
   }
   giveTurn(initiative, entries.indexOf(entry));

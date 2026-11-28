@@ -8,6 +8,7 @@ import type { SystemPreset } from '../types/systemPresetTypes';
 import { isValidDefaultRoll } from './diceRules';
 import { modifierSources, sameModifierSources } from './initiativeModifierSources';
 import { BUILT_IN_SIDES, areSidesValid, parseSideRoll, sameSideParts, savedSideParts, sideParts } from './initiativeSideRules';
+import { fixedParts, sameFixedParts } from './initiativeFixedRules';
 import { cardParts, isCardPartValid, sameCardParts } from './initiativeCardRules';
 
 /** Initiative of a collection without a game system: a d20 each, highest first. */
@@ -26,11 +27,15 @@ export function parseInitiativeRules(raw: unknown): InitiativeRules | undefined 
   const fields = raw as Record<string, unknown>;
   const { mode, roll, firstSide } = fields;
   if (!INITIATIVE_MODES.includes(mode as InitiativeMode) || !INITIATIVE_SIDES.includes(firstSide as InitiativeSide)) return undefined;
-  if (typeof roll !== 'string' || !isValidDefaultRoll(roll)) return undefined;
+  const fixed = fixedParts(fields);
+  // Where a value is set no roll is needed: it stays the default
+  const rollText = typeof roll === 'string' && isValidDefaultRoll(roll) ? roll.trim() : fixed.value ? DEFAULT_INITIATIVE_RULES.roll : undefined;
+  if (rollText === undefined) return undefined;
   const sideRoll = parseSideRoll(fields.sideRoll);
   return {
     mode: mode as InitiativeMode,
-    roll: roll.trim(),
+    roll: rollText,
+    ...fixed,
     ...sideParts(fields.sides, firstSide as InitiativeSide),
     ...modifierSources(fields),
     ...(sideRoll && { sideRoll }),
@@ -44,7 +49,7 @@ export function parseInitiativeRules(raw: unknown): InitiativeRules | undefined 
  * typed. By sides nothing is rolled, so the roll does not matter there.
  */
 export function isValidInitiativeRules(rules: InitiativeRules): boolean {
-  if (rules.mode === 'turn-order') return isValidDefaultRoll(rules.roll);
+  if (rules.mode === 'turn-order') return rules.value !== undefined || isValidDefaultRoll(rules.roll);
   if (rules.mode === 'cards') return isCardPartValid(rules);
   return areSidesValid(rules.sides) && (rules.sideRoll === undefined || isValidDefaultRoll(rules.sideRoll));
 }
@@ -59,6 +64,7 @@ export function savedInitiativeRules(rules: InitiativeRules): InitiativeRules {
   return {
     mode: rules.mode,
     roll,
+    ...fixedParts(rules),
     ...modifierSources(rules),
     ...(rules.mode === 'sides' ? savedSideParts(rules) : { firstSide: rules.firstSide }),
     ...(rules.mode === 'cards' ? cardParts(rules) : {}),
@@ -93,6 +99,7 @@ export function sameInitiativeRules(a: InitiativeRules | undefined, b: Initiativ
     && (left.mode !== 'sides' || sameSideParts(left, right))
     && (left.mode !== 'cards' || sameCardParts(left, right))
     && sameModifierSources(left, right)
+    && (left.mode !== 'turn-order' || sameFixedParts(left, right))
     && Boolean(left.rollHitPoints) === Boolean(right.rollHitPoints)
     && left.roll.trim().toLowerCase() === right.roll.trim().toLowerCase();
 }

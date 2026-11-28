@@ -72,6 +72,7 @@ export const initiative: Translation = {
   'initiative.token': '棋子',
   'initiative.typeNumber': '还没有先攻，点击输入',
   'initiative.rollAll': '全部投先攻',
+  'initiative.readAll': '从属性块读取',
   'initiative.startCombat': '开始战斗',
   'initiative.endCombat': '结束战斗',
   'initiative.empty': '右键点击棋子即可加入',

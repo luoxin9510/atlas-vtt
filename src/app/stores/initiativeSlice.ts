@@ -15,6 +15,8 @@ import { clearSittingOut } from '../initiative/rounds';
 import { createInitiativeTurnActions, type InitiativeTurnActions } from './initiativeTurnActions';
 import { fightDraws, roundChangesOf } from './initiativeFightStart';
 import { setInitiative } from '../initiative/awaitingInitiative';
+import { keepDraggedOrder } from '../initiative/draggedOrder';
+import { applyFixedRead, type FixedRead } from '../initiative/applyFixed';
 
 /**
  * Initiative slice state interface
@@ -39,6 +41,14 @@ export interface InitiativeSlice extends InitiativeTurnActions {
    */
   rollAllInitiative: (roll?: string, fromStatblocks?: ReadonlyMap<string, number>) => void;
   rollEntryInitiative: (id: string, roll?: string, fromStatblock?: number | null) => void;
+  /**
+   * Fixed-value initiative: writes what the statblocks hold, by entry id, as each combatant's
+   * initiative (no dice, no modifier), ends their wait, and draws each one's hidden tie-break roll
+   * once. A number the GM typed stays (`applyFixedRead`).
+   */
+  applyFixedInitiative: (reads: ReadonlyMap<string, FixedRead>) => void;
+  /** Tells the sort whether the rules are fixed-value (the tracker keeps it so); a roll clears it. */
+  setFixedInitiative: (fixed: boolean) => void;
   reorderInitiative: (fromIndex: number, toIndex: number) => void;
   moveToFront: (id: string) => void;
   moveToBack: (id: string) => void;
@@ -91,6 +101,11 @@ function applyRoll(entry: InitiativeEntry, { total, modifier }: RolledTotal): vo
   setInitiative(entry, total);
   entry.rolledModifier = modifier;
   delete entry.tieBreak;
+  // What fixed-value initiative left behind counts for nothing in a rolled fight
+  delete entry.tieBreakRoll;
+  delete entry.tieBreakValues;
+  delete entry.fixedByHand;
+  delete entry.orderByHand;
 }
 
 /** What a combatant rolls where the caller names no dice. */
@@ -143,7 +158,10 @@ export function createInitiativeActions(
         const initiativeChanged = updates.initiative !== undefined && updates.initiative !== entry.initiative;
         const modifierChanged = updates.initiativeModifier !== undefined && updates.initiativeModifier !== entry.initiativeModifier;
         Object.assign(entry, updates);
-        if (updates.initiative !== undefined) setInitiative(entry, updates.initiative);
+        // An emptied fixed number (`awaitingInitiative: true`) keeps the combatant waiting
+        if (updates.initiative !== undefined && updates.awaitingInitiative !== true) setInitiative(entry, updates.initiative);
+        // A number typed before any read still gets its hidden roll, once
+        if (entry.fixedByHand) entry.tieBreakRoll ??= random();
         // A number or modifier of its own replaces where Act Now placed it
         if (initiativeChanged || modifierChanged) delete entry.tieBreak;
 
@@ -162,6 +180,7 @@ export function createInitiativeActions(
           const rolled = rolls.get(entry.id);
           if (rolled) applyRoll(entry, rolled);
         }
+        delete draft.initiative.fixedValues;
         if (draft.initiative.config.autoSort) sortCombatants(draft.initiative);
       });
     },
@@ -174,9 +193,24 @@ export function createInitiativeActions(
       set((draft) => {
         const current = draft.initiative.entries.find(e => e.id === id);
         if (current) applyRoll(current, rolled);
+        delete draft.initiative.fixedValues;
         if (draft.initiative.config.autoSort) sortCombatants(draft.initiative);
       });
     },
+
+    applyFixedInitiative: (reads) => set((draft) => {
+      draft.initiative.fixedValues = true;
+      for (const entry of draft.initiative.entries) {
+        const read = reads.get(entry.id);
+        if (read) applyFixedRead(entry, read, random);
+      }
+      if (draft.initiative.config.autoSort) sortCombatants(draft.initiative);
+    }),
+
+    setFixedInitiative: (fixed) => set((draft) => {
+      if (fixed) draft.initiative.fixedValues = true;
+      else delete draft.initiative.fixedValues;
+    }),
 
     reorderInitiative: (fromIndex, toIndex) => set((draft) => {
       const { entries } = draft.initiative;
@@ -187,6 +221,7 @@ export function createInitiativeActions(
       if (!movedEntry) return;
 
       entries.splice(toIndex, 0, movedEntry);
+      if (draft.initiative.fixedValues) keepDraggedOrder(entries, toIndex);
       renumber(entries);
 
       // Update currentIndex if the moved entry was active
@@ -203,6 +238,7 @@ export function createInitiativeActions(
       if (!entry) return;
 
       draft.initiative.entries.unshift(entry);
+      if (draft.initiative.fixedValues) keepDraggedOrder(draft.initiative.entries, 0);
       renumber(draft.initiative.entries);
 
       if (entry.isActive) {
@@ -219,6 +255,7 @@ export function createInitiativeActions(
       if (!entry) return;
 
       entries.push(entry);
+      if (draft.initiative.fixedValues) keepDraggedOrder(entries, entries.length - 1);
       renumber(entries);
 
       if (entry.isActive) {

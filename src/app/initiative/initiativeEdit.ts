@@ -1,9 +1,12 @@
 /** What the initiative card's edit popup reads from an entry and writes back to it. */
 
 import type { InitiativeEntry } from '../types/initiativeTypes';
+import { plainNumber } from './fixedInitiativeReading';
+import { formatInitiative } from './formatInitiative';
+import { hasInitiative } from './awaitingInitiative';
 import { ownModifier, parseInitiativeModifier } from './initiativeModifier';
 
-type EditedParts = Partial<Pick<InitiativeEntry, 'initiative' | 'initiativeModifier' | 'modifierByHand'>>;
+type EditedParts = Partial<Pick<InitiativeEntry, 'initiative' | 'awaitingInitiative' | 'fixedByHand' | 'initiativeModifier' | 'modifierByHand'>>;
 
 /** The modifier field as the popup opens: the GM's own modifier, empty where there is none. */
 export function modifierText(entry: Pick<InitiativeEntry, 'initiativeModifier' | 'modifierByHand'>): string {
@@ -14,9 +17,11 @@ export function modifierText(entry: Pick<InitiativeEntry, 'initiativeModifier' |
 /**
  * The changes of a confirmed popup: the total where it reads as a whole number, and the GM's own
  * modifier, 0 included, which an emptied field clears so the statblock's counts again. What is
- * no number changes nothing.
+ * no number changes nothing. With fixed-value initiative (`fixed`) the total may have decimals and
+ * counts as typed by hand, an emptied total clears it, and the modifier plays no part.
  */
-export function initiativeEdit(totalText: string, modifierInput: string): EditedParts {
+export function initiativeEdit(totalText: string, modifierInput: string, fixed = false, entry?: InitiativeEntry): EditedParts {
+  if (fixed) return totalEdit(totalText, true, entry);
   const modifier = modifierInput.trim() === '' ? null : parseInitiativeModifier(modifierInput);
   return {
     ...totalEdit(totalText),
@@ -26,8 +31,22 @@ export function initiativeEdit(totalText: string, modifierInput: string): Edited
   };
 }
 
-/** The change of a number typed on the card itself: the total where it reads as a whole number, else nothing. */
-export function totalEdit(totalText: string): Pick<EditedParts, 'initiative'> {
-  const total = parseInitiativeModifier(totalText);
-  return total === null ? {} : { initiative: total };
+/**
+ * The change of a number typed on the card itself: the total where it reads as a whole number, else
+ * nothing. With fixed-value initiative (`fixed`) decimals read too, the number is marked as typed
+ * (`fixedByHand`, which the statblocks' values do not replace), and an emptied number clears it: the
+ * combatant waits again and the next read of the statblocks fills it. A comma reads as the decimal
+ * separator, text that is no number changes nothing, and so does text equal to the number as `entry`
+ * shows it (committing a field nobody changed).
+ */
+export function totalEdit(totalText: string, fixed = false, entry?: InitiativeEntry): Pick<EditedParts, 'initiative' | 'awaitingInitiative' | 'fixedByHand'> {
+  if (!fixed) {
+    const total = parseInitiativeModifier(totalText);
+    return total === null ? {} : { initiative: total };
+  }
+  const text = totalText.trim().replace(',', '.');
+  if (entry && text === (hasInitiative(entry) ? formatInitiative(entry.initiative) : '')) return {};
+  if (text === '') return { initiative: 0, awaitingInitiative: true, fixedByHand: undefined };
+  const total = plainNumber(text);
+  return total === null ? {} : { initiative: total, fixedByHand: true };
 }

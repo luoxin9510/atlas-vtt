@@ -63,3 +63,37 @@ describe('typing a table of initiatives with Tab', () => {
     expect(tracker.editing()).toBe('C');
   });
 });
+
+describe('typing a number on a card with fixed-value initiative', () => {
+  const typed = (fixed: boolean, text: string): { id: string; changes: Partial<InitiativeEntry> }[] => {
+    const calls: { id: string; changes: Partial<InitiativeEntry> }[] = [];
+    const entry = entryOf('A', 3);
+    const hook = renderHook(() => useNumberEditing([entry], (id, changes) => { calls.push({ id, changes }); }, fixed));
+    act(() => hook.result.current.start(entry));
+    act(() => hook.result.current.commit(entry, text, 0));
+    return calls;
+  };
+
+  it('takes a decimal and marks it as typed by hand', () => {
+    expect(typed(true, '5.5')).toEqual([{ id: 'A', changes: { initiative: 5.5, fixedByHand: true } }]);
+  });
+
+  it('changes nothing when the text is the number as shown, and reads a comma decimal', () => {
+    const calls: unknown[] = [];
+    const entry = entryOf('A', 5.25);
+    const hook = renderHook(() => useNumberEditing([entry], (id, changes) => { calls.push({ id, changes }); }, true));
+    act(() => hook.result.current.commit(entry, '5.25', 0));
+    expect(calls).toEqual([]);
+    act(() => hook.result.current.commit(entry, '5,5', 0));
+    expect(calls).toEqual([{ id: 'A', changes: { initiative: 5.5, fixedByHand: true } }]);
+  });
+
+  it('clears an emptied number so the combatant waits for its statblock again', () => {
+    expect(typed(true, '  ')).toEqual([{ id: 'A', changes: { initiative: 0, awaitingInitiative: true, fixedByHand: undefined } }]);
+  });
+
+  it('ignores a decimal where the numbers are whole, as before', () => {
+    expect(typed(false, '5.5')).toEqual([]);
+    expect(typed(false, '7')).toEqual([{ id: 'A', changes: { initiative: 7 } }]);
+  });
+});

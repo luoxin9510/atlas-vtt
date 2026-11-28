@@ -38,6 +38,8 @@ export interface CardMenuMode {
   sides: readonly { id: SideId; name: string }[];
   /** A fight by cards runs: the combatant's card may be swapped with another's. */
   cards: boolean;
+  /** Fixed-value initiative: no roll item, the numbers come from the statblocks. */
+  fixed?: boolean;
   fightRuns: boolean;
   /** The other combatants holding a card (a fight by cards), in the order they act. */
   swapTargets: readonly { id: string; name: string; card: number }[];
@@ -95,7 +97,7 @@ export function initiativeCardMenu(
   const numbered = !mode.bySides && !mode.cards;
 
   return [
-    ...(numbered ? [item(t('initiative.roll'), 'dice', actions.roll)] : []),
+    ...(numbered && !mode.fixed ? [item(t('initiative.roll'), 'dice', actions.roll)] : []),
     item(t('initiative.toFront'), 'arrow-up-to-line', actions.moveToFront),
     item(t('initiative.toBack'), 'arrow-down-to-line', actions.moveToBack),
     ...(mode.bySides ? [moveToSide] : []),

@@ -17,6 +17,8 @@ interface CardMenuInputs {
   sides: readonly ListedSide[];
   /** A fight by cards runs. */
   cards: boolean;
+  /** Fixed-value initiative: numbers are read from statblocks, never rolled one by one. */
+  fixed?: boolean;
   fightRuns: boolean;
   /** Rolls one combatant with its statblock's modifier (`useInitiativeRolls`). */
   roll: (entryId: string) => void;
@@ -38,7 +40,7 @@ function swapTargets(entries: readonly InitiativeEntry[], entry: InitiativeEntry
 
 /** Opens the menu of a combatant's card (`initiativeCardMenu`) with the store's actions. */
 export function useInitiativeCardMenu(inputs: CardMenuInputs): (event: React.MouseEvent, entry: InitiativeEntry, cardElement: HTMLElement) => void {
-  const { tokens, bySides, sides, cards, fightRuns, roll, defeated, edit } = inputs;
+  const { tokens, bySides, sides, cards, fixed = false, fightRuns, roll, defeated, edit } = inputs;
   const { view } = useAtlasUI();
   const store = useViewStoreHook();
   const swapInitiativeCards = useAtlasStore((s) => s.swapInitiativeCards);
@@ -51,7 +53,7 @@ export function useInitiativeCardMenu(inputs: CardMenuInputs): (event: React.Mou
 
   return useCallback((event: React.MouseEvent, entry: InitiativeEntry, cardElement: HTMLElement): void => {
     const targets = cards ? swapTargets(store.getState().initiative.entries, entry) : [];
-    const entries = initiativeCardMenu(entry, tokens[entry.tokenId], { bySides, sides, cards, fightRuns, swapTargets: targets }, {
+    const entries = initiativeCardMenu(entry, tokens[entry.tokenId], { bySides, sides, cards, fixed, fightRuns, swapTargets: targets }, {
       roll: () => roll(entry.id),
       moveToFront: () => moveToFront(entry.id),
       moveToBack: () => moveToBack(entry.id),

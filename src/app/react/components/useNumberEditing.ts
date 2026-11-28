@@ -13,7 +13,8 @@ export interface NumberEditing {
 
 /**
  * Typing the combatants' numbers on their cards, one card at a time. A commit writes the number
- * as the edit popup does (`totalEdit`). A run of typing keeps the order of `entries` as it stood
+ * as the edit popup does (`totalEdit`; with fixed-value initiative, `fixed`, decimals count and the
+ * number is marked as typed). A run of typing keeps the order of `entries` as it stood
  * when its first field opened, and Tab and Shift+Tab go on to the card after or before in that
  * order until the run ends (Enter, Escape, leaving the field, or past either end): a list that
  * sorts itself anew after every number would otherwise bring a card back that was typed already.
@@ -21,6 +22,7 @@ export interface NumberEditing {
 export function useNumberEditing(
   entries: readonly InitiativeEntry[],
   update: (id: string, changes: Partial<InitiativeEntry>) => void,
+  fixed = false,
 ): NumberEditing {
   const [editingId, setEditingId] = useState<string | null>(null);
   const runOrder = useRef<readonly string[] | null>(null);
@@ -36,11 +38,11 @@ export function useNumberEditing(
         break;
       }
     }
-    const changes = totalEdit(text);
+    const changes = totalEdit(text, fixed, entry);
     if (changes.initiative !== undefined) update(entry.id, changes);
     if (next === undefined) runOrder.current = null;
     setEditingId(next ?? null);
-  }, [entries, update]);
+  }, [entries, update, fixed]);
 
   const start = useCallback((entry: InitiativeEntry): void => {
     runOrder.current = entries.map((candidate) => candidate.id);

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { scrollWithin } from '../../utils/scrollWithin';
 import { t } from '../../i18n';
+import { formatInitiative } from '../../initiative/formatInitiative';
 
 /** Where Tab and Shift+Tab move the editing to after a commit: the next card, the one before, or nowhere. */
 export type NumberStep = -1 | 0 | 1;
@@ -10,6 +11,8 @@ interface InitiativeNumberProps {
   /** No number was rolled or typed yet: an empty slot stands in its place. */
   empty: boolean;
   editing: boolean;
+  /** Fixed-value initiative: numbers may have decimals, so the field asks for a decimal keyboard. */
+  fixed?: boolean;
   onStartEdit: () => void;
   /** The typed text, and where the editing goes next. */
   onCommit: (text: string, step: NumberStep) => void;
@@ -22,7 +25,7 @@ interface InitiativeNumberProps {
  * the next or previous card's number, so a whole table is typed in one go. No key typed here
  * reaches the map's shortcuts.
  */
-export function InitiativeNumber({ value, empty, editing, onStartEdit, onCommit, onCancel }: InitiativeNumberProps): React.ReactElement {
+export function InitiativeNumber({ value, empty, editing, fixed = false, onStartEdit, onCommit, onCancel }: InitiativeNumberProps): React.ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   // Set once the field has given its answer, so the blur of a field going away answers nothing more
   const answeredRef = useRef(false);
@@ -49,13 +52,13 @@ export function InitiativeNumber({ value, empty, editing, onStartEdit, onCommit,
       <button
         type="button"
         className={`atlas-initiative-card__initiative${empty ? ' atlas-initiative-card__initiative--empty' : ''}`}
-        aria-label={empty ? t('initiative.typeNumber') : t('initiative.editNumber', { value })}
+        aria-label={empty ? t('initiative.typeNumber') : t('initiative.editNumber', { value: formatInitiative(value) })}
         onClick={(e) => {
           e.stopPropagation();
           onStartEdit();
         }}
       >
-        {empty ? '–' : value}
+        {empty ? '–' : formatInitiative(value)}
       </button>
     );
   }
@@ -79,11 +82,11 @@ export function InitiativeNumber({ value, empty, editing, onStartEdit, onCommit,
     <input
       ref={inputRef}
       type="text"
-      inputMode="numeric"
+      inputMode={fixed ? 'decimal' : 'numeric'}
       autoComplete="off"
       className="atlas-initiative-card__initiative-input"
       aria-label={t('initiative.total')}
-      defaultValue={empty ? '' : String(value)}
+      defaultValue={empty ? '' : formatInitiative(value)}
       onKeyDown={onKeyDown}
       onKeyUp={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}

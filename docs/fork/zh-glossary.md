@@ -22,6 +22,7 @@ Note: Obsidian's `zh-TW` also resolves to this Simplified Chinese locale
 | initiative | 先攻 | initiative.card, token.addInitiative | 16 |
 | initiative tracker | 先攻追踪 | widgets.initiativeTracker | no trailing 器 |
 | initiative panel | 先攻面板 | lpv.showInitiative | |
+| Read from statblocks | 从属性块读取 | initiative.readAll | fixed-value initiative's roll-all button |
 | round | 第 {round} 轮 | playerInit.round | 轮 = round |
 | turn | 回合 | hotkey.nextTurn (下一回合) | 回合 = turn; keep 轮/回合 distinction |
 | initiative side / card / deck | 阵营 / 卡牌 / 牌堆 (decided) | initRules.addSide, initRules.deck | "Act earlier/later" 提前行动 / 推后行动 |

@@ -82,6 +82,24 @@ export interface InitiativeEntry {
   tieBreak?: number;
 
   /**
+   * Fixed-value initiative: `initiative` was typed by the GM, so reading the statblocks does not
+   * replace it until the GM clears it (an emptied number); `undefined` clears it when patched.
+   */
+  fixedByHand?: true | undefined;
+
+  /**
+   * Fixed-value initiative: the GM dragged this combatant among equal totals, so reading the
+   * statblocks keeps its tie-break numbers and roll. Dropped when a read gives it another value, or on a roll.
+   */
+  orderByHand?: true;
+
+  /** Fixed-value initiative: the tie-break fields' numbers as last read, in the rules' order; a missing field reads 0. */
+  tieBreakValues?: number[];
+
+  /** Fixed-value initiative: a hidden random number in [0, 1) drawn once when the combatant joined; it settles ties the fields leave. */
+  tieBreakRoll?: number;
+
+  /**
    * The card dealt to the combatant in a fight by cards (`InitiativeState.cards`): the lowest acts
    * first, and look-alikes may share one. Older versions ignore it and read the order as it stands.
    */
@@ -144,6 +162,12 @@ export interface InitiativeState {
 
   /** Set while a fight runs by cards; a fight keeps the mode it was started in. */
   cards?: CardsFight;
+
+  /**
+   * The rules run fixed-value initiative: only then do the tie-break fields and the hidden roll
+   * order equal totals. Kept up to date by the tracker; a roll clears it.
+   */
+  fixedValues?: true;
 
   /**
    * The combatants each round's start cleared `sitsOut` of, by that round, so that stepping back
