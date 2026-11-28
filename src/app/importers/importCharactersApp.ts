@@ -62,9 +62,8 @@ function appDeps(app: App): ImportDeps {
     })) === true,
     reimport: ({ notePath, importer, source, character }) => reimportCharacter(reimportDeps(app), { notePath, importer, source, character }),
     writeImage: (name, bytes) => writeAssetImage(app, name, bytes),
-    addTokenAsset: async ({ name, imagePath, collection }) => {
-      await assets.addTokenAsset({ name, imagePath, collection, tags: [], showRing: true });
-    },
+    addTokenAsset: async ({ name, imagePath, collection }) => (await assets.addTokenAsset({ name, imagePath, collection, tags: [], showRing: true })).id,
+    removeTokenAsset: (id) => assets.deleteTokenAsset(id),
     createNote: async (note) => (await createStatblockNote(app, note)).file.path,
     notify: (message) => {
       app.workspace.trigger('atlas-vtt:refresh-assets');

@@ -23,6 +23,7 @@ interface Harness {
   notes: Array<{ name: string; templateId: string; folder: string; tokenImagePath?: string | undefined; values: Record<string, unknown> }>;
   images: Array<{ name: string; bytes: ArrayBuffer }>;
   tokens: Array<{ name: string; imagePath: string; collection: string }>;
+  removed: string[];
   reimports: ReimportRequest[];
   confirmed: string[];
   notices: string[];
@@ -30,7 +31,7 @@ interface Harness {
 }
 
 function harness(picked: PickedFile[], overrides: Partial<ImportDeps> = {}): Harness {
-  const h: Harness = { deps: undefined as never, notes: [], images: [], tokens: [], reimports: [], confirmed: [], notices: [], order: [] };
+  const h: Harness = { deps: undefined as never, notes: [], images: [], tokens: [], removed: [], reimports: [], confirmed: [], notices: [], order: [] };
   h.deps = {
     pickFiles: () => Promise.resolve(picked),
     chooseCollection: () => Promise.resolve('crew'),
@@ -38,7 +39,8 @@ function harness(picked: PickedFile[], overrides: Partial<ImportDeps> = {}): Har
     confirmReimport: (name) => { h.confirmed.push(name); return Promise.resolve(true); },
     reimport: (request) => { h.reimports.push(request); return Promise.resolve('updated'); },
     writeImage: (name, bytes) => { h.order.push('image'); h.images.push({ name, bytes }); return Promise.resolve(`atlas-vtt/assets/${name}.png`); },
-    addTokenAsset: (asset) => { h.order.push('token'); h.tokens.push(asset); return Promise.resolve(); },
+    addTokenAsset: (asset) => { h.order.push('token'); h.tokens.push(asset); return Promise.resolve(`token-${h.tokens.length}`); },
+    removeTokenAsset: (id) => { h.removed.push(id); return Promise.resolve(); },
     createNote: (note) => { h.order.push('note'); h.notes.push(note); return Promise.resolve(`${note.folder}/${note.name}.md`); },
     notify: (message) => { h.notices.push(message); },
     ...overrides,
@@ -115,6 +117,32 @@ describe('importing character files', () => {
     });
     await importCharacterFiles(h.deps);
     expect(h.notices[0]).toBe('1 imported and 1 failed\nA: disk full');
+  });
+
+  it('leaves no token behind when the note cannot be created', async () => {
+    register(() => character('Robin', PNG));
+    const h = harness([file('Robin.gcs')], { createNote: () => Promise.reject(new Error('disk full')) });
+    await importCharacterFiles(h.deps);
+    expect(h.tokens).toHaveLength(1);
+    expect(h.removed).toEqual(['token-1']);
+    expect(h.notices[0]).toBe('1 failed\nRobin: disk full');
+  });
+
+  it('still reports the note error when removing the token fails too', async () => {
+    register(() => character('Robin', PNG));
+    const h = harness([file('Robin.gcs')], {
+      createNote: () => Promise.reject(new Error('disk full')),
+      removeTokenAsset: () => Promise.reject(new Error('locked')),
+    });
+    await importCharacterFiles(h.deps);
+    expect(h.notices[0]).toBe('1 failed\nRobin: disk full');
+  });
+
+  it('removes nothing when there was no token', async () => {
+    register(() => character('Robin'));
+    const h = harness([file('Robin.gcs')], { createNote: () => Promise.reject(new Error('disk full')) });
+    await importCharacterFiles(h.deps);
+    expect(h.removed).toEqual([]);
   });
 
   it('keeps the source empty for a file whose path is unknown, and still imports it', async () => {

@@ -7,7 +7,8 @@
  * Choices: a file whose path the host could not tell still imports, its record's source empty, so
  * it never counts as "the same source" and a re-import asks for the file. A character without a
  * (supported) portrait gets a note and no token: Atlas has no default token art. The image is
- * written and the token registered before the note, which then links to the token.
+ * written and the token registered before the note, which then links to the token; when the note
+ * cannot be created the token is removed again (the image file stays).
  */
 
 import type { FieldValue } from '../statblocks/model/templateTypes';
@@ -54,8 +55,10 @@ export interface ImportDeps {
   reimport(request: ReimportRequest): Promise<ReimportOutcome>;
   /** Writes the portrait into Atlas' assets and returns its path. */
   writeImage(name: string, bytes: ArrayBuffer): Promise<string>;
-  /** Registers the image as a token of the collection's library. */
-  addTokenAsset(asset: { name: string; imagePath: string; collection: string }): Promise<void>;
+  /** Registers the image as a token of the collection's library; returns the token's id. */
+  addTokenAsset(asset: { name: string; imagePath: string; collection: string }): Promise<string>;
+  /** Removes a token added by `addTokenAsset` (when the note could not be created); the image file stays. */
+  removeTokenAsset(id: string): Promise<void>;
   /** Creates the statblock note and links the token; returns the note's path. */
   createNote(note: NewCharacterNote): Promise<string>;
   notify(message: string): void;
@@ -70,7 +73,7 @@ function registeredExtensions(): string[] {
 }
 
 /** The portrait made a token of the collection, or null when there is none to keep. */
-async function keepPortrait(character: ImportedCharacter, collection: string, deps: ImportDeps, summary: ImportSummary): Promise<string | null> {
+async function keepPortrait(character: ImportedCharacter, collection: string, deps: ImportDeps, summary: ImportSummary): Promise<{ imagePath: string; tokenId: string } | null> {
   const bytes = character.portrait?.bytes;
   if (!bytes) return null;
   if (!portraitFormat(bytes)) {
@@ -78,20 +81,26 @@ async function keepPortrait(character: ImportedCharacter, collection: string, de
     return null;
   }
   const imagePath = await deps.writeImage(character.name, bytes);
-  await deps.addTokenAsset({ name: character.name, imagePath, collection });
-  return imagePath;
+  const tokenId = await deps.addTokenAsset({ name: character.name, imagePath, collection });
+  return { imagePath, tokenId };
 }
 
 async function createNew(importer: CharacterImporter, file: PickedFile, character: ImportedCharacter, collection: string, deps: ImportDeps, summary: ImportSummary): Promise<void> {
-  const tokenImagePath = await keepPortrait(character, collection, deps, summary);
+  const portrait = await keepPortrait(character, collection, deps, summary);
   const record: ImportRecord = { importer: importer.id, source: file.path ?? '', keys: Object.keys(character.values) };
-  await deps.createNote({
-    name: character.name,
-    templateId: character.templateId,
-    folder: `${collectionFolderPath(collection)}/characters`,
-    tokenImagePath: tokenImagePath ?? undefined,
-    values: { ...character.values, [IMPORT_RECORD_KEY]: { importer: record.importer, source: record.source, keys: record.keys } },
-  });
+  try {
+    await deps.createNote({
+      name: character.name,
+      templateId: character.templateId,
+      folder: `${collectionFolderPath(collection)}/characters`,
+      tokenImagePath: portrait?.imagePath,
+      values: { ...character.values, [IMPORT_RECORD_KEY]: { importer: record.importer, source: record.source, keys: record.keys } },
+    });
+  } catch (error) {
+    // A failed file leaves no token in the library; the image file may stay (nothing else refers to it, and a retry writes its own).
+    if (portrait) await deps.removeTokenAsset(portrait.tokenId).catch(() => undefined);
+    throw error;
+  }
   summary.imported++;
 }
 
