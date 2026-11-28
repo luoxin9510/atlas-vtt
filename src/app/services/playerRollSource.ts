@@ -62,8 +62,9 @@ export function rollForPlayers(
 
 /** Labels name abilities and armed values of the token: without that token the labels go (modifiers, formula, steps), the values stay. */
 function withoutLabels(result: DiceRollResult): DiceRollResult {
-  const { namedModifiers, ...rest } = withoutStepLabels(result);
-  if (namedModifiers === undefined) return rest;
+  // Formulas that multiply (or entries older than named modifiers) carry no namedModifiers but can
+  // still label constants, so the formula is always cleaned (dice labels stay)
+  const { namedModifiers: _named, ...rest } = withoutStepLabels(result);
   return { ...rest, formula: withoutConstantLabels(rest.formula) };
 }
 

@@ -34,6 +34,13 @@ describe('rollForPlayers and the labels of modifiers', () => {
     expect(JSON.stringify(result)).not.toMatch(/Aim|Shock/);
   });
 
+  it('drops constant labels from a formula that has no named modifiers (multiplied, or an old entry)', () => {
+    const roll = labelled(sourced, { formula: '1d6*2+2[Rage] + 2d6[fire]', check: undefined });
+    delete (roll as Partial<DiceRollResult>).namedModifiers;
+    const { result } = rollForPlayers(roll, origin, unseen, view);
+    expect(result.formula).toBe('1d6*2+2 + 2d6[fire]');
+  });
+
   it('keeps every label of a token the players see', () => {
     const { result } = rollForPlayers(labelled(sourced), origin, seen, view);
     expect(result.namedModifiers).toEqual([{ label: 'Aim', value: 1 }, { label: 'Shock', value: -2 }]);
