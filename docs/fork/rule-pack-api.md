@@ -161,9 +161,34 @@ right-click menu) move the **target** of a check that goes under, since a higher
 roll there: `3d6 vs 15` with +2 rolls `3d6 vs 17`. For `over` checks they stay on the dice:
 `1d20+2 vs 15`. A formula someone typed is rolled as written.
 
+## Importers
+
+A pack can register a character file importer:
+
+```ts
+const remove = rulePacks.registerImporter({
+  id: 'mypack:sheet',            // <pack>:<importer>; `builtin:` ids are refused
+  label: 'My sheet format',
+  extensions: ['sheet'],         // without the dot, any case
+  parse(bytes, fileName) {       // may be async; a throw fails that file only
+    return { name: 'Robin', templateId: 'mypack:character', values: { hp: 10 } };
+  },
+});
+```
+
+`parse` returns `{ name, templateId, values, portrait?: { bytes } }`. Registering follows the rules of
+the check rules: the latest registration of an id wins, the function returned removes it, Atlas removes
+what is left when it unloads, and a pack registers again on the ready event. A file is read by the
+most recently registered importer that names its extension. `importerIds()` lists the registered ids.
+The interface is still `apiVersion` 1; look for `registerImporter` to know it is there.
+
+This is registration only. The import flow (the "Import character file..." command, the note and token
+it creates, re-import) arrives in later versions of Atlas, and a registered importer does nothing
+until then.
+
 ## What is coming
 
-- P3c: importers, where a pack registers a character file importer and Atlas creates the note and
-  token, links them and keeps current damage on re-import.
+- P3c, the rest: the import flow, where Atlas creates the note and token from what an importer
+  returns, links them and keeps current damage on re-import.
 
 Design and decisions: `docs/superpowers/specs/2026-11-27-rule-pack-api-design.md`.
