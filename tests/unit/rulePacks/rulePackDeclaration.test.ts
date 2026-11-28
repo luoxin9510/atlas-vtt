@@ -51,6 +51,18 @@ describe('docs/fork/rule-pack-api.d.ts', { timeout: 30_000 }, () => {
       declare const realRc: RealRollContest; declare const declaredRc: DeclaredRollContest;
       export const k: DeclaredRollContest = realRc;
       export const l: RealRollContest = declaredRc;
+      import type { CharacterImporter as DeclaredImporter, ImportedCharacter as DeclaredCharacter, FieldValue as DeclaredValue } from './rule-pack-api';
+      import type { CharacterImporter as RealImporter, ImportedCharacter as RealCharacter } from '../../src/app/importers/importerTypes';
+      import type { FieldValue as RealValue } from '../../src/app/statblocks/model/templateTypes';
+      declare const realImporter: RealImporter; declare const declaredImporter: DeclaredImporter;
+      export const m: DeclaredImporter = realImporter;
+      export const n: RealImporter = declaredImporter;
+      declare const realCharacter: RealCharacter; declare const declaredCharacter: DeclaredCharacter;
+      export const o: DeclaredCharacter = realCharacter;
+      export const p: RealCharacter = declaredCharacter;
+      declare const realValue: RealValue; declare const declaredValue: DeclaredValue;
+      export const q: DeclaredValue = realValue;
+      export const r: RealValue = declaredValue;
     `);
     expect(errors).toEqual([]);
   });

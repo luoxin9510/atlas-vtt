@@ -3,7 +3,7 @@ import type { FieldKey } from './templateTypes';
 
 /** Keys a template field may never bind: markers, Obsidian's own properties and Fantasy Statblocks' keys. */
 const STATBLOCK_RESERVED: ReadonlySet<string> = new Set([
-  'statblock', 'atlas-template', 'layout', 'tags', 'aliases', 'cssclasses', 'cssclass',
+  'statblock', 'atlas-template', 'atlasImport', 'layout', 'tags', 'aliases', 'cssclasses', 'cssclass',
 ]);
 
 /** `name` and `image` are fields of their own, though readers outside the template treat them specially. */

@@ -161,9 +161,68 @@ right-click menu) move the **target** of a check that goes under, since a higher
 roll there: `3d6 vs 15` with +2 rolls `3d6 vs 17`. For `over` checks they stay on the dice:
 `1d20+2 vs 15`. A formula someone typed is rolled as written.
 
-## What is coming
+## Importers
 
-- P3c: importers, where a pack registers a character file importer and Atlas creates the note and
-  token, links them and keeps current damage on re-import.
+A pack can register a character file importer:
+
+```ts
+const remove = rulePacks.registerImporter({
+  id: 'mypack:sheet',            // <pack>:<importer>; `builtin:` ids are refused
+  label: 'My sheet format',
+  extensions: ['sheet'],         // without the dot, any case
+  parse(bytes, fileName) {       // may be async; a throw fails that file only
+    return { name: 'Robin', templateId: 'mypack:character', values: { hp: 10 } };
+  },
+});
+```
+
+`parse` returns `{ name, templateId, values, portrait?: { bytes } }`. Registering follows the rules of
+the check rules: the latest registration of an id wins, the function returned removes it, Atlas removes
+what is left when it unloads, and a pack registers again on the ready event. A file is read by the
+most recently registered importer that names its extension. `importerIds()` lists the registered ids.
+The interface is still `apiVersion` 1; look for `registerImporter` to know it is there.
+
+### What Atlas does with an importer
+
+Registering is all a pack does; Atlas runs the rest:
+
+1. **Import character file...** (command `import-character-file`) opens the system file picker for
+   every registered extension (several files at once), then asks which collection to import into
+   (not asked when there is only one; the open map's collection is offered first; with none, Atlas
+   says "Create a collection first").
+2. Each file is read by `parse` of the importer that names its extension. A throw fails that file
+   only; the others go on. What `parse` returns is checked: `name` a non-empty text of at most 200
+   characters, `templateId` naming a template that exists, `values` plain data only (text, finite
+   numbers, true or false, null, lists, plain objects; at most 1 MB as JSON). Anything else fails the
+   file with the reason. The keys `statblock`, `atlas-template`, `name`, `image`, `atlasImport` and
+   Obsidian's own `tags`, `aliases`, `cssclasses` and `position` are dropped from `values`, and so
+   are `__proto__`, `constructor` and `prototype` keys.
+3. A PNG, JPG or WebP `portrait` of at most 20 MB becomes a token of the collection's library (the
+   image is written into Atlas's assets). Another format, a larger file, or none, imports the
+   character without a token (the summary says so).
+4. The note is created in the collection's `characters/` folder from the template `templateId`,
+   with `values` as its fields, linked to the token. The note's frontmatter also gets the **import
+   record** `atlasImport` (`importer`, `source` file path, `keys` the import wrote); do not write it
+   yourself, it is reserved. If creating the note fails, the token made for it is removed again.
+5. One notice ends the run: how many were imported, updated, skipped and failed, with each failure's
+   reason.
+
+Importing a file whose character was imported before (same importer, same source path, same
+collection) asks "Already imported, re-import?". **Re-import** reads the file again (asking for it if
+the recorded path no longer reads), lists what would change and writes only after a confirmation. It
+replaces or removes only the keys the import wrote; the note's template, body and any other keys
+stay, the current value of a resource field (a field the template tracks or the collection's
+resources read, or its hit points) stays (clamped to the new maxima, against the note as it is when
+written), every other value is the file's, conditions are never touched, and a changed portrait
+becomes a new image the linked token takes over (the old file stays; only the tokens placed from this
+note take it). A portrait that cannot be kept is named in a notice. The note is written first: if that
+fails nothing else changes. The recorded source is read only if it is a local absolute path. A re-import is also
+offered from the note's more-options menu, the placed token's menu and the command palette
+("Re-import the current character", `reimport-current-character`), for any note with an import
+record whose importer is registered.
+
+So a pack's importer should return the same `values` keys on every read of the same file, and
+`templateId` must name a statblock template that exists in the vault (a pack ships its templates as
+vault files, see above).
 
 Design and decisions: `docs/superpowers/specs/2026-11-27-rule-pack-api-design.md`.

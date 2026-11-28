@@ -173,6 +173,33 @@ export interface RulePackContestOptions extends RulePackRollOptions {
   names?: { first?: string | undefined; second?: string | undefined } | undefined;
 }
 
+/** A value of a statblock field: text, a number, a flag, nothing, a list of values or a record of them. */
+export type FieldValue = string | number | boolean | null | FieldValue[] | { [key: string]: FieldValue };
+
+/** A parsed character file: what an importer hands to Atlas. */
+export interface ImportedCharacter {
+  /** The character's name: the note's name and its statblock's. */
+  name: string;
+  /** The id of the statblock template the values are written for. */
+  templateId: string;
+  /** The statblock's values by field key. */
+  values: Record<string, FieldValue>;
+  /** The portrait as the file holds it; Atlas keeps PNG, JPG and WebP and imports without one otherwise. */
+  portrait?: { bytes: ArrayBuffer };
+}
+
+/** A character file importer a pack registers. */
+export interface CharacterImporter {
+  /** The registration id, `<pack>:<importer>`; `builtin:` ids are Atlas's own and refused. */
+  id: string;
+  /** What the importer is called where Atlas names it (the file picker, the summary). */
+  label: string;
+  /** The file extensions it reads, without the dot, in any case. At least one. */
+  extensions: string[];
+  /** Reads one file; may be async. A throw fails that file only, with its message in the summary. */
+  parse(bytes: ArrayBuffer, fileName: string): ImportedCharacter | Promise<ImportedCharacter>;
+}
+
 export interface RulePackApi {
   /** The version of this interface; it grows only by additions while it stays 1. */
   readonly apiVersion: 1;
@@ -190,6 +217,18 @@ export interface RulePackApi {
   registerContestRule(id: string, rule: ContestRule): () => void;
   /** The ids of the registered contest rules, Atlas's first. */
   contestRuleIds(): string[];
+  /**
+   * Registers a character file importer: `parse(bytes, fileName)` reads a file of one of `extensions` (without
+   * the dot, any case) into a name, a template id, field values and an optional portrait. Under the same rules
+   * as `registerCheckRule` (no empty or `builtin:` id; the latest registration of an id wins; returns the
+   * function that removes it; Atlas removes what is left when it unloads), and it needs a `label`, a `parse`
+   * and at least one extension. Atlas then offers the "Import character file..." command for those extensions:
+   * it creates a statblock note (with an import record) in the collection's `characters/` folder and a token
+   * from the portrait, and offers re-import.
+   */
+  registerImporter(importer: CharacterImporter): () => void;
+  /** The ids of the registered importers. */
+  importerIds(): string[];
   /**
    * Rolls dice text (`2d6+3`, or a check as `3d6 vs 10`). On the open map it rolls on that map's dice tool, so
    * the roll lands in its log and is thrown on the map. With no map open it rolls quietly with `collectionId`'s

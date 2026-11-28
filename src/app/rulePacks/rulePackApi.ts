@@ -6,6 +6,8 @@
  */
 
 import type { App } from 'obsidian';
+import { importerIds, registerImporter } from '../importers/importerRegistry';
+import type { CharacterImporter } from '../importers/importerTypes';
 import { contestRuleIds, registerContestRule } from '../dice/contestRules';
 import type { ContestRule } from '../dice/contestTypes';
 import { checkRuleIds, registerCheckRule } from '../dice/checkRules';
@@ -59,6 +61,18 @@ export interface RulePackApi {
   /** The ids of the registered contest rules, Atlas's first. */
   contestRuleIds(): string[];
   /**
+   * Registers a character file importer: `parse(bytes, fileName)` reads a file of one of `extensions` (without
+   * the dot, any case) into a name, a template id, field values and an optional portrait. Under the same rules
+   * as `registerCheckRule` (no empty or `builtin:` id; the latest registration of an id wins; returns the
+   * function that removes it; Atlas removes what is left when it unloads), and it needs a `label`, a `parse`
+   * and at least one extension. Atlas then offers the "Import character file..." command for those extensions:
+   * it creates a statblock note (with an import record) in the collection's `characters/` folder and a token
+   * from the portrait, and offers re-import.
+   */
+  registerImporter(importer: CharacterImporter): () => void;
+  /** The ids of the registered importers. */
+  importerIds(): string[];
+  /**
    * Rolls dice text (`2d6+3`, or a check as `3d6 vs 10`). On the open map it rolls on that map's dice tool, so
    * the roll lands in its log and is thrown on the map. With no map open it rolls quietly with `collectionId`'s
    * dice set (else the default d20): nothing is shown, the result is yours to display. Null for text it refuses.
@@ -79,6 +93,17 @@ const BUILTIN_PREFIX = 'builtin:';
 /** The options of the map's dice tool: only what was given, since an unset one is not the same as none. */
 function mapOptions(options: RulePackRollOptions | undefined): RollOptions | undefined {
   return options?.visibility ? { visibility: options.visibility } : undefined;
+}
+
+/** Throws unless `importer` has a label, a `parse` and at least one real extension. */
+function assertImporter(importer: CharacterImporter): void {
+  const { id, label, extensions } = importer;
+  const parse: unknown = Reflect.get(importer, 'parse');
+  if (typeof label !== 'string' || label.trim() === '') throw new Error(`Rule pack importer ${id} needs a label`);
+  if (typeof parse !== 'function') throw new Error(`Rule pack importer ${id} needs a parse function`);
+  const named = Array.isArray(extensions) && extensions.length > 0
+    && extensions.every((extension) => typeof extension === 'string' && extension.replace(/^\./, '').trim() !== '');
+  if (!named) throw new Error(`Rule pack importer ${id} needs at least one file extension, such as "gcs"`);
 }
 
 /** Atlas's side of `RulePackApi`: one instance per plugin, told when Atlas is ready and when it unloads. */
@@ -137,6 +162,17 @@ export class RulePacks implements RulePackApi {
     };
     this.registrations.add(forget);
     return forget;
+  }
+
+  registerImporter(importer: CharacterImporter): () => void {
+    const id = importer?.id;
+    // Mistakes in the importer itself are the pack's to see, before anything is registered
+    if (typeof id === 'string' && id !== '' && !id.startsWith(BUILTIN_PREFIX)) assertImporter(importer);
+    return this.track('importer', id, () => registerImporter(importer));
+  }
+
+  importerIds(): string[] {
+    return importerIds();
   }
 
   checkRuleIds(): string[] {

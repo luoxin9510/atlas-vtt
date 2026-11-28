@@ -20,8 +20,9 @@ function registeredNames(): { commands: Command[]; ribbon: string[] } {
   const commands: Command[] = [];
   const ribbon: string[] = [];
   const plugin = {
-    app: { workspace: {} },
+    app: { workspace: { on: () => ({}) } },
     addCommand: (command: Command) => commands.push(command),
+    registerEvent: vi.fn(),
     addRibbonIcon: (_icon: string, title: string) => ribbon.push(title),
   } as unknown as Plugin;
   registerCommands(plugin, {} as CommandDependencies);

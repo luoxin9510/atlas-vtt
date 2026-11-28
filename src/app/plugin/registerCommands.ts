@@ -14,6 +14,7 @@ import { openTemplateGallery } from '../statblocks/editor/gallery/openTemplateGa
 import { experimentalFeatureOn } from '../experimental/experimentalFeatures';
 import { runInBackground } from '../utils/backgroundTask';
 import { showNotice } from '../ui/notice';
+import { registerCharacterImport } from '../importers/importCharactersApp';
 
 export interface CommandDependencies {
   imageDisplay: ImageDisplayService;
@@ -197,4 +198,5 @@ export function registerCommands(plugin: Plugin, deps: CommandDependencies): voi
   registerPlayerViewCommands(plugin, deps.imageDisplay);
   registerMapCommands(plugin, deps);
   registerStatblockCommands(plugin);
+  registerCharacterImport(plugin);
 }

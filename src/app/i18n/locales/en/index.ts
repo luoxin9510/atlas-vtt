@@ -81,6 +81,7 @@ import { rest } from './rest';
 import { review } from './review';
 import { sbCandidate } from './sbCandidate';
 import { sbToken } from './sbToken';
+import { importers } from './importers';
 import { validation } from './validation';
 import { issue } from './issue';
 import { changelog } from './changelog';
@@ -192,6 +193,7 @@ export const en = {
   ...review,
   ...sbCandidate,
   ...sbToken,
+  ...importers,
   ...validation,
   ...issue,
   ...changelog,

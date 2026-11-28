@@ -13,8 +13,9 @@ describe('Obsidian panel toggle commands', () => {
   it('keeps supported commands available without retired features', () => {
     const commands: Command[] = [];
     const plugin = {
-      app: { workspace: {} },
+      app: { workspace: { on: () => ({}) } },
       addCommand: (command: Command) => commands.push(command),
+      registerEvent: vi.fn(),
       addRibbonIcon: vi.fn(),
     } as unknown as Plugin;
 
@@ -48,8 +49,9 @@ describe('Obsidian panel toggle commands', () => {
     let activeView: ReturnType<typeof makeView> | null = first;
     const commands: Command[] = [];
     const plugin = {
-      app: { workspace: { getActiveViewOfType: () => activeView } },
+      app: { workspace: { on: () => ({}), getActiveViewOfType: () => activeView } },
       addCommand: (command: Command) => commands.push(command),
+      registerEvent: vi.fn(),
       addRibbonIcon: vi.fn(),
     } as unknown as Plugin;
     registerCommands(plugin, {} as CommandDependencies);
@@ -82,8 +84,9 @@ describe('Toggle loot roller command', () => {
     let activeView: { getStore: () => { getState: () => typeof state } } | null = { getStore: () => ({ getState: () => state }) };
     const commands: Command[] = [];
     const plugin = {
-      app: { workspace: { getActiveViewOfType: () => activeView } },
+      app: { workspace: { on: () => ({}), getActiveViewOfType: () => activeView } },
       addCommand: (command: Command) => commands.push(command),
+      registerEvent: vi.fn(),
       addRibbonIcon: vi.fn(),
     } as unknown as Plugin;
     registerCommands(plugin, {} as CommandDependencies);
